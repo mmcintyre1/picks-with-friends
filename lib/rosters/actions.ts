@@ -4,6 +4,11 @@ import { getRosterProvider } from "./index";
 import { findTeamIdByName } from "./nflTeams";
 import { RosterProviderError, type RosterPlayer } from "./types";
 
+// A roster player tagged with which side of the matchup they're on -- the underlying
+// RosterProvider is keyed by ESPN team id and doesn't know team display names, so this
+// tagging happens here, one level up, where both team names are already in scope.
+export type GameRosterPlayer = RosterPlayer & { team: string };
+
 function describeError(error: unknown): string {
   if (error instanceof RosterProviderError) {
     return error.kind === "not_found"
@@ -13,12 +18,14 @@ function describeError(error: unknown): string {
   return "Couldn't load players.";
 }
 
-// User-initiated only (a "Load players" button in PickLegForm), never auto-fetched on
-// keystroke -- same "don't call an API for free" discipline as lib/odds/actions.ts.
+// Triggered automatically once both team names resolve to known NFL teams (see
+// PickLegForm's effect) rather than behind a manual button -- safe to do eagerly because
+// espnProvider.ts already caches each team's roster for 6 hours, so re-typing/re-picking
+// the same matchup never re-hits the network.
 export async function getRostersForGame(
   homeTeam: string,
   awayTeam: string,
-): Promise<{ players: RosterPlayer[] } | { error: string }> {
+): Promise<{ players: GameRosterPlayer[] } | { error: string }> {
   const homeId = findTeamIdByName(homeTeam);
   const awayId = findTeamIdByName(awayTeam);
   if (!homeId && !awayId) {
@@ -31,7 +38,11 @@ export async function getRostersForGame(
       homeId ? provider.getRoster(homeId) : Promise.resolve([]),
       awayId ? provider.getRoster(awayId) : Promise.resolve([]),
     ]);
-    return { players: [...homeRoster, ...awayRoster] };
+    const players: GameRosterPlayer[] = [
+      ...homeRoster.map((p) => ({ ...p, team: homeTeam })),
+      ...awayRoster.map((p) => ({ ...p, team: awayTeam })),
+    ];
+    return { players };
   } catch (error) {
     return { error: describeError(error) };
   }

@@ -102,9 +102,9 @@ async function main() {
     ],
   });
 
-  // Sunday Night Football -- a single-game slot, LOCKED with 3 of 4 legs (the plan
-  // explicitly calls out a locked-with-3-legs case, since a parlay can lock with 2-4
-  // legs, not just 4). All three legs share the same matchup since it's the only game.
+  // Sunday Night Football -- LOCKED with 3 of 4 legs (the plan explicitly calls out a
+  // locked-with-3-legs case, since a parlay can lock with 2-4 legs, not just 4). All
+  // three legs happen to share the same matchup, which is now perfectly fine.
   await createSampleParlay({
     groupId: group.id,
     creatorId: carol.id,
@@ -112,7 +112,6 @@ async function main() {
     label: "SNF",
     startsAt: at(20, 20),
     endsAt: at(23, 30),
-    singleGame: true,
     status: ParlayStatus.LOCKED,
     lockedAt: new Date(),
     legs: [
@@ -282,7 +281,6 @@ async function createSampleParlay(input: {
   label: string | null;
   startsAt: Date;
   endsAt: Date;
-  singleGame?: boolean;
   stake?: number;
   legs: SampleLeg[];
   status?: ParlayStatus;
@@ -297,7 +295,6 @@ async function createSampleParlay(input: {
       label: input.label,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
-      singleGame: input.singleGame ?? false,
     },
   });
 

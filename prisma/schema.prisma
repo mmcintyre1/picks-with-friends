@@ -66,16 +66,11 @@ model GroupMember {
 // Created fresh per parlay -- there is no reusable "week" concept, so the group can fire off as many
 // windows as they want per day across any sport.
 model Window {
-  id         String   @id @default(cuid())
-  league     String // free text, e.g. "NFL", "NBA" -- not an enum, so unlisted sports still work
-  label      String? // free text, e.g. "1 o'clock games", "SNF"
-  startsAt   DateTime
-  endsAt     DateTime
-  // True for slots that are inherently one real-world game (SNF/TNF/MNF, or a Free-for-all
-  // the creator marks as such) -- the same-game pick rule is skipped entirely for these,
-  // since there's nothing to diversify across. Games are no longer pre-listed at creation
-  // time; each pick names its own matchup, so this can't be derived from a game count.
-  singleGame Boolean  @default(false)
+  id       String   @id @default(cuid())
+  league   String // free text, e.g. "NFL", "NBA" -- not an enum, so unlisted sports still work
+  label    String? // free text, e.g. "1 o'clock games", "SNF"
+  startsAt DateTime
+  endsAt   DateTime
 
   games   Game[]
   parlays Parlay[]
@@ -167,6 +162,12 @@ model Parlay {
   // Wager amount the creator sets at creation, used with the legs' prices to compute
   // combined odds and a payout figure. Defaulted for parlays created before this existed.
   stake           Float        @default(10)
+  // American odds (e.g. -150), manually entered by any member to override the naive
+  // product-of-independent-legs figure computeCombinedOdds would otherwise show. Needed
+  // because legs from the same game are correlated -- a real sportsbook prices a same-game
+  // parlay differently than multiplying each leg's standalone price, and we have no way to
+  // derive that correlated number ourselves. Null means "use the computed value."
+  oddsOverride    Int?
   result          LegResult    @default(PENDING)
   createdAt       DateTime     @default(now())
   lockedAt        DateTime?

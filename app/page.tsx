@@ -5,7 +5,7 @@ import { LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
 import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { computeCombinedOdds, decimalToAmerican, formatAmericanOdds } from "@/lib/grading/parlayStats";
+import { decimalToAmerican, effectiveCombinedOdds, formatAmericanOdds } from "@/lib/grading/parlayStats";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 
@@ -76,6 +76,7 @@ type ParlayRow = {
   countsForRecord: boolean;
   createdAt: Date;
   result: LegResult;
+  oddsOverride: number | null;
   window: { league: string; label: string | null };
   legs: { priceAtPick: number | null; result: LegResult }[];
 };
@@ -99,7 +100,7 @@ function ParlaySection({
       ) : (
         <div className="flex flex-col gap-2">
           {parlays.map((parlay) => {
-            const combinedOdds = computeCombinedOdds(parlay.legs);
+            const combinedOdds = effectiveCombinedOdds(parlay.legs, parlay.oddsOverride);
             return (
               <Link key={parlay.id} href={`/parlays/${parlay.id}`}>
                 <Card className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm transition-colors hover:border-border-strong">

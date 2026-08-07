@@ -6,9 +6,9 @@ import { StatusPill } from "@/components/ui/StatusPill";
 import { BADGE_EMOJI } from "@/lib/badges";
 import { formatGameTime } from "@/lib/formatGameTime";
 import {
-  computeCombinedOdds,
   computeProfit,
   decimalToAmerican,
+  effectiveCombinedOdds,
   formatAmericanOdds,
 } from "@/lib/grading/parlayStats";
 import { legSummary } from "@/lib/legSummary";
@@ -18,6 +18,7 @@ import { requireUserAndGroup } from "@/lib/session";
 
 import { GradeForm } from "./GradeForm";
 import { LegRow } from "./LegRow";
+import { OddsOverrideEditor } from "./OddsOverrideEditor";
 import { PickFlow } from "./PickFlow";
 import { ResolvedGradeEditor } from "./ResolvedGradeEditor";
 
@@ -54,14 +55,14 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
   });
 
   const myLeg = parlay.legs.find((leg) => leg.userId === user.id);
-  const otherUsedGames = parlay.legs
-    .filter((leg) => leg.userId !== user.id)
-    .map((leg) => ({ homeTeam: leg.game.homeTeam, awayTeam: leg.game.awayTeam }));
 
-  const combinedOdds = computeCombinedOdds(
+  const combinedOdds = effectiveCombinedOdds(
     parlay.legs.map((leg) => ({ priceAtPick: leg.priceAtPick, result: leg.result })),
+    parlay.oddsOverride,
   );
   const profit = combinedOdds !== null ? computeProfit(parlay.stake, combinedOdds) : null;
+  const gameIds = parlay.legs.map((leg) => leg.gameId);
+  const hasSameGameLegs = new Set(gameIds).size !== gameIds.length;
   const liveOddsAvailable = Boolean(toSportKeys(parlay.window.league));
 
   const memberRows = members.map((member) => {
@@ -91,7 +92,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
       </div>
 
       {parlay.legs.length > 0 && (
-        <Card className="p-3 text-sm">
+        <Card className="flex flex-col gap-2 p-3 text-sm">
           {combinedOdds === null ? (
             <p className="text-muted">Combined odds: N/A (a pick is missing a price)</p>
           ) : (
@@ -100,6 +101,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
               <span className="font-display tracking-wide text-accent tabular-nums">
                 {formatAmericanOdds(decimalToAmerican(combinedOdds))}
               </span>
+              {parlay.oddsOverride != null && <span className="text-pending"> (manual)</span>}
               {" · "}Stake: <span className="font-display tabular-nums">${parlay.stake.toFixed(2)}</span>
               {" · "}
               {parlay.status === ParlayStatus.RESOLVED ? (
@@ -122,6 +124,11 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
               )}
             </p>
           )}
+          <OddsOverrideEditor
+            parlayId={parlay.id}
+            oddsOverride={parlay.oddsOverride}
+            hasSameGameLegs={hasSameGameLegs}
+          />
         </Card>
       )}
 
@@ -143,8 +150,6 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
                 }
               : undefined
           }
-          singleGame={parlay.window.singleGame}
-          usedGames={otherUsedGames}
           liveOddsAvailable={liveOddsAvailable}
           league={parlay.window.league}
           isCreator={parlay.creatorId === user.id}

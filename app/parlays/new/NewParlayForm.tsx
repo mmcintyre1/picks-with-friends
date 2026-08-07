@@ -18,7 +18,6 @@ export function NewParlayForm() {
   const [slotKey, setSlotKey] = useState<string | null>(null);
   const [freeLeague, setFreeLeague] = useState("");
   const [freeLabel, setFreeLabel] = useState("");
-  const [freeSingleGame, setFreeSingleGame] = useState(false);
   const [countsForRecord, setCountsForRecord] = useState(true);
   const [stake, setStake] = useState("10");
   const [error, setError] = useState<string | null>(null);
@@ -39,10 +38,9 @@ export function NewParlayForm() {
 
     const league = preset ? preset.league : freeLeague;
     const label = preset ? preset.label : freeLabel;
-    const singleGame = preset ? preset.singleGame : freeSingleGame;
 
     startTransition(async () => {
-      const result = await createParlay({ league, label, singleGame, countsForRecord, stake });
+      const result = await createParlay({ league, label, countsForRecord, stake });
       if (result?.error) setError(result.error);
     });
   }
@@ -92,14 +90,6 @@ export function NewParlayForm() {
               />
             </label>
           </div>
-          <label className="flex items-center gap-2 text-sm text-muted">
-            <input
-              type="checkbox"
-              checked={freeSingleGame}
-              onChange={(e) => setFreeSingleGame(e.target.checked)}
-            />
-            This is just one game (skips the &quot;pick a different game&quot; rule)
-          </label>
         </div>
       </div>
 

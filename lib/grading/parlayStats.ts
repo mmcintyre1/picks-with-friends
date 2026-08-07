@@ -27,6 +27,18 @@ export function computeCombinedOdds(
   return counted.reduce((acc, leg) => acc * americanToDecimal(leg.priceAtPick as number), 1);
 }
 
+// Same-game legs are correlated, so a real sportsbook doesn't price a same-game parlay
+// as the naive product of each leg's standalone odds -- and there's no way to derive
+// that correlated number ourselves. `oddsOverride` (American odds, set via the parlay's
+// "Override odds" control) takes precedence over the computed value when present.
+export function effectiveCombinedOdds(
+  legs: { priceAtPick: number | null; result: LegResult }[],
+  oddsOverride: number | null,
+): number | null {
+  if (oddsOverride != null) return americanToDecimal(oddsOverride);
+  return computeCombinedOdds(legs);
+}
+
 // Profit on top of the stake if the parlay hits (i.e. NOT including the returned stake).
 export function computeProfit(stake: number, combinedDecimalOdds: number): number {
   return stake * (combinedDecimalOdds - 1);

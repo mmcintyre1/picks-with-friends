@@ -1,22 +1,17 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Market, Side } from "@/app/generated/prisma/enums";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { NFL_TEAMS } from "@/lib/rosters/nflTeams";
-import { getRostersForGame } from "@/lib/rosters/actions";
-import type { RosterPlayer } from "@/lib/rosters/types";
+import { findTeamIdByName, NFL_TEAMS } from "@/lib/rosters/nflTeams";
+import { getRostersForGame, type GameRosterPlayer } from "@/lib/rosters/actions";
+import { propTypesForPosition } from "@/lib/rosters/propTypes";
 
 import { pickLeg } from "../actions";
 import { LiveOddsBrowser, type PropPick, type TeamBetPick } from "./LiveOddsBrowser";
-
-// A typing aid for the free-text propType field, not an enforced enum -- matches the
-// prop markets lib/odds/mapping.ts already knows about, so manual entries stay
-// consistent with what live-odds-derived picks would say for the same stat.
-const COMMON_PROP_TYPES = ["Passing Yards", "Rushing Yards", "Receiving Yards", "Receptions", "Anytime TD"];
 
 type Initial = {
   homeTeam: string;
@@ -160,16 +155,12 @@ const isSlipEmpty = (slip: Slip) =>
 
 export function PickLegForm({
   parlayId,
-  singleGame,
-  usedGames,
   initial,
   liveOddsAvailable,
   league,
   onDone,
 }: {
   parlayId: string;
-  singleGame: boolean;
-  usedGames: { homeTeam: string; awayTeam: string }[];
   initial?: Initial;
   liveOddsAvailable: boolean;
   league: string;
@@ -180,18 +171,38 @@ export function PickLegForm({
   const [entryMode, setEntryMode] = useState<"browse" | "manual">(liveOddsAvailable ? "browse" : "manual");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [players, setPlayers] = useState<RosterPlayer[] | null>(null);
+  const [players, setPlayers] = useState<GameRosterPlayer[] | null>(null);
   const [playersError, setPlayersError] = useState<string | null>(null);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
+  // Tracks which (home, away) pair the roster was last fetched for, so the auto-load
+  // effect below doesn't re-fetch on every keystroke/re-render -- only when the actual
+  // matchup changes. A ref, not state, since it's read/written but never itself rendered.
+  const loadedForPair = useRef<string | null>(null);
 
-  async function loadPlayers() {
+  async function loadPlayers(homeTeam: string, awayTeam: string) {
+    loadedForPair.current = `${homeTeam}|${awayTeam}`;
     setLoadingPlayers(true);
     setPlayersError(null);
-    const result = await getRostersForGame(slip.homeTeam, slip.awayTeam);
+    const result = await getRostersForGame(homeTeam, awayTeam);
     if ("error" in result) setPlayersError(result.error);
     else setPlayers(result.players);
     setLoadingPlayers(false);
   }
+
+  // Auto-loads both rosters as soon as the typed/selected team names resolve to real NFL
+  // teams -- no manual "Load players" button. Safe to fire eagerly: espnProvider.ts
+  // caches each team's roster for 6 hours, so re-visiting the same matchup (or having
+  // this effect re-run) never re-hits the network, just the in-memory cache.
+  useEffect(() => {
+    if (slip.kind !== "prop") return;
+    const home = slip.homeTeam.trim();
+    const away = slip.awayTeam.trim();
+    if (!home || !away || !findTeamIdByName(home) || !findTeamIdByName(away)) return;
+
+    const pairKey = `${home}|${away}`;
+    if (pairKey === loadedForPair.current) return;
+    loadPlayers(home, away);
+  }, [slip.kind, slip.homeTeam, slip.awayTeam]);
 
   function updateHomeTeam(value: string) {
     setSlip((prev) => ({ ...prev, homeTeam: value, externalId: null }));
@@ -266,15 +277,15 @@ export function PickLegForm({
 
   const selection = slipToSelection(slip);
   const teamSideOptions = slip.kind === "team" && slip.market === Market.TOTAL ? [Side.OVER, Side.UNDER] : [Side.HOME, Side.AWAY];
+  // Gate the propType suggestions to the selected player's position (a QB sees passing
+  // props, a corner sees interceptions/tackles, etc.) rather than one generic list --
+  // falls back to a broad generic set until a player's actually been matched.
+  const selectedPlayerPosition =
+    slip.kind === "prop" ? players?.find((p) => p.name === slip.playerName)?.position : undefined;
+  const propTypeOptions = propTypesForPosition(selectedPlayerPosition);
 
   return (
     <div className="flex flex-col gap-3">
-      {!singleGame && usedGames.length > 0 && (
-        <p className="text-xs text-muted">
-          Already picked: {usedGames.map((g) => `${g.awayTeam} @ ${g.homeTeam}`).join(", ")}
-        </p>
-      )}
-
       {liveOddsAvailable && (
         <SegmentedControl
           size="sm"
@@ -390,31 +401,34 @@ export function PickLegForm({
               </>
             ) : (
               <>
-                {liveOddsAvailable && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      disabled={loadingPlayers || !slip.homeTeam.trim() || !slip.awayTeam.trim()}
-                      onClick={loadPlayers}
-                    >
-                      {loadingPlayers ? "Loading players…" : players ? "Reload players" : "Load players"}
-                    </Button>
-                    {playersError && <p className="text-xs text-push">{playersError}</p>}
+                {liveOddsAvailable && (loadingPlayers || playersError) && (
+                  <div className="flex items-center gap-2 text-xs">
+                    {loadingPlayers && <span className="text-muted">Loading players…</span>}
+                    {playersError && (
+                      <>
+                        <span className="text-push">{playersError}</span>
+                        <button
+                          type="button"
+                          onClick={() => loadPlayers(slip.homeTeam.trim(), slip.awayTeam.trim())}
+                          className="text-muted underline hover:text-foreground"
+                        >
+                          Retry
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
                 {players && (
                   <datalist id="prop-players">
                     {players.map((p) => (
-                      <option key={p.name} value={p.name}>
-                        {p.position}
+                      <option key={`${p.name}-${p.team}`} value={p.name}>
+                        {p.team} · {p.position}
                       </option>
                     ))}
                   </datalist>
                 )}
                 <datalist id="prop-types">
-                  {COMMON_PROP_TYPES.map((t) => (
+                  {propTypeOptions.map((t) => (
                     <option key={t} value={t} />
                   ))}
                 </datalist>

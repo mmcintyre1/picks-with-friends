@@ -8,6 +8,7 @@ import {
   computeCurrentStreak,
   computeProfit,
   decimalToAmerican,
+  effectiveCombinedOdds,
 } from "./parlayStats";
 
 describe("americanToDecimal / decimalToAmerican", () => {
@@ -54,6 +55,28 @@ describe("computeCombinedOdds", () => {
 
   it("returns null for an all-push parlay (nothing left to price)", () => {
     expect(computeCombinedOdds([{ priceAtPick: -110, result: LegResult.PUSH }])).toBeNull();
+  });
+});
+
+describe("effectiveCombinedOdds", () => {
+  const legs = [
+    { priceAtPick: -110, result: LegResult.WIN },
+    { priceAtPick: -110, result: LegResult.WIN },
+  ];
+
+  it("uses the computed value when there's no override", () => {
+    expect(effectiveCombinedOdds(legs, null)).toBeCloseTo(computeCombinedOdds(legs)!, 5);
+  });
+
+  it("uses the manual override instead of the computed product when set", () => {
+    // -150 American -> decimal 1.6667, nothing to do with the legs' own -110/-110 product.
+    expect(effectiveCombinedOdds(legs, -150)).toBeCloseTo(americanToDecimal(-150), 5);
+  });
+
+  it("an override still applies even if the legs alone couldn't be priced (missing price)", () => {
+    const legsMissingPrice = [{ priceAtPick: null, result: LegResult.WIN }];
+    expect(computeCombinedOdds(legsMissingPrice)).toBeNull();
+    expect(effectiveCombinedOdds(legsMissingPrice, 200)).toBeCloseTo(americanToDecimal(200), 5);
   });
 });
 

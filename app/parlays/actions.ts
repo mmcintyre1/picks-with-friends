@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
-import { canPickGame } from "@/lib/validation/legConstraints";
 import { computeBadges } from "@/lib/grading/computeBadges";
 import { LegResult, Market, ParlayStatus, Side } from "@/app/generated/prisma/enums";
 
@@ -14,7 +13,6 @@ export type ActionResult = { error: string } | undefined;
 export type CreateParlayInput = {
   league: string;
   label: string;
-  singleGame: boolean;
   countsForRecord: boolean;
   stake: string;
 };
@@ -40,7 +38,6 @@ export async function createParlay(input: CreateParlayInput): Promise<ActionResu
       label: input.label.trim() || null,
       startsAt: now,
       endsAt: now,
-      singleGame: input.singleGame,
     },
   });
 
@@ -113,7 +110,7 @@ export async function pickLeg(parlayId: string, input: PickLegInput): Promise<Ac
 
   const parlay = await prisma.parlay.findUnique({
     where: { id: parlayId },
-    include: { legs: true, window: true },
+    include: { legs: true },
   });
   if (!parlay) return { error: "Parlay not found." };
   if (parlay.status !== ParlayStatus.OPEN) {
@@ -147,12 +144,6 @@ export async function pickLeg(parlayId: string, input: PickLegInput): Promise<Ac
     input.externalId.trim() || null,
   );
 
-  // A game is "used" once someone picks it, regardless of whether their pick was a
-  // team market or a player prop -- one rule for everyone, not two.
-  const otherLegs = parlay.legs.filter((leg) => leg.userId !== user.id);
-  const check = canPickGame(game.id, parlay.window.singleGame, otherLegs);
-  if (!check.ok) return { error: check.reason };
-
   const data = {
     gameId: game.id,
     market: input.market,
@@ -183,6 +174,34 @@ export async function cancelLeg(parlayId: string): Promise<ActionResult> {
 
   await prisma.leg.deleteMany({ where: { parlayId, userId: user.id } });
   revalidatePath(`/parlays/${parlayId}`);
+}
+
+// Open to any group member, any parlay status -- correlated same-game legs price
+// differently than the naive product computeCombinedOdds assumes, and there's no way to
+// derive the real correlated number ourselves, so this lets someone plug in what a real
+// sportsbook actually shows for that combination. Empty input clears the override.
+export async function setOddsOverride(parlayId: string, value: string): Promise<ActionResult> {
+  await requireUserAndGroup();
+
+  const parlay = await prisma.parlay.findUnique({ where: { id: parlayId } });
+  if (!parlay) return { error: "Parlay not found." };
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    await prisma.parlay.update({ where: { id: parlayId }, data: { oddsOverride: null } });
+    revalidatePath(`/parlays/${parlayId}`);
+    return;
+  }
+
+  const odds = Number(trimmed);
+  if (!Number.isInteger(odds) || odds === 0) {
+    return { error: "Enter American odds, e.g. -150 or +220." };
+  }
+
+  await prisma.parlay.update({ where: { id: parlayId }, data: { oddsOverride: odds } });
+  revalidatePath(`/parlays/${parlayId}`);
+  revalidatePath("/");
+  revalidatePath("/leaderboard");
 }
 
 export async function lockParlay(parlayId: string): Promise<ActionResult> {

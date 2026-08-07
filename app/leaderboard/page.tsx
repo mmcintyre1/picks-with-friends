@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Badge, LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
 import { PlayerName } from "@/components/PlayerName";
 import { Card } from "@/components/ui/Card";
-import { computeCombinedOdds, computeCurrentStreak, computeProfit } from "@/lib/grading/parlayStats";
+import { computeCurrentStreak, computeProfit, effectiveCombinedOdds } from "@/lib/grading/parlayStats";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 
@@ -63,8 +63,9 @@ export default async function LeaderboardPage() {
   });
 
   const parlayRows = parlays.map((parlay) => {
-    const combinedOdds = computeCombinedOdds(
+    const combinedOdds = effectiveCombinedOdds(
       parlay.legs.map((leg) => ({ priceAtPick: leg.priceAtPick, result: leg.result })),
+      parlay.oddsOverride,
     );
     const amount =
       parlay.result === LegResult.WIN

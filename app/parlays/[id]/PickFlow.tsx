@@ -36,8 +36,6 @@ export function PickFlow({
   parlayId,
   memberRows,
   myLegInitial,
-  singleGame,
-  usedGames,
   liveOddsAvailable,
   league,
   isCreator,
@@ -45,8 +43,6 @@ export function PickFlow({
   parlayId: string;
   memberRows: MemberRow[];
   myLegInitial?: Initial;
-  singleGame: boolean;
-  usedGames: { homeTeam: string; awayTeam: string }[];
   liveOddsAvailable: boolean;
   league: string;
   isCreator: boolean;
@@ -99,8 +95,6 @@ export function PickFlow({
           </div>
           <PickLegForm
             parlayId={parlayId}
-            singleGame={singleGame}
-            usedGames={usedGames}
             liveOddsAvailable={liveOddsAvailable}
             league={league}
             initial={myLegInitial}
