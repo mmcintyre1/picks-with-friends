@@ -10,55 +10,24 @@ datasource db {
   provider = "postgresql"
 }
 
-// --- Auth.js (NextAuth) required models ---
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
-
 // --- Core domain models ---
 
+// Auth is username + PIN (hashed), not email — closed group, no email sending needed.
+// A member is seeded with a username and a null pinHash; the first sign-in with that
+// username prompts them to choose a PIN, which then locks in for future logins.
+// Sessions are JWT-based (Auth.js Credentials provider doesn't use a DB adapter).
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  image         String?
-  emailVerified DateTime?
-  createdAt     DateTime  @default(now())
+  id                  String    @id @default(cuid())
+  username            String    @unique
+  name                String?
+  pinHash             String?
+  // Failed-PIN lockout: after MAX_FAILED_ATTEMPTS (lib/pin.ts) wrong guesses in a row,
+  // lockedUntil is set and login is refused until it passes, regardless of PIN correctness.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  image               String?
+  createdAt           DateTime  @default(now())
 
-  accounts       Account[]
-  sessions       Session[]
   memberships    GroupMember[]
   legs           Leg[]
   createdParlays Parlay[]      @relation("ParlayCreator")

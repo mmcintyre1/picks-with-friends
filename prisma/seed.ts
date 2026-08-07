@@ -10,19 +10,17 @@ async function main() {
     create: { id: "seed-group", name: "The Group" },
   });
 
-  const friendEmails = [
-    "friend1@example.com",
-    "friend2@example.com",
-    "friend3@example.com",
-    "friend4@example.com",
-  ];
+  // Usernames only -- no PIN is set here. Each friend claims their PIN on first
+  // sign-in via the login screen's claim step. Rename these to real usernames
+  // whenever you're ready (re-running this script is safe, it upserts by username).
+  const usernames = ["friend1", "friend2", "friend3", "friend4"];
 
   const users = await Promise.all(
-    friendEmails.map((email, i) =>
+    usernames.map((username) =>
       prisma.user.upsert({
-        where: { email },
+        where: { username },
         update: {},
-        create: { email, name: `Friend ${i + 1}` },
+        create: { username },
       }),
     ),
   );

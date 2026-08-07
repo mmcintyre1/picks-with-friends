@@ -12,7 +12,7 @@ export default async function DashboardPage() {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-12">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">
-          Hey {session.user.name ?? session.user.email}
+          Hey {session.user.name ?? session.user.username}
         </h1>
         <form
           action={async () => {
