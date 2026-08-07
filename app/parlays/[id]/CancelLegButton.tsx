@@ -18,7 +18,7 @@ export function CancelLegButton({ parlayId }: { parlayId: string }) {
         type="button"
         title="Cancel pick"
         onClick={() => setOpen(true)}
-        className="rounded-md border border-loss/40 p-1.5 text-loss hover:bg-loss/10"
+        className="rounded-md border border-loss/40 p-2.5 text-loss hover:bg-loss/10"
       >
         <XIcon className="h-3.5 w-3.5" />
       </button>

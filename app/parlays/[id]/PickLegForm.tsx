@@ -6,9 +6,17 @@ import { Market, Side } from "@/app/generated/prisma/enums";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { NFL_TEAMS } from "@/lib/rosters/nflTeams";
+import { getRostersForGame } from "@/lib/rosters/actions";
+import type { RosterPlayer } from "@/lib/rosters/types";
 
 import { pickLeg } from "../actions";
 import { LiveOddsBrowser, type PropPick, type TeamBetPick } from "./LiveOddsBrowser";
+
+// A typing aid for the free-text propType field, not an enforced enum -- matches the
+// prop markets lib/odds/mapping.ts already knows about, so manual entries stay
+// consistent with what live-odds-derived picks would say for the same stat.
+const COMMON_PROP_TYPES = ["Passing Yards", "Rushing Yards", "Receiving Yards", "Receptions", "Anytime TD"];
 
 type Initial = {
   homeTeam: string;
@@ -172,6 +180,18 @@ export function PickLegForm({
   const [entryMode, setEntryMode] = useState<"browse" | "manual">(liveOddsAvailable ? "browse" : "manual");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [players, setPlayers] = useState<RosterPlayer[] | null>(null);
+  const [playersError, setPlayersError] = useState<string | null>(null);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
+
+  async function loadPlayers() {
+    setLoadingPlayers(true);
+    setPlayersError(null);
+    const result = await getRostersForGame(slip.homeTeam, slip.awayTeam);
+    if ("error" in result) setPlayersError(result.error);
+    else setPlayers(result.players);
+    setLoadingPlayers(false);
+  }
 
   function updateHomeTeam(value: string) {
     setSlip((prev) => ({ ...prev, homeTeam: value, externalId: null }));
@@ -275,7 +295,7 @@ export function PickLegForm({
       {/* Sticky rather than a modal -- this is the bet slip: it should stay reachable while
           you keep browsing games above it, snapping to the bottom of the screen once you've
           scrolled past its normal position, instead of interrupting browsing every click. */}
-      <div className="sticky bottom-4 z-10">
+      <div className="sticky bottom-4 z-10 pb-[env(safe-area-inset-bottom)]">
         <Card className="flex flex-col gap-3 border-border-strong p-3 shadow-xl shadow-black/50">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted">Your pick</p>
@@ -299,13 +319,21 @@ export function PickLegForm({
           </div>
 
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
-            <div className="flex gap-2">
+            {liveOddsAvailable && (
+              <datalist id="nfl-teams">
+                {NFL_TEAMS.map((t) => (
+                  <option key={t.id} value={t.name} />
+                ))}
+              </datalist>
+            )}
+            <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 value={slip.awayTeam}
                 onChange={(e) => updateAwayTeam(e.target.value)}
                 placeholder="Away team"
                 required
                 autoComplete="off"
+                list={liveOddsAvailable ? "nfl-teams" : undefined}
                 className={fieldClass}
               />
               <input
@@ -314,6 +342,7 @@ export function PickLegForm({
                 placeholder="Home team"
                 required
                 autoComplete="off"
+                list={liveOddsAvailable ? "nfl-teams" : undefined}
                 className={fieldClass}
               />
             </div>
@@ -324,7 +353,7 @@ export function PickLegForm({
 
             {slip.kind === "team" ? (
               <>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <select
                     value={slip.market}
                     onChange={(e) => {
@@ -361,12 +390,41 @@ export function PickLegForm({
               </>
             ) : (
               <>
-                <div className="flex gap-2">
+                {liveOddsAvailable && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={loadingPlayers || !slip.homeTeam.trim() || !slip.awayTeam.trim()}
+                      onClick={loadPlayers}
+                    >
+                      {loadingPlayers ? "Loading players…" : players ? "Reload players" : "Load players"}
+                    </Button>
+                    {playersError && <p className="text-xs text-push">{playersError}</p>}
+                  </div>
+                )}
+                {players && (
+                  <datalist id="prop-players">
+                    {players.map((p) => (
+                      <option key={p.name} value={p.name}>
+                        {p.position}
+                      </option>
+                    ))}
+                  </datalist>
+                )}
+                <datalist id="prop-types">
+                  {COMMON_PROP_TYPES.map((t) => (
+                    <option key={t} value={t} />
+                  ))}
+                </datalist>
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     value={slip.playerName}
                     onChange={(e) => setSlip({ ...slip, playerName: e.target.value })}
                     placeholder="Player name"
                     autoComplete="off"
+                    list={players ? "prop-players" : undefined}
                     className={fieldClass}
                   />
                   <input
@@ -374,6 +432,7 @@ export function PickLegForm({
                     onChange={(e) => setSlip({ ...slip, propType: e.target.value })}
                     placeholder="Stat (e.g. Passing Yards)"
                     autoComplete="off"
+                    list="prop-types"
                     className={fieldClass}
                   />
                 </div>
@@ -390,7 +449,7 @@ export function PickLegForm({
                   ]}
                 />
                 {slip.propShape === "overUnder" ? (
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <select
                       value={slip.side}
                       onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}

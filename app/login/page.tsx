@@ -4,7 +4,7 @@ import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage() {
   const members = await prisma.user.findMany({
-    select: { username: true, name: true, pinHash: true },
+    select: { username: true, name: true, flair: true, pinHash: true },
     orderBy: { username: "asc" },
   });
 
@@ -18,6 +18,7 @@ export default async function LoginPage() {
         members={members.map((m) => ({
           username: m.username,
           name: m.name,
+          flair: m.flair,
           claimed: m.pinHash !== null,
         }))}
       />

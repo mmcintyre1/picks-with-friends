@@ -69,6 +69,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
     return {
       userId: member.userId,
       name: member.user.name ?? member.user.username,
+      flair: member.user.flair,
       isMe: member.userId === user.id,
       hasLeg: Boolean(leg),
       summary: leg ? legSummary(leg, leg.game) : undefined,
@@ -158,6 +159,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
               <LegRow
                 key={m.userId}
                 name={m.name}
+                flair={m.flair}
                 noPick={!m.hasLeg}
                 summary={m.summary}
                 odds={m.odds}

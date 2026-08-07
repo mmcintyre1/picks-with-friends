@@ -24,6 +24,7 @@ type Initial = {
 export type MemberRow = {
   userId: string;
   name: string;
+  flair?: string | null;
   isMe: boolean;
   hasLeg: boolean;
   summary?: string;
@@ -60,6 +61,7 @@ export function PickFlow({
           <LegRow
             key={m.userId}
             name={m.name}
+            flair={m.flair}
             noPick={!m.hasLeg}
             summary={m.summary}
             odds={m.odds}
@@ -71,7 +73,7 @@ export function PickFlow({
                     type="button"
                     title="Edit pick"
                     onClick={() => setEditing(true)}
-                    className="rounded-md border border-border-strong p-1.5 text-muted hover:text-foreground"
+                    className="rounded-md border border-border-strong p-2.5 text-muted hover:text-foreground"
                   >
                     <PencilIcon className="h-3.5 w-3.5" />
                   </button>

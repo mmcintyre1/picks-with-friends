@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 
 import { claimPin, loginWithPin } from "./actions";
 
-type Member = { username: string; name: string | null; claimed: boolean };
+type Member = { username: string; name: string | null; flair: string | null; claimed: boolean };
 
 const pinInputClass =
   "w-full rounded-lg border border-border bg-card px-3 py-3 text-center text-2xl tracking-[0.5em] text-foreground placeholder:text-sm placeholder:tracking-normal placeholder:text-subtle";
@@ -28,7 +28,7 @@ export function LoginForm({ members }: { members: Member[] }) {
             <button key={member.username} type="button" onClick={() => setSelected(member)} className="text-left">
               <Card className="flex items-center gap-3 p-3 transition-colors hover:border-border-strong">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent">
-                  {initials(label)}
+                  {member.flair ?? initials(label)}
                 </span>
                 <span className="text-sm font-medium">{label}</span>
               </Card>

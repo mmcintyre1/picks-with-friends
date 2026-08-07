@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Badge, LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
+import { PlayerName } from "@/components/PlayerName";
 import { Card } from "@/components/ui/Card";
 import { computeCombinedOdds, computeCurrentStreak, computeProfit } from "@/lib/grading/parlayStats";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +9,7 @@ import { requireUserAndGroup } from "@/lib/session";
 
 type Stats = {
   name: string;
+  flair: string | null;
   moneybag: number;
   poo: number;
   toilet: number;
@@ -31,6 +33,7 @@ export default async function LeaderboardPage() {
   for (const leg of legs) {
     const entry = statsByUser.get(leg.userId) ?? {
       name: leg.user.name ?? leg.user.username,
+      flair: leg.user.flair,
       moneybag: 0,
       poo: 0,
       toilet: 0,
@@ -165,7 +168,9 @@ export default async function LeaderboardPage() {
               <tbody>
                 {rows.map((row, i) => (
                   <tr key={row.name} className={i % 2 === 1 ? "bg-white/[0.02]" : undefined}>
-                    <td className="py-2 pr-4 pl-3 font-medium">{row.name}</td>
+                    <td className="py-2 pr-4 pl-3 font-medium">
+                      <PlayerName name={row.name} flair={row.flair} />
+                    </td>
                     <td className="py-2 pr-4 text-muted">
                       {row.wins}-{row.losses}-{row.pushes}
                     </td>

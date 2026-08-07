@@ -54,8 +54,8 @@ export function GradeForm({
           </span>
         </div>
         {legs.map((leg) => (
-          <div key={leg.id} className="flex items-center justify-between gap-3 text-sm">
-            <div>
+          <div key={leg.id} className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <div className="min-w-0">
               <p className="font-medium">{leg.userName}</p>
               <p className="text-xs text-muted">{leg.summary}</p>
             </div>

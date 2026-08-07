@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { PlayerName } from "@/components/PlayerName";
 import { Card } from "@/components/ui/Card";
 
 // Plain presentational row -- no hooks, so it renders identically whether it's used from
@@ -7,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 // interactive edit/cancel icons for your own row).
 export function LegRow({
   name,
+  flair,
   noPick,
   summary,
   odds,
@@ -15,6 +17,7 @@ export function LegRow({
   actions,
 }: {
   name: string;
+  flair?: string | null;
   noPick?: boolean;
   summary?: string;
   odds?: string | null;
@@ -25,7 +28,7 @@ export function LegRow({
   return (
     <Card className="flex items-center justify-between gap-3 p-3">
       <div className="min-w-0">
-        <p className="text-base font-medium">{name}</p>
+        <PlayerName name={name} flair={flair} className="text-base font-medium" />
         {noPick ? (
           <p className="text-sm text-subtle">No pick yet</p>
         ) : (

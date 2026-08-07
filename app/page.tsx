@@ -102,13 +102,13 @@ function ParlaySection({
             const combinedOdds = computeCombinedOdds(parlay.legs);
             return (
               <Link key={parlay.id} href={`/parlays/${parlay.id}`}>
-                <Card className="flex items-center justify-between p-3 text-sm transition-colors hover:border-border-strong">
-                  <span className="flex items-center gap-2">
+                <Card className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm transition-colors hover:border-border-strong">
+                  <span className="flex min-w-0 items-center gap-2">
                     {badge(parlay)}
-                    {parlay.window.label ?? parlay.window.league}
-                    {!parlay.countsForRecord && <span className="text-subtle"> (fun)</span>}
+                    <span className="truncate">{parlay.window.label ?? parlay.window.league}</span>
+                    {!parlay.countsForRecord && <span className="shrink-0 text-subtle"> (fun)</span>}
                   </span>
-                  <span className="flex items-center gap-3 text-muted">
+                  <span className="flex shrink-0 items-center gap-3 text-muted">
                     {parlay.legs.length > 0 && (
                       <span className="font-display text-base tracking-wide text-accent tabular-nums">
                         {combinedOdds !== null ? formatAmericanOdds(decimalToAmerican(combinedOdds)) : "N/A"}
