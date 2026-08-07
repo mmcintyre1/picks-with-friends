@@ -1,0 +1,10 @@
+[build.environment]
+  # These are non-secret "mode selector" config values (e.g. ODDS_PROVIDER = "theoddsapi"),
+  # not credentials. Netlify's secrets scanner does a naive substring search for each env
+  # var's *value* across the build output, and these particular values also happen to
+  # appear verbatim in our own source code as ordinary string comparisons
+  # (lib/odds/index.ts, lib/rosters/index.ts) or are just the word "production" -- so they
+  # false-positive as "leaked secrets" when they're really just our own code. Real secrets
+  # (DATABASE_URL, AUTH_SECRET, ODDS_API_KEY) are high-entropy and won't collide with our
+  # source like this, so they intentionally stay scanned.
+  SECRETS_SCAN_OMIT_KEYS = "ODDS_PROVIDER,ROSTER_PROVIDER,NODE_ENV"
