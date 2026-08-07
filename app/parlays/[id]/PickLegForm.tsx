@@ -108,6 +108,7 @@ export function PickLegForm({
           onChange={(e) => setAwayTeam(e.target.value)}
           placeholder="Away team"
           required
+          autoComplete="off"
           className={selectClass}
         />
         <input
@@ -115,6 +116,7 @@ export function PickLegForm({
           onChange={(e) => setHomeTeam(e.target.value)}
           placeholder="Home team"
           required
+          autoComplete="off"
           className={selectClass}
         />
       </div>
@@ -165,6 +167,7 @@ export function PickLegForm({
               value={line}
               onChange={(e) => setLine(e.target.value)}
               placeholder="Line (e.g. -3.5)"
+              autoComplete="off"
               className={selectClass}
             />
           )}
@@ -176,12 +179,14 @@ export function PickLegForm({
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               placeholder="Player name"
+              autoComplete="off"
               className={selectClass}
             />
             <input
               value={propType}
               onChange={(e) => setPropType(e.target.value)}
               placeholder="Stat (e.g. Passing Yards)"
+              autoComplete="off"
               className={selectClass}
             />
           </div>
@@ -221,6 +226,7 @@ export function PickLegForm({
                 value={line}
                 onChange={(e) => setLine(e.target.value)}
                 placeholder="Line (e.g. 250.5)"
+                autoComplete="off"
                 className={selectClass}
               />
             </div>
@@ -241,6 +247,7 @@ export function PickLegForm({
         value={price}
         onChange={(e) => setPrice(e.target.value)}
         placeholder="Price (optional, e.g. -110)"
+        autoComplete="off"
         className={selectClass}
       />
       {error && <p className="text-xs text-red-500">{error}</p>}

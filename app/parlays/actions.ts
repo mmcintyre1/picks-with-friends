@@ -180,12 +180,16 @@ export async function gradeParlay(
   parlayId: string,
   results: Record<string, LegResult>,
 ): Promise<ActionResult> {
-  const { user } = await requireUserAndGroup();
+  // Grading isn't a secret and there's no adversarial concern here -- any group member
+  // can grade a locked parlay, and any group member can correct a resolved one later if
+  // something was graded wrong. Not creator-gated like lock is.
+  await requireUserAndGroup();
 
   const parlay = await prisma.parlay.findUnique({ where: { id: parlayId }, include: { legs: true } });
   if (!parlay) return { error: "Parlay not found." };
-  if (parlay.creatorId !== user.id) return { error: "Only the creator can grade this parlay." };
-  if (parlay.status !== ParlayStatus.LOCKED) return { error: "This parlay isn't locked yet." };
+  if (parlay.status !== ParlayStatus.LOCKED && parlay.status !== ParlayStatus.RESOLVED) {
+    return { error: "This parlay isn't locked yet." };
+  }
 
   const legInputs = parlay.legs.map((leg) => ({ id: leg.id, result: results[leg.id] }));
   if (legInputs.some((leg) => !leg.result)) return { error: "Grade every leg before resolving." };

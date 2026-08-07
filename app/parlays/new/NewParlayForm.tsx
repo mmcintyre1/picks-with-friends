@@ -78,6 +78,7 @@ export function NewParlayForm() {
                 onChange={(e) => setFreeLeague(e.target.value)}
                 placeholder="NFL, NBA, ..."
                 required
+                autoComplete="off"
                 className={inputClass}
               />
             </label>
@@ -87,6 +88,7 @@ export function NewParlayForm() {
                 value={freeLabel}
                 onChange={(e) => setFreeLabel(e.target.value)}
                 placeholder="MNF Week 2, whatever"
+                autoComplete="off"
                 className={inputClass}
               />
             </label>

@@ -10,6 +10,7 @@ import { CancelLegButton } from "./CancelLegButton";
 import { GradeForm } from "./GradeForm";
 import { LockButton } from "./LockButton";
 import { PickLegForm } from "./PickLegForm";
+import { ResolvedGradeEditor } from "./ResolvedGradeEditor";
 
 export default async function ParlayPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,7 +21,6 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
     include: {
       window: true,
       legs: { include: { user: true, game: true } },
-      creator: true,
     },
   });
   if (!parlay || parlay.groupId !== group.id) notFound();
@@ -107,7 +107,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {parlay.status === ParlayStatus.LOCKED && parlay.creatorId === user.id && (
+      {parlay.status === ParlayStatus.LOCKED && (
         <GradeForm
           parlayId={parlay.id}
           legs={parlay.legs.map((leg) => ({
@@ -117,17 +117,22 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
           }))}
         />
       )}
-      {parlay.status === ParlayStatus.LOCKED && parlay.creatorId !== user.id && (
-        <p className="text-sm text-gray-500">
-          Locked — waiting for {parlay.creator.name ?? parlay.creator.username} to grade it once the
-          games finish.
-        </p>
-      )}
 
       {parlay.status === ParlayStatus.RESOLVED && (
-        <p className="text-lg font-semibold">
-          {parlay.result === LegResult.WIN ? "Parlay hit! 🎉" : "Parlay busted."}
-        </p>
+        <div className="flex flex-col gap-2">
+          <p className="text-lg font-semibold">
+            {parlay.result === LegResult.WIN ? "Parlay hit! 🎉" : "Parlay busted."}
+          </p>
+          <ResolvedGradeEditor
+            parlayId={parlay.id}
+            legs={parlay.legs.map((leg) => ({
+              id: leg.id,
+              userName: leg.user.name ?? leg.user.username,
+              summary: legSummary(leg, leg.game),
+            }))}
+            initialResults={Object.fromEntries(parlay.legs.map((leg) => [leg.id, leg.result]))}
+          />
+        </div>
       )}
     </main>
   );
