@@ -1,0 +1,241 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Auth.js (NextAuth) required models ---
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// --- Core domain models ---
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+
+  accounts       Account[]
+  sessions       Session[]
+  memberships    GroupMember[]
+  legs           Leg[]
+  createdParlays Parlay[]      @relation("ParlayCreator")
+}
+
+enum Role {
+  MEMBER
+  ADMIN
+}
+
+model Group {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  members GroupMember[]
+  parlays Parlay[]
+}
+
+model GroupMember {
+  id      String @id @default(cuid())
+  groupId String
+  userId  String
+  role    Role   @default(MEMBER)
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
+// An ad hoc slate of games a parlay is built against, e.g. "NFL, Sunday 1:00pm-4:00pm, '1 o'clock games'".
+// Created fresh per parlay -- there is no reusable "week" concept, so the group can fire off as many
+// windows as they want per day across any sport.
+model Window {
+  id       String   @id @default(cuid())
+  league   String // free text, e.g. "NFL", "NBA" -- not an enum, so unlisted sports still work
+  label    String? // free text, e.g. "1 o'clock games", "SNF"
+  startsAt DateTime
+  endsAt   DateTime
+
+  games   Game[]
+  parlays Parlay[]
+}
+
+enum GameStatus {
+  SCHEDULED
+  LIVE
+  FINAL
+}
+
+model Game {
+  id           String     @id @default(cuid())
+  windowId     String
+  externalId   String? // odds-provider event id; null in manual-entry mode
+  homeTeam     String
+  awayTeam     String
+  commenceTime DateTime
+  status       GameStatus @default(SCHEDULED)
+  homeScore    Int?
+  awayScore    Int?
+  completedAt  DateTime?
+
+  window        Window         @relation(fields: [windowId], references: [id], onDelete: Cascade)
+  oddsSnapshots OddsSnapshot[]
+  legs          Leg[]
+
+  @@unique([windowId, externalId])
+}
+
+enum Market {
+  SPREAD
+  TOTAL
+  MONEYLINE
+}
+
+enum Side {
+  HOME
+  AWAY
+  OVER
+  UNDER
+}
+
+// Point-in-time line/price for a game+market+bookmaker. Unused substantively until live-odds
+// integration lands, but the shape exists from day one so line-history/staleness has a home.
+model OddsSnapshot {
+  id        String   @id @default(cuid())
+  gameId    String
+  market    Market
+  bookmaker String
+  homeLine  Float?
+  awayLine  Float?
+  homePrice Int?
+  awayPrice Int?
+  source    String // "theoddsapi" | "mock" | "manual"
+  fetchedAt DateTime @default(now())
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, market, fetchedAt])
+}
+
+enum ParlayStatus {
+  OPEN
+  LOCKED
+  RESOLVED
+  VOID
+}
+
+enum LegResult {
+  PENDING
+  WIN
+  LOSS
+  PUSH
+}
+
+model Parlay {
+  id              String       @id @default(cuid())
+  groupId         String
+  windowId        String
+  creatorId       String
+  title           String?
+  status          ParlayStatus @default(OPEN)
+  countsForRecord Boolean      @default(true)
+  result          LegResult    @default(PENDING)
+  createdAt       DateTime     @default(now())
+  lockedAt        DateTime?
+  resolvedAt      DateTime?
+
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  window  Window @relation(fields: [windowId], references: [id], onDelete: Cascade)
+  creator User   @relation("ParlayCreator", fields: [creatorId], references: [id])
+  legs    Leg[]
+}
+
+enum LegStatus {
+  CONFIRMED
+  STALE
+}
+
+enum Badge {
+  NONE
+  MONEYBAG
+  POO
+  TOILET
+  CROSS
+}
+
+// At most one leg per member per parlay -- a member may have zero if they sit a week out.
+// A parlay can lock with 2-4 legs present; it isn't hard-blocked at exactly 4.
+model Leg {
+  id          String    @id @default(cuid())
+  parlayId    String
+  userId      String
+  gameId      String
+  market      Market
+  side        Side
+  lineAtPick  Float?
+  priceAtPick Int?
+  status      LegStatus @default(CONFIRMED)
+  result      LegResult @default(PENDING)
+  badge       Badge     @default(NONE)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  parlay Parlay @relation(fields: [parlayId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+  game   Game   @relation(fields: [gameId], references: [id])
+
+  @@unique([parlayId, userId])
+}
+
+// Seam for future in-app banners / web push -- not consumed by push in v1.
+model EventLog {
+  id        String   @id @default(cuid())
+  groupId   String
+  type      String // "LEG_STALE" | "PARLAY_LOCKED" | "PARLAY_RESOLVED"
+  payload   Json
+  createdAt DateTime @default(now())
+}
