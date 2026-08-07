@@ -31,7 +31,7 @@ export default async function DashboardPage() {
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 px-4 py-12">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Hey {user.name ?? user.username}</h1>
+        <h1 className="font-display text-3xl tracking-wide">Hey {user.name ?? user.username}</h1>
         <Link href="/parlays/new" className={buttonClassName()}>
           New parlay
         </Link>
@@ -110,7 +110,7 @@ function ParlaySection({
                   </span>
                   <span className="flex items-center gap-3 text-muted">
                     {parlay.legs.length > 0 && (
-                      <span className="font-medium text-accent">
+                      <span className="font-display text-base tracking-wide text-accent tabular-nums">
                         {combinedOdds !== null ? formatAmericanOdds(decimalToAmerican(combinedOdds)) : "N/A"}
                       </span>
                     )}

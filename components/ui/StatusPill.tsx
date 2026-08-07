@@ -12,7 +12,9 @@ const toneClass: Record<Tone, string> = {
 
 export function StatusPill({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
-    <span className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${toneClass[tone]}`}>
+    <span
+      className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 font-display text-[11px] tracking-wide uppercase ${toneClass[tone]}`}
+    >
       {children}
     </span>
   );

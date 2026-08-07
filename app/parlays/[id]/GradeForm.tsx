@@ -12,9 +12,9 @@ import { gradeParlay } from "../actions";
 type Leg = { id: string; userName: string; summary: string };
 
 const RESULT_OPTIONS: { value: LegResult; label: string; activeClassName: string }[] = [
-  { value: LegResult.WIN, label: "Win", activeClassName: "bg-win text-win-foreground" },
-  { value: LegResult.LOSS, label: "Loss", activeClassName: "bg-loss text-loss-foreground" },
-  { value: LegResult.PUSH, label: "Push", activeClassName: "bg-push text-push-foreground" },
+  { value: LegResult.WIN, label: "Win", activeClassName: "bg-win text-win-foreground uppercase" },
+  { value: LegResult.LOSS, label: "Loss", activeClassName: "bg-loss text-loss-foreground uppercase" },
+  { value: LegResult.PUSH, label: "Push", activeClassName: "bg-push text-push-foreground uppercase" },
 ];
 
 export function GradeForm({

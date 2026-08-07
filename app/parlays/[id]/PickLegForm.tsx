@@ -157,6 +157,7 @@ export function PickLegForm({
   initial,
   liveOddsAvailable,
   league,
+  onDone,
 }: {
   parlayId: string;
   singleGame: boolean;
@@ -164,6 +165,7 @@ export function PickLegForm({
   initial?: Initial;
   liveOddsAvailable: boolean;
   league: string;
+  onDone?: () => void;
 }) {
   const [slip, setSlip] = useState<Slip>(() => slipFromInitial(initial));
   const [hadLiveLink, setHadLiveLink] = useState(false);
@@ -238,6 +240,7 @@ export function PickLegForm({
         externalId: slip.externalId ?? "",
       });
       if (result?.error) setError(result.error);
+      else onDone?.();
     });
   }
 
@@ -269,164 +272,169 @@ export function PickLegForm({
         <LiveOddsBrowser league={league} onSelectTeamBet={onSelectTeamBet} onSelectProp={onSelectProp} selected={selection} />
       )}
 
-      <Card className="flex flex-col gap-3 p-3">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">Your pick</p>
-          <div className="flex items-center gap-2">
-            {!isSlipEmpty(slip) && (
-              <Button type="button" variant="ghost" size="sm" onClick={clearSlip}>
-                Clear
-              </Button>
-            )}
-            <SegmentedControl
-              size="sm"
-              name="Pick kind"
-              value={slip.kind}
-              onChange={setKind}
-              options={[
-                { value: "team", label: "Team bet" },
-                { value: "prop", label: "Player prop" },
-              ]}
-            />
-          </div>
-        </div>
-
-        <form onSubmit={onSubmit} className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <input
-              value={slip.awayTeam}
-              onChange={(e) => updateAwayTeam(e.target.value)}
-              placeholder="Away team"
-              required
-              autoComplete="off"
-              className={fieldClass}
-            />
-            <input
-              value={slip.homeTeam}
-              onChange={(e) => updateHomeTeam(e.target.value)}
-              placeholder="Home team"
-              required
-              autoComplete="off"
-              className={fieldClass}
-            />
-          </div>
-
-          {hadLiveLink && !slip.externalId && (
-            <p className="text-xs text-pending">Unlinked from live odds — will save as manual entry.</p>
-          )}
-
-          {slip.kind === "team" ? (
-            <>
-              <div className="flex gap-2">
-                <select
-                  value={slip.market}
-                  onChange={(e) => {
-                    const m = e.target.value as Market;
-                    setSlip({ ...slip, market: m, side: m === Market.TOTAL ? Side.OVER : Side.HOME });
-                  }}
-                  className={fieldClass}
-                >
-                  <option value={Market.SPREAD}>Spread</option>
-                  <option value={Market.TOTAL}>Total</option>
-                  <option value={Market.MONEYLINE}>Moneyline</option>
-                </select>
-                <select
-                  value={slip.side}
-                  onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
-                  className={fieldClass}
-                >
-                  {teamSideOptions.map((s) => (
-                    <option key={s} value={s}>
-                      {sideLabel(s, slip.homeTeam, slip.awayTeam)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {slip.market !== Market.MONEYLINE && (
-                <input
-                  value={slip.line}
-                  onChange={(e) => setSlip({ ...slip, line: e.target.value })}
-                  placeholder="Line (e.g. -3.5)"
-                  autoComplete="off"
-                  className={fieldClass}
-                />
+      {/* Sticky rather than a modal -- this is the bet slip: it should stay reachable while
+          you keep browsing games above it, snapping to the bottom of the screen once you've
+          scrolled past its normal position, instead of interrupting browsing every click. */}
+      <div className="sticky bottom-4 z-10">
+        <Card className="flex flex-col gap-3 border-border-strong p-3 shadow-xl shadow-black/50">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted">Your pick</p>
+            <div className="flex items-center gap-2">
+              {!isSlipEmpty(slip) && (
+                <Button type="button" variant="ghost" size="sm" onClick={clearSlip}>
+                  Clear
+                </Button>
               )}
-            </>
-          ) : (
-            <>
-              <div className="flex gap-2">
-                <input
-                  value={slip.playerName}
-                  onChange={(e) => setSlip({ ...slip, playerName: e.target.value })}
-                  placeholder="Player name"
-                  autoComplete="off"
-                  className={fieldClass}
-                />
-                <input
-                  value={slip.propType}
-                  onChange={(e) => setSlip({ ...slip, propType: e.target.value })}
-                  placeholder="Stat (e.g. Passing Yards)"
-                  autoComplete="off"
-                  className={fieldClass}
-                />
-              </div>
               <SegmentedControl
                 size="sm"
-                name="Prop shape"
-                value={slip.propShape}
-                onChange={(shape) =>
-                  setSlip({ ...slip, propShape: shape, side: shape === "yesNo" ? Side.YES : Side.OVER })
-                }
+                name="Pick kind"
+                value={slip.kind}
+                onChange={setKind}
                 options={[
-                  { value: "overUnder", label: "Over/Under" },
-                  { value: "yesNo", label: "Yes/No" },
+                  { value: "team", label: "Team bet" },
+                  { value: "prop", label: "Player prop" },
                 ]}
               />
-              {slip.propShape === "overUnder" ? (
+            </div>
+          </div>
+
+          <form onSubmit={onSubmit} className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <input
+                value={slip.awayTeam}
+                onChange={(e) => updateAwayTeam(e.target.value)}
+                placeholder="Away team"
+                required
+                autoComplete="off"
+                className={fieldClass}
+              />
+              <input
+                value={slip.homeTeam}
+                onChange={(e) => updateHomeTeam(e.target.value)}
+                placeholder="Home team"
+                required
+                autoComplete="off"
+                className={fieldClass}
+              />
+            </div>
+
+            {hadLiveLink && !slip.externalId && (
+              <p className="text-xs text-pending">Unlinked from live odds — will save as manual entry.</p>
+            )}
+
+            {slip.kind === "team" ? (
+              <>
                 <div className="flex gap-2">
+                  <select
+                    value={slip.market}
+                    onChange={(e) => {
+                      const m = e.target.value as Market;
+                      setSlip({ ...slip, market: m, side: m === Market.TOTAL ? Side.OVER : Side.HOME });
+                    }}
+                    className={fieldClass}
+                  >
+                    <option value={Market.SPREAD}>Spread</option>
+                    <option value={Market.TOTAL}>Total</option>
+                    <option value={Market.MONEYLINE}>Moneyline</option>
+                  </select>
                   <select
                     value={slip.side}
                     onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
                     className={fieldClass}
                   >
-                    <option value={Side.OVER}>Over</option>
-                    <option value={Side.UNDER}>Under</option>
+                    {teamSideOptions.map((s) => (
+                      <option key={s} value={s}>
+                        {sideLabel(s, slip.homeTeam, slip.awayTeam)}
+                      </option>
+                    ))}
                   </select>
+                </div>
+                {slip.market !== Market.MONEYLINE && (
                   <input
                     value={slip.line}
                     onChange={(e) => setSlip({ ...slip, line: e.target.value })}
-                    placeholder="Line (e.g. 250.5)"
+                    placeholder="Line (e.g. -3.5)"
+                    autoComplete="off"
+                    className={fieldClass}
+                  />
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <input
+                    value={slip.playerName}
+                    onChange={(e) => setSlip({ ...slip, playerName: e.target.value })}
+                    placeholder="Player name"
+                    autoComplete="off"
+                    className={fieldClass}
+                  />
+                  <input
+                    value={slip.propType}
+                    onChange={(e) => setSlip({ ...slip, propType: e.target.value })}
+                    placeholder="Stat (e.g. Passing Yards)"
                     autoComplete="off"
                     className={fieldClass}
                   />
                 </div>
-              ) : (
-                <select
-                  value={slip.side}
-                  onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
-                  className={fieldClass}
-                >
-                  <option value={Side.YES}>Yes</option>
-                  <option value={Side.NO}>No</option>
-                </select>
-              )}
-            </>
-          )}
+                <SegmentedControl
+                  size="sm"
+                  name="Prop shape"
+                  value={slip.propShape}
+                  onChange={(shape) =>
+                    setSlip({ ...slip, propShape: shape, side: shape === "yesNo" ? Side.YES : Side.OVER })
+                  }
+                  options={[
+                    { value: "overUnder", label: "Over/Under" },
+                    { value: "yesNo", label: "Yes/No" },
+                  ]}
+                />
+                {slip.propShape === "overUnder" ? (
+                  <div className="flex gap-2">
+                    <select
+                      value={slip.side}
+                      onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
+                      className={fieldClass}
+                    >
+                      <option value={Side.OVER}>Over</option>
+                      <option value={Side.UNDER}>Under</option>
+                    </select>
+                    <input
+                      value={slip.line}
+                      onChange={(e) => setSlip({ ...slip, line: e.target.value })}
+                      placeholder="Line (e.g. 250.5)"
+                      autoComplete="off"
+                      className={fieldClass}
+                    />
+                  </div>
+                ) : (
+                  <select
+                    value={slip.side}
+                    onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
+                    className={fieldClass}
+                  >
+                    <option value={Side.YES}>Yes</option>
+                    <option value={Side.NO}>No</option>
+                  </select>
+                )}
+              </>
+            )}
 
-          <input
-            value={slip.price}
-            onChange={(e) => setSlip({ ...slip, price: e.target.value })}
-            placeholder="Odds (e.g. -110)"
-            required
-            autoComplete="off"
-            className={fieldClass}
-          />
-          {error && <p className="text-xs text-loss">{error}</p>}
-          <Button type="submit" disabled={pending} className="w-fit">
-            {pending ? "Saving…" : initial ? "Update pick" : "Confirm pick"}
-          </Button>
-        </form>
-      </Card>
+            <input
+              value={slip.price}
+              onChange={(e) => setSlip({ ...slip, price: e.target.value })}
+              placeholder="Odds (e.g. -110)"
+              required
+              autoComplete="off"
+              className={fieldClass}
+            />
+            {error && <p className="text-xs text-loss">{error}</p>}
+            <Button type="submit" disabled={pending} className="w-fit">
+              {pending ? "Saving…" : initial ? "Update pick" : "Confirm pick"}
+            </Button>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 }

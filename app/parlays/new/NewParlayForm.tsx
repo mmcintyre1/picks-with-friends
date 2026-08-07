@@ -106,7 +106,7 @@ export function NewParlayForm() {
       <label className="flex flex-col gap-1 text-sm">
         <span className="text-xs font-medium uppercase tracking-wide text-muted">Stake</span>
         <div className="relative w-36">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-lg font-semibold text-muted">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-display text-lg text-accent">
             $
           </span>
           <input
@@ -117,7 +117,7 @@ export function NewParlayForm() {
             onChange={(e) => setStake(e.target.value)}
             required
             autoComplete="off"
-            className="w-full rounded-lg border border-border bg-card py-2 pr-3 pl-7 text-lg font-semibold text-foreground"
+            className="w-full rounded-lg border border-border bg-card py-2 pr-3 pl-7 font-display text-lg tracking-wide text-foreground tabular-nums"
           />
         </div>
       </label>

@@ -81,7 +81,7 @@ export default async function LeaderboardPage() {
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 px-4 py-12">
-      <h1 className="text-2xl font-semibold">All-time leaderboard</h1>
+      <h1 className="font-display text-3xl tracking-wide">All-time leaderboard</h1>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xs font-medium uppercase tracking-wide text-muted">Parlay record</h2>
@@ -92,19 +92,19 @@ export default async function LeaderboardPage() {
             <div className="grid grid-cols-3 gap-3">
               <Card className="p-3">
                 <p className="text-xs text-muted">Record</p>
-                <p className="text-lg font-semibold">
+                <p className="font-display text-2xl tracking-wide tabular-nums">
                   {totalWins}-{totalLosses}
                 </p>
               </Card>
               <Card className="p-3">
                 <p className="text-xs text-muted">Streak</p>
-                <p className="text-lg font-semibold">
+                <p className="font-display text-2xl tracking-wide tabular-nums">
                   {streak ? `${streak.count} ${streak.result === LegResult.WIN ? "W" : "L"}` : "—"}
                 </p>
               </Card>
               <Card className="p-3">
                 <p className="text-xs text-muted">Total winnings</p>
-                <p className={`text-lg font-semibold ${totalWinnings >= 0 ? "text-win" : "text-loss"}`}>
+                <p className={`font-display text-2xl tracking-wide tabular-nums ${totalWinnings >= 0 ? "text-win" : "text-loss"}`}>
                   {totalWinnings >= 0 ? "+" : "-"}${Math.abs(totalWinnings).toFixed(2)}
                 </p>
               </Card>

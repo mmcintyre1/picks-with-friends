@@ -4,6 +4,7 @@ import { LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
 import { Card } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { BADGE_EMOJI } from "@/lib/badges";
+import { formatGameTime } from "@/lib/formatGameTime";
 import {
   computeCombinedOdds,
   computeProfit,
@@ -15,10 +16,9 @@ import { toSportKeys } from "@/lib/odds/leagueMap";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 
-import { CancelLegButton } from "./CancelLegButton";
 import { GradeForm } from "./GradeForm";
-import { LockButton } from "./LockButton";
-import { PickLegForm } from "./PickLegForm";
+import { LegRow } from "./LegRow";
+import { PickFlow } from "./PickFlow";
 import { ResolvedGradeEditor } from "./ResolvedGradeEditor";
 
 function parlayStatusPill(status: ParlayStatus, result: LegResult) {
@@ -64,11 +64,24 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
   const profit = combinedOdds !== null ? computeProfit(parlay.stake, combinedOdds) : null;
   const liveOddsAvailable = Boolean(toSportKeys(parlay.window.league));
 
+  const memberRows = members.map((member) => {
+    const leg = parlay.legs.find((l) => l.userId === member.userId);
+    return {
+      userId: member.userId,
+      name: member.user.name ?? member.user.username,
+      isMe: member.userId === user.id,
+      hasLeg: Boolean(leg),
+      summary: leg ? legSummary(leg, leg.game) : undefined,
+      odds: leg?.priceAtPick != null ? formatAmericanOdds(leg.priceAtPick) : null,
+      date: leg ? formatGameTime(leg.game.commenceTime.toISOString()) : undefined,
+    };
+  });
+
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-12">
       <div>
         <p className="text-xs uppercase tracking-wide text-muted">{parlay.window.league}</p>
-        <h1 className="text-xl font-semibold">{parlay.window.label ?? parlay.window.league}</h1>
+        <h1 className="font-display text-2xl tracking-wide">{parlay.window.label ?? parlay.window.league}</h1>
         <p className="text-xs text-subtle">Created {parlay.createdAt.toLocaleString()}</p>
         {!parlay.countsForRecord && (
           <p className="mt-1 text-xs text-push">Just for fun — doesn&apos;t count toward the record</p>
@@ -82,22 +95,28 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
             <p className="text-muted">Combined odds: N/A (a pick is missing a price)</p>
           ) : (
             <p>
-              Combined odds: <span className="font-medium text-accent">{formatAmericanOdds(decimalToAmerican(combinedOdds))}</span>
-              {" · "}Stake: ${parlay.stake.toFixed(2)}
+              Combined odds:{" "}
+              <span className="font-display tracking-wide text-accent tabular-nums">
+                {formatAmericanOdds(decimalToAmerican(combinedOdds))}
+              </span>
+              {" · "}Stake: <span className="font-display tabular-nums">${parlay.stake.toFixed(2)}</span>
               {" · "}
               {parlay.status === ParlayStatus.RESOLVED ? (
                 parlay.result === LegResult.WIN ? (
                   <>
-                    Won: <span className="font-medium text-win">+${profit!.toFixed(2)}</span>
+                    Won: <span className="font-display tracking-wide text-win tabular-nums">+${profit!.toFixed(2)}</span>
                   </>
                 ) : (
                   <>
-                    Lost: <span className="font-medium text-loss">-${parlay.stake.toFixed(2)}</span>
+                    Lost:{" "}
+                    <span className="font-display tracking-wide text-loss tabular-nums">
+                      -${parlay.stake.toFixed(2)}
+                    </span>
                   </>
                 )
               ) : (
                 <>
-                  To win: <span className="font-medium">${profit!.toFixed(2)}</span>
+                  To win: <span className="font-display tracking-wide tabular-nums">${profit!.toFixed(2)}</span>
                 </>
               )}
             </p>
@@ -105,56 +124,50 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
         </Card>
       )}
 
-      <div className="flex flex-col gap-3">
-        {members.map((member) => {
-          const leg = parlay.legs.find((l) => l.userId === member.userId);
-          const isMe = member.userId === user.id;
-          return (
-            <Card key={member.userId} className="flex items-center justify-between p-3">
-              <div>
-                <p className="text-sm font-medium">{member.user.name ?? member.user.username}</p>
-                {leg ? (
-                  <p className="text-xs text-muted">
-                    {legSummary(leg, leg.game)}
-                    {parlay.status === ParlayStatus.RESOLVED && <> — {BADGE_EMOJI[leg.badge]}</>}
-                  </p>
-                ) : (
-                  <p className="text-xs text-subtle">No pick yet</p>
-                )}
-              </div>
-              {isMe && parlay.status === ParlayStatus.OPEN && leg && (
-                <CancelLegButton parlayId={parlay.id} />
-              )}
-            </Card>
-          );
-        })}
-      </div>
-
       {parlay.status === ParlayStatus.OPEN && (
-        <div className="flex flex-col gap-4">
-          <h2 className="text-sm font-medium">{myLeg ? "Change your pick" : "Make your pick"}</h2>
-          <PickLegForm
-            parlayId={parlay.id}
-            singleGame={parlay.window.singleGame}
-            usedGames={otherUsedGames}
-            liveOddsAvailable={liveOddsAvailable}
-            league={parlay.window.league}
-            initial={
-              myLeg
-                ? {
-                    homeTeam: myLeg.game.homeTeam,
-                    awayTeam: myLeg.game.awayTeam,
-                    market: myLeg.market,
-                    side: myLeg.side,
-                    line: myLeg.lineAtPick,
-                    price: myLeg.priceAtPick,
-                    playerName: myLeg.playerName,
-                    propType: myLeg.propType,
-                  }
-                : undefined
-            }
-          />
-          {parlay.creatorId === user.id && <LockButton parlayId={parlay.id} />}
+        <PickFlow
+          parlayId={parlay.id}
+          memberRows={memberRows}
+          myLegInitial={
+            myLeg
+              ? {
+                  homeTeam: myLeg.game.homeTeam,
+                  awayTeam: myLeg.game.awayTeam,
+                  market: myLeg.market,
+                  side: myLeg.side,
+                  line: myLeg.lineAtPick,
+                  price: myLeg.priceAtPick,
+                  playerName: myLeg.playerName,
+                  propType: myLeg.propType,
+                }
+              : undefined
+          }
+          singleGame={parlay.window.singleGame}
+          usedGames={otherUsedGames}
+          liveOddsAvailable={liveOddsAvailable}
+          league={parlay.window.league}
+          isCreator={parlay.creatorId === user.id}
+        />
+      )}
+
+      {parlay.status !== ParlayStatus.OPEN && (
+        <div className="flex flex-col gap-3">
+          {memberRows.map((m) => {
+            const leg = parlay.legs.find((l) => l.userId === m.userId);
+            return (
+              <LegRow
+                key={m.userId}
+                name={m.name}
+                noPick={!m.hasLeg}
+                summary={m.summary}
+                odds={m.odds}
+                date={m.date}
+                resultEmoji={
+                  parlay.status === ParlayStatus.RESOLVED && leg ? BADGE_EMOJI[leg.badge] : undefined
+                }
+              />
+            );
+          })}
         </div>
       )}
 

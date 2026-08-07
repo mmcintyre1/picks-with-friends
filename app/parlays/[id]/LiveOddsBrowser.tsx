@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Market, Side } from "@/app/generated/prisma/enums";
 import { Card } from "@/components/ui/Card";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { formatGameTime } from "@/lib/formatGameTime";
 import { getGameOdds, getGameProps, getUpcomingGames } from "@/lib/odds/actions";
 import {
   mapPropOutcomeToLegFields,
@@ -32,16 +33,6 @@ const TEAM_MARKET_TABS: { value: TeamMarketKey; label: string }[] = [
   { value: "totals", label: "Total" },
   { value: "h2h", label: "Moneyline" },
 ];
-
-function formatGameTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "short",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 function formatPrice(price: number): string {
   return `${price > 0 ? "+" : ""}${price}`;
@@ -234,7 +225,9 @@ export function LiveOddsBrowser({
                             className={outcomeButtonClass(isSameSelection(pick, selected))}
                           >
                             <span className="font-medium">{topLabel}</span>
-                            <span className="text-accent">{formatPrice(outcome.price)}</span>
+                            <span className="font-display text-sm tracking-wide text-accent tabular-nums">
+                              {formatPrice(outcome.price)}
+                            </span>
                           </button>
                         );
                       })
@@ -283,7 +276,9 @@ export function LiveOddsBrowser({
                             className={outcomeButtonClass(isSameSelection(pick, selected))}
                           >
                             <span className="font-medium">{topLabel}</span>
-                            <span className="text-accent">{formatPrice(outcome.price)}</span>
+                            <span className="font-display text-sm tracking-wide text-accent tabular-nums">
+                              {formatPrice(outcome.price)}
+                            </span>
                           </button>
                         );
                       })
