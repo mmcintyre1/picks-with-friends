@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { Market, Side } from "@/app/generated/prisma/enums";
 
 import { pickLeg } from "../actions";
+import { LiveOddsBrowser, type PropPick, type TeamBetPick } from "./LiveOddsBrowser";
 
 type Initial = {
   homeTeam: string;
@@ -30,20 +31,34 @@ function initialPropShape(market?: Market): "overUnder" | "yesNo" {
   return market === Market.PLAYER_PROP_YESNO ? "yesNo" : "overUnder";
 }
 
+// "HOME"/"AWAY" on their own don't say which team that is -- show the actual team name
+// once one's been entered, falling back to the literal side name until then.
+function sideLabel(side: Side, homeTeam: string, awayTeam: string): string {
+  if (side === Side.HOME) return homeTeam.trim() || "Home";
+  if (side === Side.AWAY) return awayTeam.trim() || "Away";
+  return side === Side.OVER ? "Over" : "Under";
+}
+
 export function PickLegForm({
   parlayId,
   singleGame,
   usedGames,
   initial,
+  liveOddsAvailable,
+  league,
 }: {
   parlayId: string;
   singleGame: boolean;
   usedGames: { homeTeam: string; awayTeam: string }[];
   initial?: Initial;
+  liveOddsAvailable: boolean;
+  league: string;
 }) {
   const [homeTeam, setHomeTeam] = useState(initial?.homeTeam ?? "");
   const [awayTeam, setAwayTeam] = useState(initial?.awayTeam ?? "");
   const [pickKind, setPickKind] = useState<"team" | "prop">(initialPickKind(initial?.market));
+  const [entryMode, setEntryMode] = useState<"browse" | "manual">(liveOddsAvailable ? "browse" : "manual");
+  const [externalId, setExternalId] = useState<string | null>(null);
 
   // Team-bet fields
   const [market, setMarket] = useState<Market>(
@@ -68,6 +83,42 @@ export function PickLegForm({
 
   const teamSideOptions = market === Market.TOTAL ? [Side.OVER, Side.UNDER] : [Side.HOME, Side.AWAY];
 
+  // externalId is only trustworthy if the team names still match what a live-odds click
+  // set it from -- if the user hand-edits either team after that, drop it rather than
+  // risk attaching the wrong provider event id to a different matchup.
+  function updateHomeTeam(value: string) {
+    setHomeTeam(value);
+    setExternalId(null);
+  }
+  function updateAwayTeam(value: string) {
+    setAwayTeam(value);
+    setExternalId(null);
+  }
+
+  function onSelectTeamBet(pick: TeamBetPick) {
+    setAwayTeam(pick.awayTeam);
+    setHomeTeam(pick.homeTeam);
+    setPickKind("team");
+    setMarket(pick.market);
+    setSide(pick.side);
+    setLine(pick.line?.toString() ?? "");
+    setPrice(pick.price.toString());
+    setExternalId(pick.externalId);
+  }
+
+  function onSelectProp(pick: PropPick) {
+    setAwayTeam(pick.awayTeam);
+    setHomeTeam(pick.homeTeam);
+    setPickKind("prop");
+    setPropShape(pick.market === Market.PLAYER_PROP_YESNO ? "yesNo" : "overUnder");
+    setPropSide(pick.side);
+    setPlayerName(pick.playerName);
+    setPropType(pick.propType);
+    setLine(pick.line?.toString() ?? "");
+    setPrice(pick.price.toString());
+    setExternalId(pick.externalId);
+  }
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -86,6 +137,7 @@ export function PickLegForm({
         price,
         playerName: pickKind === "prop" ? playerName : "",
         propType: pickKind === "prop" ? propType : "",
+        externalId: externalId ?? "",
       });
       if (result?.error) setError(result.error);
     });
@@ -102,10 +154,33 @@ export function PickLegForm({
         </p>
       )}
 
+      {liveOddsAvailable && (
+        <div className="flex gap-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setEntryMode("browse")}
+            className={`rounded-full px-2 py-1 ${entryMode === "browse" ? "bg-black text-white dark:bg-white dark:text-black" : "border border-gray-300 dark:border-gray-700"}`}
+          >
+            Browse live odds
+          </button>
+          <button
+            type="button"
+            onClick={() => setEntryMode("manual")}
+            className={`rounded-full px-2 py-1 ${entryMode === "manual" ? "bg-black text-white dark:bg-white dark:text-black" : "border border-gray-300 dark:border-gray-700"}`}
+          >
+            Type it manually
+          </button>
+        </div>
+      )}
+
+      {liveOddsAvailable && entryMode === "browse" && (
+        <LiveOddsBrowser league={league} onSelectTeamBet={onSelectTeamBet} onSelectProp={onSelectProp} />
+      )}
+
       <div className="flex gap-2">
         <input
           value={awayTeam}
-          onChange={(e) => setAwayTeam(e.target.value)}
+          onChange={(e) => updateAwayTeam(e.target.value)}
           placeholder="Away team"
           required
           autoComplete="off"
@@ -113,7 +188,7 @@ export function PickLegForm({
         />
         <input
           value={homeTeam}
-          onChange={(e) => setHomeTeam(e.target.value)}
+          onChange={(e) => updateHomeTeam(e.target.value)}
           placeholder="Home team"
           required
           autoComplete="off"
@@ -157,7 +232,7 @@ export function PickLegForm({
             <select value={side} onChange={(e) => setSide(e.target.value as Side)} className={selectClass}>
               {teamSideOptions.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {sideLabel(s, homeTeam, awayTeam)}
                 </option>
               ))}
             </select>
@@ -246,7 +321,8 @@ export function PickLegForm({
       <input
         value={price}
         onChange={(e) => setPrice(e.target.value)}
-        placeholder="Price (optional, e.g. -110)"
+        placeholder="Odds (e.g. -110)"
+        required
         autoComplete="off"
         className={selectClass}
       />

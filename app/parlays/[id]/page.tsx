@@ -1,8 +1,15 @@
 import { notFound } from "next/navigation";
 
 import { LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
-import { BADGE_EMOJI, BADGE_LABEL } from "@/lib/badges";
+import { BADGE_EMOJI } from "@/lib/badges";
+import {
+  computeCombinedOdds,
+  computeProfit,
+  decimalToAmerican,
+  formatAmericanOdds,
+} from "@/lib/grading/parlayStats";
 import { legSummary } from "@/lib/legSummary";
+import { toSportKeys } from "@/lib/odds/leagueMap";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 
@@ -36,6 +43,12 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
     .filter((leg) => leg.userId !== user.id)
     .map((leg) => ({ homeTeam: leg.game.homeTeam, awayTeam: leg.game.awayTeam }));
 
+  const combinedOdds = computeCombinedOdds(
+    parlay.legs.map((leg) => ({ priceAtPick: leg.priceAtPick, result: leg.result })),
+  );
+  const profit = combinedOdds !== null ? computeProfit(parlay.stake, combinedOdds) : null;
+  const liveOddsAvailable = Boolean(toSportKeys(parlay.window.league));
+
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-12">
       <div>
@@ -47,6 +60,35 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
         )}
         <p className="mt-1 text-sm text-gray-500">Status: {parlay.status}</p>
       </div>
+
+      {parlay.legs.length > 0 && (
+        <div className="rounded-md border border-gray-200 p-3 text-sm dark:border-gray-800">
+          {combinedOdds === null ? (
+            <p className="text-gray-400">Combined odds: N/A (a pick is missing a price)</p>
+          ) : (
+            <p>
+              Combined odds: <span className="font-medium">{formatAmericanOdds(decimalToAmerican(combinedOdds))}</span>
+              {" · "}Stake: ${parlay.stake.toFixed(2)}
+              {" · "}
+              {parlay.status === ParlayStatus.RESOLVED ? (
+                parlay.result === LegResult.WIN ? (
+                  <>
+                    Won: <span className="font-medium text-green-600">+${profit!.toFixed(2)}</span>
+                  </>
+                ) : (
+                  <>
+                    Lost: <span className="font-medium text-red-500">-${parlay.stake.toFixed(2)}</span>
+                  </>
+                )
+              ) : (
+                <>
+                  To win: <span className="font-medium">${profit!.toFixed(2)}</span>
+                </>
+              )}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         {members.map((member) => {
@@ -62,12 +104,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
                 {leg ? (
                   <p className="text-xs text-gray-500">
                     {legSummary(leg, leg.game)}
-                    {parlay.status === ParlayStatus.RESOLVED && (
-                      <>
-                        {" — "}
-                        {BADGE_EMOJI[leg.badge]} {BADGE_LABEL[leg.badge]} ({leg.result})
-                      </>
-                    )}
+                    {parlay.status === ParlayStatus.RESOLVED && <> — {BADGE_EMOJI[leg.badge]}</>}
                   </p>
                 ) : (
                   <p className="text-xs text-gray-400">No pick yet</p>
@@ -88,6 +125,8 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
             parlayId={parlay.id}
             singleGame={parlay.window.singleGame}
             usedGames={otherUsedGames}
+            liveOddsAvailable={liveOddsAvailable}
+            league={parlay.window.league}
             initial={
               myLeg
                 ? {

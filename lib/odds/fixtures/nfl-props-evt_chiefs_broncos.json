@@ -1,0 +1,49 @@
+{
+  "id": "evt_chiefs_broncos",
+  "sportKey": "americanfootball_nfl",
+  "sportTitle": "NFL",
+  "commenceTime": "2026-09-14T20:20:00Z",
+  "homeTeam": "Chiefs",
+  "awayTeam": "Broncos",
+  "bookmakers": [
+    {
+      "key": "draftkings",
+      "title": "DraftKings",
+      "lastUpdate": "2026-09-14T19:00:00Z",
+      "markets": [
+        {
+          "key": "player_pass_yds",
+          "lastUpdate": "2026-09-14T19:00:00Z",
+          "outcomes": [
+            { "name": "Over", "price": -115, "point": 275.5, "description": "Patrick Mahomes" },
+            { "name": "Under", "price": -105, "point": 275.5, "description": "Patrick Mahomes" }
+          ]
+        },
+        {
+          "key": "player_rush_yds",
+          "lastUpdate": "2026-09-14T19:00:00Z",
+          "outcomes": [
+            { "name": "Over", "price": -120, "point": 54.5, "description": "Isiah Pacheco" },
+            { "name": "Under", "price": -110, "point": 54.5, "description": "Isiah Pacheco" }
+          ]
+        },
+        {
+          "key": "player_reception_yds",
+          "lastUpdate": "2026-09-14T19:00:00Z",
+          "outcomes": [
+            { "name": "Over", "price": -110, "point": 68.5, "description": "Travis Kelce" },
+            { "name": "Under", "price": -110, "point": 68.5, "description": "Travis Kelce" }
+          ]
+        },
+        {
+          "key": "player_anytime_td",
+          "lastUpdate": "2026-09-14T19:00:00Z",
+          "outcomes": [
+            { "name": "Yes", "price": 145, "description": "Travis Kelce" },
+            { "name": "No", "price": -190, "description": "Travis Kelce" }
+          ]
+        }
+      ]
+    }
+  ]
+}

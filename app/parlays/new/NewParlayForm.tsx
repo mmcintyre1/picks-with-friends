@@ -15,6 +15,7 @@ export function NewParlayForm() {
   const [freeLabel, setFreeLabel] = useState("");
   const [freeSingleGame, setFreeSingleGame] = useState(false);
   const [countsForRecord, setCountsForRecord] = useState(true);
+  const [stake, setStake] = useState("10");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -30,7 +31,7 @@ export function NewParlayForm() {
     const singleGame = preset ? preset.singleGame : freeSingleGame;
 
     startTransition(async () => {
-      const result = await createParlay({ league, label, singleGame, countsForRecord });
+      const result = await createParlay({ league, label, singleGame, countsForRecord, stake });
       if (result?.error) setError(result.error);
     });
   }
@@ -103,6 +104,20 @@ export function NewParlayForm() {
           </label>
         </div>
       )}
+
+      <label className="flex flex-col gap-1 text-sm">
+        $
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={stake}
+          onChange={(e) => setStake(e.target.value)}
+          required
+          autoComplete="off"
+          className={`${inputClass} w-32`}
+        />
+      </label>
 
       <label className="flex items-center gap-2 text-sm">
         <input

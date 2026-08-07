@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { ParlayStatus } from "@/app/generated/prisma/enums";
+import { LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
+import { computeCombinedOdds, decimalToAmerican, formatAmericanOdds } from "@/lib/grading/parlayStats";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 
@@ -48,6 +49,7 @@ type ParlayRow = {
   countsForRecord: boolean;
   createdAt: Date;
   window: { league: string; label: string | null };
+  legs: { priceAtPick: number | null; result: LegResult }[];
 };
 
 function ParlaySection({
@@ -66,19 +68,27 @@ function ParlaySection({
         <p className="text-sm text-gray-400">{emptyText}</p>
       ) : (
         <div className="flex flex-col gap-2">
-          {parlays.map((parlay) => (
-            <Link
-              key={parlay.id}
-              href={`/parlays/${parlay.id}`}
-              className="flex items-center justify-between rounded-md border border-gray-200 p-3 text-sm hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
-            >
-              <span>
-                {parlay.window.label ?? parlay.window.league}
-                {!parlay.countsForRecord && " (fun)"}
-              </span>
-              <span className="text-gray-500">{parlay.createdAt.toLocaleDateString()}</span>
-            </Link>
-          ))}
+          {parlays.map((parlay) => {
+            const combinedOdds = computeCombinedOdds(parlay.legs);
+            return (
+              <Link
+                key={parlay.id}
+                href={`/parlays/${parlay.id}`}
+                className="flex items-center justify-between rounded-md border border-gray-200 p-3 text-sm hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
+              >
+                <span>
+                  {parlay.window.label ?? parlay.window.league}
+                  {!parlay.countsForRecord && " (fun)"}
+                </span>
+                <span className="flex items-center gap-3 text-gray-500">
+                  {parlay.legs.length > 0 && (
+                    <span>{combinedOdds !== null ? formatAmericanOdds(decimalToAmerican(combinedOdds)) : "N/A"}</span>
+                  )}
+                  {parlay.createdAt.toLocaleDateString()}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       )}
     </section>

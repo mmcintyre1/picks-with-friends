@@ -161,6 +161,9 @@ model Parlay {
   title           String?
   status          ParlayStatus @default(OPEN)
   countsForRecord Boolean      @default(true)
+  // Wager amount the creator sets at creation, used with the legs' prices to compute
+  // combined odds and a payout figure. Defaulted for parlays created before this existed.
+  stake           Float        @default(10)
   result          LegResult    @default(PENDING)
   createdAt       DateTime     @default(now())
   lockedAt        DateTime?

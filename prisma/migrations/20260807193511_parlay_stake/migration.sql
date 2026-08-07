@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Parlay" ADD COLUMN     "stake" DOUBLE PRECISION NOT NULL DEFAULT 10;

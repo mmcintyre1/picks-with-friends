@@ -16,12 +16,17 @@ export type CreateParlayInput = {
   label: string;
   singleGame: boolean;
   countsForRecord: boolean;
+  stake: string;
 };
 
 export async function createParlay(input: CreateParlayInput): Promise<ActionResult> {
   const { user, group } = await requireUserAndGroup();
 
   if (!input.league.trim()) return { error: "League is required." };
+  const stake = Number(input.stake);
+  if (!input.stake.trim() || Number.isNaN(stake) || stake <= 0) {
+    return { error: "Stake must be a positive number." };
+  }
 
   // Kickoff time isn't tracked -- what matters is the slot (label), not a precise
   // boundary. startsAt/endsAt still exist on the schema for any future odds-sync
@@ -45,6 +50,7 @@ export async function createParlay(input: CreateParlayInput): Promise<ActionResu
       windowId: window.id,
       creatorId: user.id,
       countsForRecord: input.countsForRecord,
+      stake,
     },
   });
 
@@ -60,6 +66,7 @@ export type PickLegInput = {
   price: string;
   playerName: string;
   propType: string;
+  externalId: string;
 };
 
 const PROP_MARKETS = new Set<Market>([Market.PLAYER_PROP, Market.PLAYER_PROP_YESNO]);
@@ -67,7 +74,14 @@ const PROP_MARKETS = new Set<Market>([Market.PLAYER_PROP, Market.PLAYER_PROP_YES
 // Games aren't pre-listed by the creator -- each pick just names its matchup. Reuse an
 // existing Game row for the same two teams (case-insensitive, order-independent) so
 // repeated picks on one matchup share a single record instead of duplicating it.
-async function findOrCreateGame(windowId: string, homeTeamRaw: string, awayTeamRaw: string) {
+// `externalId` (the live-odds provider's event id) is set on create, or backfilled onto
+// an existing manually-created row that doesn't have one yet -- never overwritten once set.
+async function findOrCreateGame(
+  windowId: string,
+  homeTeamRaw: string,
+  awayTeamRaw: string,
+  externalId: string | null,
+) {
   const homeTeam = homeTeamRaw.trim();
   const awayTeam = awayTeamRaw.trim();
 
@@ -80,9 +94,14 @@ async function findOrCreateGame(windowId: string, homeTeamRaw: string, awayTeamR
       ],
     },
   });
-  if (existing) return existing;
+  if (existing) {
+    if (externalId && !existing.externalId) {
+      return prisma.game.update({ where: { id: existing.id }, data: { externalId } });
+    }
+    return existing;
+  }
 
-  return prisma.game.create({ data: { windowId, homeTeam, awayTeam, commenceTime: new Date() } });
+  return prisma.game.create({ data: { windowId, homeTeam, awayTeam, commenceTime: new Date(), externalId } });
 }
 
 export async function pickLeg(parlayId: string, input: PickLegInput): Promise<ActionResult> {
@@ -109,14 +128,24 @@ export async function pickLeg(parlayId: string, input: PickLegInput): Promise<Ac
   }
 
   const line = input.line.trim() ? Number(input.line) : null;
-  const price = input.price.trim() ? Number(input.price) : null;
   if (line !== null && Number.isNaN(line)) return { error: "Line must be a number." };
-  if (price !== null && Number.isNaN(price)) return { error: "Price must be a number." };
   if (input.market === Market.PLAYER_PROP && line === null) {
     return { error: "Over/under props need a line." };
   }
 
-  const game = await findOrCreateGame(parlay.windowId, input.homeTeam, input.awayTeam);
+  // Odds are required (not just optional context) since they're what lets the parlay's
+  // combined odds/payout be computed -- a leg with no odds would make that unknowable.
+  const price = Number(input.price);
+  if (!input.price.trim() || Number.isNaN(price)) {
+    return { error: "Odds are required (e.g. -110)." };
+  }
+
+  const game = await findOrCreateGame(
+    parlay.windowId,
+    input.homeTeam,
+    input.awayTeam,
+    input.externalId.trim() || null,
+  );
 
   // A game is "used" once someone picks it, regardless of whether their pick was a
   // team market or a player prop -- one rule for everyone, not two.

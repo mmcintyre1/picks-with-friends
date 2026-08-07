@@ -86,6 +86,7 @@ async function main() {
         market: Market.SPREAD,
         side: Side.HOME,
         lineAtPick: -6.5,
+        priceAtPick: -110,
       },
       {
         userId: bob.id,
@@ -94,6 +95,7 @@ async function main() {
         market: Market.PLAYER_PROP,
         side: Side.OVER,
         lineAtPick: 275.5,
+        priceAtPick: -115,
         playerName: "Patrick Mahomes",
         propType: "Passing Yards",
       },
@@ -121,6 +123,7 @@ async function main() {
         market: Market.SPREAD,
         side: Side.HOME,
         lineAtPick: -3,
+        priceAtPick: -110,
       },
       {
         userId: bob.id,
@@ -129,6 +132,7 @@ async function main() {
         market: Market.TOTAL,
         side: Side.UNDER,
         lineAtPick: 47.5,
+        priceAtPick: -110,
       },
       {
         userId: carol.id,
@@ -137,6 +141,7 @@ async function main() {
         market: Market.MONEYLINE,
         side: Side.AWAY,
         lineAtPick: null,
+        priceAtPick: 145,
       },
     ],
   });
@@ -174,6 +179,7 @@ async function main() {
         market: Market.SPREAD,
         side: Side.HOME,
         lineAtPick: -2.5,
+        priceAtPick: -110,
         result: LegResult.WIN,
         badge: Badge.MONEYBAG,
       },
@@ -184,6 +190,7 @@ async function main() {
         market: Market.SPREAD,
         side: Side.AWAY,
         lineAtPick: 3.5,
+        priceAtPick: -110,
         result: LegResult.WIN,
         badge: Badge.MONEYBAG,
       },
@@ -211,6 +218,7 @@ async function main() {
         market: Market.SPREAD,
         side: Side.HOME,
         lineAtPick: -1.5,
+        priceAtPick: -110,
         result: LegResult.WIN,
         badge: Badge.MONEYBAG,
       },
@@ -221,6 +229,7 @@ async function main() {
         market: Market.TOTAL,
         side: Side.OVER,
         lineAtPick: 42.5,
+        priceAtPick: -105,
         result: LegResult.WIN,
         badge: Badge.MONEYBAG,
       },
@@ -231,6 +240,7 @@ async function main() {
         market: Market.MONEYLINE,
         side: Side.HOME,
         lineAtPick: null,
+        priceAtPick: -130,
         result: LegResult.WIN,
         badge: Badge.MONEYBAG,
       },
@@ -241,6 +251,7 @@ async function main() {
         market: Market.SPREAD,
         side: Side.AWAY,
         lineAtPick: 1.5,
+        priceAtPick: -110,
         result: LegResult.LOSS,
         badge: Badge.TOILET,
       },
@@ -257,6 +268,7 @@ type SampleLeg = {
   market: Market;
   side: Side;
   lineAtPick: number | null;
+  priceAtPick: number;
   playerName?: string;
   propType?: string;
   result?: LegResult;
@@ -271,6 +283,7 @@ async function createSampleParlay(input: {
   startsAt: Date;
   endsAt: Date;
   singleGame?: boolean;
+  stake?: number;
   legs: SampleLeg[];
   status?: ParlayStatus;
   countsForRecord?: boolean;
@@ -295,6 +308,7 @@ async function createSampleParlay(input: {
       creatorId: input.creatorId,
       status: input.status ?? ParlayStatus.OPEN,
       countsForRecord: input.countsForRecord ?? true,
+      stake: input.stake ?? 10,
       lockedAt: input.lockedAt,
       resolvedAt: input.resolvedAt,
       result: input.result ?? LegResult.PENDING,
@@ -329,6 +343,7 @@ async function createSampleParlay(input: {
         market: leg.market,
         side: leg.side,
         lineAtPick: leg.lineAtPick,
+        priceAtPick: leg.priceAtPick,
         playerName: leg.playerName ?? null,
         propType: leg.propType ?? null,
         result: leg.result ?? LegResult.PENDING,

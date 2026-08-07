@@ -1,0 +1,238 @@
+[
+  {
+    "id": "evt_bills_jets",
+    "sportKey": "americanfootball_nfl",
+    "sportTitle": "NFL",
+    "commenceTime": "2026-09-13T17:00:00Z",
+    "homeTeam": "Bills",
+    "awayTeam": "Jets",
+    "bookmakers": [
+      {
+        "key": "draftkings",
+        "title": "DraftKings",
+        "lastUpdate": "2026-09-13T16:00:00Z",
+        "markets": [
+          {
+            "key": "h2h",
+            "lastUpdate": "2026-09-13T16:00:00Z",
+            "outcomes": [
+              { "name": "Bills", "price": -220 },
+              { "name": "Jets", "price": 180 }
+            ]
+          },
+          {
+            "key": "spreads",
+            "lastUpdate": "2026-09-13T16:00:00Z",
+            "outcomes": [
+              { "name": "Bills", "price": -110, "point": -4.5 },
+              { "name": "Jets", "price": -110, "point": 4.5 }
+            ]
+          },
+          {
+            "key": "totals",
+            "lastUpdate": "2026-09-13T16:00:00Z",
+            "outcomes": [
+              { "name": "Over", "price": -105, "point": 43.5 },
+              { "name": "Under", "price": -115, "point": 43.5 }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "fanduel",
+        "title": "FanDuel",
+        "lastUpdate": "2026-09-13T16:00:00Z",
+        "markets": [
+          {
+            "key": "h2h",
+            "lastUpdate": "2026-09-13T16:00:00Z",
+            "outcomes": [
+              { "name": "Bills", "price": -210 },
+              { "name": "Jets", "price": 175 }
+            ]
+          },
+          {
+            "key": "spreads",
+            "lastUpdate": "2026-09-13T16:00:00Z",
+            "outcomes": [
+              { "name": "Bills", "price": -108, "point": -4.5 },
+              { "name": "Jets", "price": -112, "point": 4.5 }
+            ]
+          },
+          {
+            "key": "totals",
+            "lastUpdate": "2026-09-13T16:00:00Z",
+            "outcomes": [
+              { "name": "Over", "price": -110, "point": 43.0 },
+              { "name": "Under", "price": -110, "point": 43.0 }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "evt_ravens_steelers",
+    "sportKey": "americanfootball_nfl",
+    "sportTitle": "NFL",
+    "commenceTime": "2026-09-13T17:00:00Z",
+    "homeTeam": "Ravens",
+    "awayTeam": "Steelers",
+    "bookmakers": [
+      {
+        "key": "draftkings",
+        "title": "DraftKings",
+        "lastUpdate": "2026-09-13T16:00:00Z",
+        "markets": [
+          {
+            "key": "h2h",
+            "lastUpdate": "2026-09-13T16:00:00Z",
+            "outcomes": [
+              { "name": "Ravens", "price": -165 },
+              { "name": "Steelers", "price": 140 }
+            ]
+          },
+          {
+            "key": "spreads",
+            "lastUpdate": "2026-09-13T16:00:00Z",
+            "outcomes": [
+              { "name": "Ravens", "price": -110, "point": -3 },
+              { "name": "Steelers", "price": -110, "point": 3 }
+            ]
+          },
+          {
+            "key": "totals",
+            "lastUpdate": "2026-09-13T16:00:00Z",
+            "outcomes": [
+              { "name": "Over", "price": -110, "point": 44.5 },
+              { "name": "Under", "price": -110, "point": 44.5 }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "evt_cowboys_eagles",
+    "sportKey": "americanfootball_nfl",
+    "sportTitle": "NFL",
+    "commenceTime": "2026-09-13T20:25:00Z",
+    "homeTeam": "Cowboys",
+    "awayTeam": "Eagles",
+    "bookmakers": [
+      {
+        "key": "draftkings",
+        "title": "DraftKings",
+        "lastUpdate": "2026-09-13T19:00:00Z",
+        "markets": [
+          {
+            "key": "h2h",
+            "lastUpdate": "2026-09-13T19:00:00Z",
+            "outcomes": [
+              { "name": "Cowboys", "price": 130 },
+              { "name": "Eagles", "price": -155 }
+            ]
+          },
+          {
+            "key": "spreads",
+            "lastUpdate": "2026-09-13T19:00:00Z",
+            "outcomes": [
+              { "name": "Cowboys", "price": -110, "point": 3 },
+              { "name": "Eagles", "price": -110, "point": -3 }
+            ]
+          },
+          {
+            "key": "totals",
+            "lastUpdate": "2026-09-13T19:00:00Z",
+            "outcomes": [
+              { "name": "Over", "price": -110, "point": 47.5 },
+              { "name": "Under", "price": -110, "point": 47.5 }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "evt_chiefs_broncos",
+    "sportKey": "americanfootball_nfl",
+    "sportTitle": "NFL",
+    "commenceTime": "2026-09-14T20:20:00Z",
+    "homeTeam": "Chiefs",
+    "awayTeam": "Broncos",
+    "bookmakers": [
+      {
+        "key": "draftkings",
+        "title": "DraftKings",
+        "lastUpdate": "2026-09-14T19:00:00Z",
+        "markets": [
+          {
+            "key": "h2h",
+            "lastUpdate": "2026-09-14T19:00:00Z",
+            "outcomes": [
+              { "name": "Chiefs", "price": -260 },
+              { "name": "Broncos", "price": 210 }
+            ]
+          },
+          {
+            "key": "spreads",
+            "lastUpdate": "2026-09-14T19:00:00Z",
+            "outcomes": [
+              { "name": "Chiefs", "price": -110, "point": -6.5 },
+              { "name": "Broncos", "price": -110, "point": 6.5 }
+            ]
+          },
+          {
+            "key": "totals",
+            "lastUpdate": "2026-09-14T19:00:00Z",
+            "outcomes": [
+              { "name": "Over", "price": -110, "point": 45.5 },
+              { "name": "Under", "price": -110, "point": 45.5 }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "evt_49ers_rams",
+    "sportKey": "americanfootball_nfl",
+    "sportTitle": "NFL",
+    "commenceTime": "2026-09-14T20:20:00Z",
+    "homeTeam": "49ers",
+    "awayTeam": "Rams",
+    "bookmakers": [
+      {
+        "key": "draftkings",
+        "title": "DraftKings",
+        "lastUpdate": "2026-09-14T19:00:00Z",
+        "markets": [
+          {
+            "key": "h2h",
+            "lastUpdate": "2026-09-14T19:00:00Z",
+            "outcomes": [
+              { "name": "49ers", "price": -140 },
+              { "name": "Rams", "price": 118 }
+            ]
+          },
+          {
+            "key": "spreads",
+            "lastUpdate": "2026-09-14T19:00:00Z",
+            "outcomes": [
+              { "name": "49ers", "price": -110, "point": -2.5 },
+              { "name": "Rams", "price": -110, "point": 2.5 }
+            ]
+          },
+          {
+            "key": "totals",
+            "lastUpdate": "2026-09-14T19:00:00Z",
+            "outcomes": [
+              { "name": "Over", "price": -110, "point": 48.5 },
+              { "name": "Under", "price": -110, "point": 48.5 }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
