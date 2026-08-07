@@ -63,11 +63,16 @@ model GroupMember {
 // Created fresh per parlay -- there is no reusable "week" concept, so the group can fire off as many
 // windows as they want per day across any sport.
 model Window {
-  id       String   @id @default(cuid())
-  league   String // free text, e.g. "NFL", "NBA" -- not an enum, so unlisted sports still work
-  label    String? // free text, e.g. "1 o'clock games", "SNF"
-  startsAt DateTime
-  endsAt   DateTime
+  id         String   @id @default(cuid())
+  league     String // free text, e.g. "NFL", "NBA" -- not an enum, so unlisted sports still work
+  label      String? // free text, e.g. "1 o'clock games", "SNF"
+  startsAt   DateTime
+  endsAt     DateTime
+  // True for slots that are inherently one real-world game (SNF/TNF/MNF, or a Free-for-all
+  // the creator marks as such) -- the same-game pick rule is skipped entirely for these,
+  // since there's nothing to diversify across. Games are no longer pre-listed at creation
+  // time; each pick names its own matchup, so this can't be derived from a game count.
+  singleGame Boolean  @default(false)
 
   games   Game[]
   parlays Parlay[]
@@ -102,6 +107,8 @@ enum Market {
   SPREAD
   TOTAL
   MONEYLINE
+  PLAYER_PROP // player prop, over/under a numeric line (e.g. "Mahomes passing yards")
+  PLAYER_PROP_YESNO // player prop with no line, just yes/no (e.g. "anytime TD")
 }
 
 enum Side {
@@ -109,6 +116,8 @@ enum Side {
   AWAY
   OVER
   UNDER
+  YES
+  NO
 }
 
 // Point-in-time line/price for a game+market+bookmaker. Unused substantively until live-odds
@@ -187,6 +196,9 @@ model Leg {
   side        Side
   lineAtPick  Float?
   priceAtPick Int?
+  // Set only when market is PLAYER_PROP or PLAYER_PROP_YESNO; null for team markets.
+  playerName  String?
+  propType    String? // free text, e.g. "Passing Yards", "Anytime TD"
   status      LegStatus @default(CONFIRMED)
   result      LegResult @default(PENDING)
   badge       Badge     @default(NONE)
