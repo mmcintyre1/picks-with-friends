@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
+import { Card } from "@/components/ui/Card";
+import { StatusPill } from "@/components/ui/StatusPill";
 import { BADGE_EMOJI } from "@/lib/badges";
 import {
   computeCombinedOdds,
@@ -18,6 +20,19 @@ import { GradeForm } from "./GradeForm";
 import { LockButton } from "./LockButton";
 import { PickLegForm } from "./PickLegForm";
 import { ResolvedGradeEditor } from "./ResolvedGradeEditor";
+
+function parlayStatusPill(status: ParlayStatus, result: LegResult) {
+  if (status === ParlayStatus.OPEN) return <StatusPill tone="accent">Open</StatusPill>;
+  if (status === ParlayStatus.LOCKED) return <StatusPill tone="pending">Awaiting grading</StatusPill>;
+  if (status === ParlayStatus.RESOLVED) {
+    return result === LegResult.WIN ? (
+      <StatusPill tone="win">Won</StatusPill>
+    ) : (
+      <StatusPill tone="loss">Lost</StatusPill>
+    );
+  }
+  return <StatusPill tone="muted">{status}</StatusPill>;
+}
 
 export default async function ParlayPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -52,32 +67,32 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-12">
       <div>
-        <p className="text-xs uppercase tracking-wide text-gray-500">{parlay.window.league}</p>
+        <p className="text-xs uppercase tracking-wide text-muted">{parlay.window.league}</p>
         <h1 className="text-xl font-semibold">{parlay.window.label ?? parlay.window.league}</h1>
-        <p className="text-xs text-gray-400">Created {parlay.createdAt.toLocaleString()}</p>
+        <p className="text-xs text-subtle">Created {parlay.createdAt.toLocaleString()}</p>
         {!parlay.countsForRecord && (
-          <p className="mt-1 text-xs text-amber-500">Just for fun — doesn&apos;t count toward the record</p>
+          <p className="mt-1 text-xs text-push">Just for fun — doesn&apos;t count toward the record</p>
         )}
-        <p className="mt-1 text-sm text-gray-500">Status: {parlay.status}</p>
+        <div className="mt-2">{parlayStatusPill(parlay.status, parlay.result)}</div>
       </div>
 
       {parlay.legs.length > 0 && (
-        <div className="rounded-md border border-gray-200 p-3 text-sm dark:border-gray-800">
+        <Card className="p-3 text-sm">
           {combinedOdds === null ? (
-            <p className="text-gray-400">Combined odds: N/A (a pick is missing a price)</p>
+            <p className="text-muted">Combined odds: N/A (a pick is missing a price)</p>
           ) : (
             <p>
-              Combined odds: <span className="font-medium">{formatAmericanOdds(decimalToAmerican(combinedOdds))}</span>
+              Combined odds: <span className="font-medium text-accent">{formatAmericanOdds(decimalToAmerican(combinedOdds))}</span>
               {" · "}Stake: ${parlay.stake.toFixed(2)}
               {" · "}
               {parlay.status === ParlayStatus.RESOLVED ? (
                 parlay.result === LegResult.WIN ? (
                   <>
-                    Won: <span className="font-medium text-green-600">+${profit!.toFixed(2)}</span>
+                    Won: <span className="font-medium text-win">+${profit!.toFixed(2)}</span>
                   </>
                 ) : (
                   <>
-                    Lost: <span className="font-medium text-red-500">-${parlay.stake.toFixed(2)}</span>
+                    Lost: <span className="font-medium text-loss">-${parlay.stake.toFixed(2)}</span>
                   </>
                 )
               ) : (
@@ -87,7 +102,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
               )}
             </p>
           )}
-        </div>
+        </Card>
       )}
 
       <div className="flex flex-col gap-3">
@@ -95,25 +110,22 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
           const leg = parlay.legs.find((l) => l.userId === member.userId);
           const isMe = member.userId === user.id;
           return (
-            <div
-              key={member.userId}
-              className="flex items-center justify-between rounded-md border border-gray-200 p-3 dark:border-gray-800"
-            >
+            <Card key={member.userId} className="flex items-center justify-between p-3">
               <div>
                 <p className="text-sm font-medium">{member.user.name ?? member.user.username}</p>
                 {leg ? (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted">
                     {legSummary(leg, leg.game)}
                     {parlay.status === ParlayStatus.RESOLVED && <> — {BADGE_EMOJI[leg.badge]}</>}
                   </p>
                 ) : (
-                  <p className="text-xs text-gray-400">No pick yet</p>
+                  <p className="text-xs text-subtle">No pick yet</p>
                 )}
               </div>
               {isMe && parlay.status === ParlayStatus.OPEN && leg && (
                 <CancelLegButton parlayId={parlay.id} />
               )}
-            </div>
+            </Card>
           );
         })}
       </div>
@@ -159,7 +171,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
 
       {parlay.status === ParlayStatus.RESOLVED && (
         <div className="flex flex-col gap-2">
-          <p className="text-lg font-semibold">
+          <p className={`text-lg font-semibold ${parlay.result === LegResult.WIN ? "text-win" : "text-loss"}`}>
             {parlay.result === LegResult.WIN ? "Parlay hit! 🎉" : "Parlay busted."}
           </p>
           <ResolvedGradeEditor

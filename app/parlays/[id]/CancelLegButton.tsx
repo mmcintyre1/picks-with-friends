@@ -2,23 +2,25 @@
 
 import { useTransition } from "react";
 
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
+
 import { cancelLeg } from "../actions";
 
 export function CancelLegButton({ parlayId }: { parlayId: string }) {
   const [pending, startTransition] = useTransition();
 
   return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={() =>
+    <ConfirmButton
+      label="Cancel pick"
+      confirmLabel="Yes, remove it"
+      pendingLabel="Canceling…"
+      variant="destructive"
+      pending={pending}
+      onConfirm={() =>
         startTransition(async () => {
           await cancelLeg(parlayId);
         })
       }
-      className="text-xs text-red-500 underline disabled:opacity-50"
-    >
-      {pending ? "Canceling…" : "Cancel pick"}
-    </button>
+    />
   );
 }

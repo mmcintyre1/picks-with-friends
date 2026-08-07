@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
+
 import { lockParlay } from "../actions";
 
 export function LockButton({ parlayId }: { parlayId: string }) {
@@ -10,20 +12,19 @@ export function LockButton({ parlayId }: { parlayId: string }) {
 
   return (
     <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() =>
+      <ConfirmButton
+        label="Lock parlay"
+        confirmLabel="Yes, lock it"
+        pendingLabel="Locking…"
+        pending={pending}
+        onConfirm={() =>
           startTransition(async () => {
             const result = await lockParlay(parlayId);
             if (result?.error) setError(result.error);
           })
         }
-        className="w-fit rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-      >
-        {pending ? "Locking…" : "Lock parlay"}
-      </button>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      />
+      {error && <p className="text-xs text-loss">{error}</p>}
     </div>
   );
 }

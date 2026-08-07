@@ -31,10 +31,22 @@ export type ProviderGame = {
   bookmakers: ProviderBookmaker[];
 };
 
-// Per-event /events/{id}/odds response. Structurally identical to ProviderGame (same
-// shape, just scoped to one event and to the requested prop markets) -- kept as a
-// distinct name since it's a different, per-event cost tier, not the same call.
+// Per-event /events/{id}/odds response, scoped to whichever markets were requested (team
+// markets or prop markets -- same endpoint, same shape, just a different `markets` list).
+// Structurally identical to ProviderGame, kept as a distinct name since it's a different,
+// per-event cost tier from the bare event list below, not the same call.
 export type ProviderProp = ProviderGame;
+
+// The bare schedule -- no odds, no bookmakers. The Odds API's /events endpoint (no
+// `markets` requested) costs nothing, which is what makes "browse the schedule for free,
+// fetch odds only for the game you click" possible.
+export type ProviderEvent = {
+  id: string;
+  sportKey: string;
+  commenceTime: string;
+  homeTeam: string;
+  awayTeam: string;
+};
 
 // Phase 3 (auto-grading) shape -- kept on the interface now for stability, not
 // implemented by any provider until that phase.
@@ -48,16 +60,9 @@ export type ProviderScore = {
 };
 
 export interface OddsProvider {
-  listGamesWithOdds(
-    sportKey: string,
-    opts?: { commenceFrom?: Date; commenceTo?: Date },
-  ): Promise<ProviderGame[]>;
+  listEvents(sportKey: string, opts?: { commenceFrom?: Date; commenceTo?: Date }): Promise<ProviderEvent[]>;
 
-  listPlayerProps(
-    sportKey: string,
-    eventId: string,
-    opts?: { markets?: string[] },
-  ): Promise<ProviderProp>;
+  getEventOdds(sportKey: string, eventId: string, markets: string[]): Promise<ProviderProp>;
 
   getScores(sportKey: string, opts: { daysFrom: number }): Promise<ProviderScore[]>;
 }

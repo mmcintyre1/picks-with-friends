@@ -3,24 +3,37 @@
 import { useState, useTransition } from "react";
 
 import { LegResult } from "@/app/generated/prisma/enums";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
 import { gradeParlay } from "../actions";
 
 type Leg = { id: string; userName: string; summary: string };
 
+const RESULT_OPTIONS: { value: LegResult; label: string; activeClassName: string }[] = [
+  { value: LegResult.WIN, label: "Win", activeClassName: "bg-win text-win-foreground" },
+  { value: LegResult.LOSS, label: "Loss", activeClassName: "bg-loss text-loss-foreground" },
+  { value: LegResult.PUSH, label: "Push", activeClassName: "bg-push text-push-foreground" },
+];
+
 export function GradeForm({
   parlayId,
   legs,
   initialResults,
+  onCancel,
 }: {
   parlayId: string;
   legs: Leg[];
   initialResults?: Record<string, LegResult>;
+  onCancel?: () => void;
 }) {
   const [results, setResults] = useState<Record<string, LegResult>>(initialResults ?? {});
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const isEdit = Boolean(initialResults);
+  const gradedCount = legs.filter((leg) => results[leg.id]).length;
+  const complete = gradedCount === legs.length;
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,40 +45,41 @@ export function GradeForm({
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-3 rounded-md border border-gray-300 p-4 dark:border-gray-700"
-    >
-      <h2 className="text-sm font-medium">{isEdit ? "Fix the grades" : "Grade this parlay"}</h2>
-      {legs.map((leg) => (
-        <div key={leg.id} className="flex items-center justify-between gap-3 text-sm">
-          <div>
-            <p className="font-medium">{leg.userName}</p>
-            <p className="text-xs text-gray-500">{leg.summary}</p>
-          </div>
-          <select
-            value={results[leg.id] ?? ""}
-            onChange={(e) => setResults((r) => ({ ...r, [leg.id]: e.target.value as LegResult }))}
-            required
-            className="rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-700 dark:bg-transparent"
-          >
-            <option value="" disabled>
-              Result
-            </option>
-            <option value={LegResult.WIN}>Win</option>
-            <option value={LegResult.LOSS}>Loss</option>
-            <option value={LegResult.PUSH}>Push</option>
-          </select>
+    <Card className="p-4">
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium">{isEdit ? "Fix the grades" : "Grade this parlay"}</h2>
+          <span className="text-xs text-muted">
+            {gradedCount} of {legs.length} graded
+          </span>
         </div>
-      ))}
-      {error && <p className="text-xs text-red-500">{error}</p>}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-      >
-        {pending ? "Saving…" : isEdit ? "Save corrections" : "Submit grades"}
-      </button>
-    </form>
+        {legs.map((leg) => (
+          <div key={leg.id} className="flex items-center justify-between gap-3 text-sm">
+            <div>
+              <p className="font-medium">{leg.userName}</p>
+              <p className="text-xs text-muted">{leg.summary}</p>
+            </div>
+            <SegmentedControl
+              size="sm"
+              name={`Result for ${leg.userName}`}
+              value={results[leg.id] ?? null}
+              onChange={(v) => setResults((r) => ({ ...r, [leg.id]: v }))}
+              options={RESULT_OPTIONS}
+            />
+          </div>
+        ))}
+        {error && <p className="text-xs text-loss">{error}</p>}
+        <div className="flex items-center gap-2">
+          <Button type="submit" disabled={pending || !complete}>
+            {pending ? "Saving…" : isEdit ? "Save corrections" : "Submit grades"}
+          </Button>
+          {onCancel && (
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+        </div>
+      </form>
+    </Card>
   );
 }

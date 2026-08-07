@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Badge, LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
+import { Card } from "@/components/ui/Card";
 import { computeCombinedOdds, computeCurrentStreak, computeProfit } from "@/lib/grading/parlayStats";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
@@ -83,34 +84,30 @@ export default async function LeaderboardPage() {
       <h1 className="text-2xl font-semibold">All-time leaderboard</h1>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-gray-500">Parlay record</h2>
+        <h2 className="text-xs font-medium uppercase tracking-wide text-muted">Parlay record</h2>
         {parlayRows.length === 0 ? (
-          <p className="text-sm text-gray-500">No resolved parlays yet.</p>
+          <p className="text-sm text-muted">No resolved parlays yet.</p>
         ) : (
           <>
-            <div className="flex gap-6 text-sm">
-              <div>
-                <p className="text-xs text-gray-500">Record</p>
+            <div className="grid grid-cols-3 gap-3">
+              <Card className="p-3">
+                <p className="text-xs text-muted">Record</p>
                 <p className="text-lg font-semibold">
                   {totalWins}-{totalLosses}
                 </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Streak</p>
+              </Card>
+              <Card className="p-3">
+                <p className="text-xs text-muted">Streak</p>
                 <p className="text-lg font-semibold">
-                  {streak
-                    ? `${streak.count} ${streak.result === LegResult.WIN ? "W" : "L"}`
-                    : "—"}
+                  {streak ? `${streak.count} ${streak.result === LegResult.WIN ? "W" : "L"}` : "—"}
                 </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Total winnings</p>
-                <p
-                  className={`text-lg font-semibold ${totalWinnings >= 0 ? "text-green-600" : "text-red-500"}`}
-                >
+              </Card>
+              <Card className="p-3">
+                <p className="text-xs text-muted">Total winnings</p>
+                <p className={`text-lg font-semibold ${totalWinnings >= 0 ? "text-win" : "text-loss"}`}>
                   {totalWinnings >= 0 ? "+" : "-"}${Math.abs(totalWinnings).toFixed(2)}
                 </p>
-              </div>
+              </Card>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {parlayRows.map(({ parlay, amount }) => {
@@ -121,25 +118,43 @@ export default async function LeaderboardPage() {
                     key={parlay.id}
                     href={`/parlays/${parlay.id}`}
                     title={`${parlay.window.label ?? parlay.window.league} — ${amountLabel}`}
-                    className={`h-4 w-4 rounded-full ${isWin ? "bg-green-500" : "bg-red-500"} hover:opacity-75`}
-                  />
+                    className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold hover:opacity-80 ${
+                      isWin ? "bg-win text-win-foreground" : "bg-loss text-loss-foreground"
+                    }`}
+                  >
+                    {isWin ? "✓" : "✕"}
+                  </Link>
                 );
               })}
+            </div>
+            <div className="flex items-center gap-4 text-xs text-muted">
+              <span className="flex items-center gap-1.5">
+                <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-win text-[8px] text-win-foreground">
+                  ✓
+                </span>
+                Win
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-loss text-[8px] text-loss-foreground">
+                  ✕
+                </span>
+                Loss
+              </span>
             </div>
           </>
         )}
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-gray-500">Individual stats</h2>
+        <h2 className="text-xs font-medium uppercase tracking-wide text-muted">Individual stats</h2>
         {rows.length === 0 ? (
-          <p className="text-sm text-gray-500">No resolved parlays yet.</p>
+          <p className="text-sm text-muted">No resolved parlays yet.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <Card className="overflow-x-auto p-0">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-gray-200 text-gray-500 dark:border-gray-800">
-                  <th className="py-2 pr-4">Name</th>
+                <tr className="border-b border-border text-muted">
+                  <th className="py-2 pr-4 pl-3">Name</th>
                   <th className="py-2 pr-4">W-L-P</th>
                   <th className="py-2 pr-4">💰</th>
                   <th className="py-2 pr-4">💩</th>
@@ -148,21 +163,21 @@ export default async function LeaderboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.name} className="border-b border-gray-100 dark:border-gray-900">
-                    <td className="py-2 pr-4 font-medium">{row.name}</td>
-                    <td className="py-2 pr-4 text-gray-500">
+                {rows.map((row, i) => (
+                  <tr key={row.name} className={i % 2 === 1 ? "bg-white/[0.02]" : undefined}>
+                    <td className="py-2 pr-4 pl-3 font-medium">{row.name}</td>
+                    <td className="py-2 pr-4 text-muted">
                       {row.wins}-{row.losses}-{row.pushes}
                     </td>
-                    <td className="py-2 pr-4">{row.moneybag}</td>
-                    <td className="py-2 pr-4">{row.poo}</td>
-                    <td className="py-2 pr-4">{row.toilet}</td>
-                    <td className="py-2 pr-4">{row.cross}</td>
+                    <td className="py-2 pr-4 text-win">{row.moneybag}</td>
+                    <td className="py-2 pr-4 text-loss">{row.poo}</td>
+                    <td className="py-2 pr-4 text-loss">{row.toilet}</td>
+                    <td className="py-2 pr-4 text-win">{row.cross}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </Card>
         )}
       </section>
     </main>

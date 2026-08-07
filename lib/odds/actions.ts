@@ -2,8 +2,9 @@
 
 import { getOddsProvider } from "./index";
 import { toSportKeys } from "./leagueMap";
+import { DEFAULT_PROP_MARKETS, TEAM_MARKETS } from "./mapping";
 import { roundDownToBucket } from "./timeBucket";
-import { OddsProviderError, type ProviderGame, type ProviderProp } from "./types";
+import { OddsProviderError, type ProviderEvent, type ProviderProp } from "./types";
 
 // Live odds failing must never block manual entry or crash the pick page -- every path
 // here resolves to a typed { error } rather than throwing across the server action
@@ -24,13 +25,13 @@ function describeError(error: unknown): string {
   return "Couldn't load live odds.";
 }
 
-// Bounds the bulk fetch to roughly the current NFL week (Thu-Mon slate) -- without this,
-// the API returns every remaining game in the season (hundreds), not just the ones
-// anyone would plausibly be picking right now.
+// Bounds the schedule fetch to roughly the current NFL week (Thu-Mon slate) -- without
+// this, the API returns every remaining game in the season. This call itself is free
+// (no markets requested), but the window still keeps the list relevant.
 const UPCOMING_WINDOW_DAYS = 8;
 const BUCKET_MINUTES = 10;
 
-export async function getLiveGames(league: string): Promise<{ games: ProviderGame[] } | { error: string }> {
+export async function getUpcomingGames(league: string): Promise<{ games: ProviderEvent[] } | { error: string }> {
   const sportKeys = toSportKeys(league);
   if (!sportKeys) return { error: `Live odds aren't available for ${league}.` };
 
@@ -41,11 +42,11 @@ export async function getLiveGames(league: string): Promise<{ games: ProviderGam
   // are separate keys) -- query all of them and merge, so a quota/upstream error on one
   // doesn't wipe out results that succeeded on another.
   const settled = await Promise.allSettled(
-    sportKeys.map((sportKey) => getOddsProvider().listGamesWithOdds(sportKey, { commenceFrom, commenceTo })),
+    sportKeys.map((sportKey) => getOddsProvider().listEvents(sportKey, { commenceFrom, commenceTo })),
   );
 
   const games = settled
-    .filter((r): r is PromiseFulfilledResult<ProviderGame[]> => r.status === "fulfilled")
+    .filter((r): r is PromiseFulfilledResult<ProviderEvent[]> => r.status === "fulfilled")
     .flatMap((r) => r.value)
     .sort((a, b) => a.commenceTime.localeCompare(b.commenceTime));
 
@@ -57,12 +58,26 @@ export async function getLiveGames(league: string): Promise<{ games: ProviderGam
   return { games };
 }
 
+// User-initiated, per game -- this is the only place that spends real odds quota, since
+// listEvents above is free and nothing else auto-fetches odds.
+export async function getGameOdds(
+  sportKey: string,
+  eventId: string,
+): Promise<{ odds: ProviderProp } | { error: string }> {
+  try {
+    const odds = await getOddsProvider().getEventOdds(sportKey, eventId, TEAM_MARKETS);
+    return { odds };
+  } catch (error) {
+    return { error: describeError(error) };
+  }
+}
+
 export async function getGameProps(
   sportKey: string,
   eventId: string,
 ): Promise<{ props: ProviderProp } | { error: string }> {
   try {
-    const props = await getOddsProvider().listPlayerProps(sportKey, eventId);
+    const props = await getOddsProvider().getEventOdds(sportKey, eventId, DEFAULT_PROP_MARKETS);
     return { props };
   } catch (error) {
     return { error: describeError(error) };

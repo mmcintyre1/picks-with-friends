@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import type { LegResult } from "@/app/generated/prisma/enums";
+import { Button } from "@/components/ui/Button";
 
 import { GradeForm } from "./GradeForm";
 
@@ -21,11 +22,18 @@ export function ResolvedGradeEditor({
 
   if (!editing) {
     return (
-      <button type="button" onClick={() => setEditing(true)} className="text-xs text-gray-500 underline">
+      <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
         Something wrong? Fix the grades
-      </button>
+      </Button>
     );
   }
 
-  return <GradeForm parlayId={parlayId} legs={legs} initialResults={initialResults} />;
+  return (
+    <GradeForm
+      parlayId={parlayId}
+      legs={legs}
+      initialResults={initialResults}
+      onCancel={() => setEditing(false)}
+    />
+  );
 }

@@ -13,6 +13,8 @@ export const TEAM_PROP_MARKETS: Record<string, { label: string; shape: "overUnde
 
 export const DEFAULT_PROP_MARKETS = Object.keys(TEAM_PROP_MARKETS);
 
+export const TEAM_MARKETS = ["h2h", "spreads", "totals"];
+
 export const BOOKMAKER_PRIORITY = ["draftkings", "fanduel", "betmgm", "caesars"];
 
 export function pickPreferredBookmaker(

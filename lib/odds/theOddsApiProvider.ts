@@ -1,10 +1,10 @@
-import { BOOKMAKER_PRIORITY, DEFAULT_PROP_MARKETS } from "./mapping";
+import { BOOKMAKER_PRIORITY } from "./mapping";
 import { OddsProviderError } from "./types";
-import type { OddsProvider, ProviderGame, ProviderProp, ProviderScore } from "./types";
+import type { OddsProvider, ProviderEvent, ProviderGame, ProviderProp, ProviderScore } from "./types";
 
 const BASE_URL = "https://api.the-odds-api.com";
-const BULK_ODDS_REVALIDATE_SECONDS = 180;
-const PROP_ODDS_REVALIDATE_SECONDS = 300;
+const EVENTS_REVALIDATE_SECONDS = 3600; // schedule barely changes -- cache it generously
+const EVENT_ODDS_REVALIDATE_SECONDS = 300;
 
 // The Odds API wants whole-second ISO timestamps (no milliseconds) for commenceTimeFrom/To.
 function toApiTimestamp(date: Date): string {
@@ -74,26 +74,20 @@ export function createTheOddsApiProvider(apiKey: string): OddsProvider {
   }
 
   return {
-    async listGamesWithOdds(sportKey, opts): Promise<ProviderGame[]> {
-      const params: Record<string, string> = {
-        apiKey,
-        regions: "us",
-        markets: "h2h,spreads,totals",
-        oddsFormat: "american",
-        bookmakers: BOOKMAKER_PRIORITY.join(","),
-      };
-      // Without this, the API returns every remaining game in the season (hundreds) --
-      // narrow to the window the caller cares about. Format must be whole-second ISO
-      // with no milliseconds, per The Odds API's docs.
+    async listEvents(sportKey, opts): Promise<ProviderEvent[]> {
+      // No `markets` param -- this is the bare-schedule endpoint, which The Odds API
+      // doesn't charge for (cost is markets x regions; zero markets requested = free).
+      // This is what makes "browse the schedule for free, pay only for odds you click
+      // into" possible.
+      const params: Record<string, string> = { apiKey };
       if (opts?.commenceFrom) params.commenceTimeFrom = toApiTimestamp(opts.commenceFrom);
       if (opts?.commenceTo) params.commenceTimeTo = toApiTimestamp(opts.commenceTo);
 
-      const raw = await request(`/v4/sports/${sportKey}/odds/`, params, BULK_ODDS_REVALIDATE_SECONDS);
-      return (raw as RawGame[]).map(mapRawGame);
+      const raw = await request(`/v4/sports/${sportKey}/events/`, params, EVENTS_REVALIDATE_SECONDS);
+      return (raw as RawEvent[]).map(mapRawEvent);
     },
 
-    async listPlayerProps(sportKey: string, eventId: string, opts): Promise<ProviderProp> {
-      const markets = opts?.markets ?? DEFAULT_PROP_MARKETS;
+    async getEventOdds(sportKey: string, eventId: string, markets: string[]): Promise<ProviderProp> {
       const raw = await request(
         `/v4/sports/${sportKey}/events/${eventId}/odds/`,
         {
@@ -103,7 +97,7 @@ export function createTheOddsApiProvider(apiKey: string): OddsProvider {
           oddsFormat: "american",
           bookmakers: BOOKMAKER_PRIORITY.join(","),
         },
-        PROP_ODDS_REVALIDATE_SECONDS,
+        EVENT_ODDS_REVALIDATE_SECONDS,
       );
       return mapRawGame(raw as RawGame);
     },
@@ -148,6 +142,24 @@ type RawScore = {
   completed: boolean;
   scores: { name: string; score: number }[] | null;
 };
+// The bare /events response -- same identifying fields as RawGame, just no bookmakers.
+type RawEvent = {
+  id: string;
+  sport_key: string;
+  commence_time: string;
+  home_team: string;
+  away_team: string;
+};
+
+function mapRawEvent(raw: RawEvent): ProviderEvent {
+  return {
+    id: raw.id,
+    sportKey: raw.sport_key,
+    commenceTime: raw.commence_time,
+    homeTeam: raw.home_team,
+    awayTeam: raw.away_team,
+  };
+}
 
 function mapRawGame(raw: RawGame): ProviderGame {
   return {

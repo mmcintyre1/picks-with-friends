@@ -11,8 +11,8 @@ export default async function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-4">
       <div>
-        <h1 className="text-2xl font-semibold">Picks with Friends</h1>
-        <p className="mt-1 text-sm text-gray-500">Who&apos;s picking?</p>
+        <h1 className="text-2xl font-semibold text-accent">Picks with Friends</h1>
+        <p className="mt-1 text-sm text-muted">Who&apos;s picking?</p>
       </div>
       <LoginForm
         members={members.map((m) => ({
