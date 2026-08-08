@@ -9,6 +9,13 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     background_color: "#0a0e16",
     theme_color: "#0a0e16",
-    icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml" }],
+    // Single 1254x1254 source, declared at the two standard manifest sizes -- browsers
+    // downscale from it. Not marked "maskable": the ticket shape's margins are close to
+    // Android's safe-zone minimum, so letting the OS pad/letterbox it as a regular icon
+    // is safer than promising it survives an aggressive circular/adaptive crop.
+    icons: [
+      { src: "/icon.png", sizes: "192x192", type: "image/png" },
+      { src: "/icon.png", sizes: "512x512", type: "image/png" },
+    ],
   };
 }

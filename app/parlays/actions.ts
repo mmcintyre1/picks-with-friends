@@ -219,9 +219,10 @@ export async function setOddsOverride(parlayId: string, value: string): Promise<
 }
 
 // Open to any group member, not just the creator -- same reasoning as gradeParlay below:
-// nothing adversarial about this group, no reason to make one person a bottleneck.
+// nothing adversarial about this group, no reason to make one person a bottleneck. Who
+// actually locked it is still recorded (lockedById), just as attribution, not a gate.
 export async function lockParlay(parlayId: string): Promise<ActionResult> {
-  await requireUserAndGroup();
+  const { user } = await requireUserAndGroup();
 
   const parlay = await prisma.parlay.findUnique({ where: { id: parlayId }, include: { legs: true } });
   if (!parlay) return { error: "Parlay not found." };
@@ -232,7 +233,7 @@ export async function lockParlay(parlayId: string): Promise<ActionResult> {
 
   await prisma.parlay.update({
     where: { id: parlayId },
-    data: { status: ParlayStatus.LOCKED, lockedAt: new Date() },
+    data: { status: ParlayStatus.LOCKED, lockedAt: new Date(), lockedById: user.id },
   });
 
   revalidatePath(`/parlays/${parlayId}`);
@@ -245,8 +246,8 @@ export async function gradeParlay(
 ): Promise<ActionResult> {
   // Grading isn't a secret and there's no adversarial concern here -- any group member
   // can grade a locked parlay, and any group member can correct a resolved one later if
-  // something was graded wrong.
-  await requireUserAndGroup();
+  // something was graded wrong. gradedById always reflects the most recent grader.
+  const { user } = await requireUserAndGroup();
 
   const parlay = await prisma.parlay.findUnique({ where: { id: parlayId }, include: { legs: true } });
   if (!parlay) return { error: "Parlay not found." };
@@ -268,7 +269,7 @@ export async function gradeParlay(
     ),
     prisma.parlay.update({
       where: { id: parlayId },
-      data: { status: ParlayStatus.RESOLVED, resolvedAt: new Date(), result: overallResult },
+      data: { status: ParlayStatus.RESOLVED, resolvedAt: new Date(), result: overallResult, gradedById: user.id },
     }),
   ]);
 

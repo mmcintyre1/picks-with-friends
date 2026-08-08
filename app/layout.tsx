@@ -27,7 +27,7 @@ const oswald = Oswald({
 export const metadata: Metadata = {
   title: "Picks with Friends",
   description: "Group parlay tracking for the crew.",
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  icons: { icon: "/icon.png", apple: "/icon.png" },
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Picks with Friends" },
 };
 

@@ -34,6 +34,8 @@ model User {
   memberships    GroupMember[]
   legs           Leg[]
   createdParlays Parlay[]      @relation("ParlayCreator")
+  lockedParlays  Parlay[]      @relation("ParlayLockedBy")
+  gradedParlays  Parlay[]      @relation("ParlayGradedBy")
 }
 
 enum Role {
@@ -183,11 +185,22 @@ model Parlay {
   createdAt       DateTime     @default(now())
   lockedAt        DateTime?
   resolvedAt      DateTime?
+  // Who locked it, and who most recently graded/resolved it -- attribution, not a
+  // permission gate (locking/grading stay open to any group member). `gradedById` is
+  // overwritten on each correction, so it always reflects the latest grader. Both stay
+  // null until that action happens; `gradedById` is expected to stay null forever once
+  // auto-grading (an eventual ESPN-scores-triggered "Evaluate" action) lands instead of a
+  // person doing it -- the UI should read a null gradedBy as "not graded by a person" and
+  // can special-case "Auto-evaluated" once that feature actually exists.
+  lockedById      String?
+  gradedById      String?
 
-  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  window  Window @relation(fields: [windowId], references: [id], onDelete: Cascade)
-  creator User   @relation("ParlayCreator", fields: [creatorId], references: [id])
-  legs    Leg[]
+  group    Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  window   Window @relation(fields: [windowId], references: [id], onDelete: Cascade)
+  creator  User   @relation("ParlayCreator", fields: [creatorId], references: [id])
+  lockedBy User?  @relation("ParlayLockedBy", fields: [lockedById], references: [id])
+  gradedBy User?  @relation("ParlayGradedBy", fields: [gradedById], references: [id])
+  legs     Leg[]
 }
 
 enum LegStatus {

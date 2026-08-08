@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
+import { PlayerName } from "@/components/PlayerName";
 import { Card } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { BADGE_EMOJI } from "@/lib/badges";
@@ -45,6 +46,8 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
     include: {
       window: true,
       legs: { include: { user: true, game: true } },
+      lockedBy: true,
+      gradedBy: true,
     },
   });
   if (!parlay || parlay.groupId !== group.id) notFound();
@@ -92,6 +95,22 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
           <p className="mt-1 text-xs text-push">Just for fun — doesn&apos;t count toward the record</p>
         )}
         <div className="mt-2">{parlayStatusPill(parlay.status, parlay.result)}</div>
+        {(parlay.lockedBy || parlay.gradedBy) && (
+          <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-subtle">
+            {parlay.lockedBy && (
+              <span>
+                Locked by{" "}
+                <PlayerName name={parlay.lockedBy.name ?? parlay.lockedBy.username} flair={parlay.lockedBy.flair} />
+              </span>
+            )}
+            {parlay.gradedBy && (
+              <span>
+                Evaluated by{" "}
+                <PlayerName name={parlay.gradedBy.name ?? parlay.gradedBy.username} flair={parlay.gradedBy.flair} />
+              </span>
+            )}
+          </p>
+        )}
       </div>
 
       {parlay.legs.length > 0 && (
