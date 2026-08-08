@@ -116,7 +116,7 @@ export default async function LeaderboardPage() {
     .sort((a, b) => b.wins - b.losses - (a.wins - a.losses));
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-8 px-4 py-12">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-12">
       <h1 className="font-display text-3xl tracking-wide">All-time leaderboard</h1>
 
       <section className="flex flex-col gap-3">

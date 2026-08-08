@@ -7,7 +7,6 @@ import { PencilIcon } from "@/components/ui/icons";
 
 import { CancelLegButton } from "./CancelLegButton";
 import { LegRow } from "./LegRow";
-import { LockButton } from "./LockButton";
 import { NoPickSummary } from "./NoPickSummary";
 import { PickLegForm } from "./PickLegForm";
 
@@ -105,8 +104,6 @@ export function PickFlow({
           />
         </div>
       )}
-
-      <LockButton parlayId={parlayId} />
     </div>
   );
 }

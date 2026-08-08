@@ -9,7 +9,7 @@ export default async function LoginPage() {
   });
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-4">
+    <main className="mx-auto flex w-full min-h-screen max-w-sm flex-col justify-center gap-6 px-4">
       <div>
         <h1 className="font-display text-3xl tracking-wide text-accent">Picks with Friends</h1>
         <p className="mt-1 text-sm text-muted">Who&apos;s picking?</p>

@@ -15,10 +15,10 @@ import type { ScheduleGame } from "@/lib/schedule/types";
 function TeamBadge({ league, name }: { league: string; name: string }) {
   const logo = teamLogoUrl(league, name);
   if (logo) {
-    return <Image src={logo} alt="" width={24} height={24} className="h-6 w-6 shrink-0 object-contain" />;
+    return <Image src={logo} alt="" width={20} height={20} className="h-5 w-5 shrink-0 object-contain" />;
   }
   return (
-    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-[10px] font-semibold text-subtle">
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/5 text-[9px] font-semibold text-subtle">
       {name.trim().charAt(0).toUpperCase() || "?"}
     </span>
   );
@@ -74,16 +74,16 @@ export function ScheduleBrowser({
       {games.map((game) => (
         <Card
           key={game.id}
-          className="flex flex-col gap-2 p-3 transition-colors hover:border-border-strong sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-1.5 p-2.5 transition-colors hover:border-border-strong sm:flex-row sm:items-center sm:justify-between"
         >
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
             <TeamBadge league={league} name={game.awayTeam} />
             <span className="min-w-0 truncate text-sm font-medium">{game.awayTeam}</span>
             <span className="shrink-0 text-xs text-subtle">@</span>
             <TeamBadge league={league} name={game.homeTeam} />
             <span className="min-w-0 truncate text-sm font-medium">{game.homeTeam}</span>
           </div>
-          <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+          <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
             <span className="font-display text-xs tracking-wide text-subtle tabular-nums">
               {formatGameTime(game.commenceTime)}
             </span>

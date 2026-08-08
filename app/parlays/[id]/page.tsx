@@ -18,6 +18,7 @@ import { requireUserAndGroup } from "@/lib/session";
 
 import { GradeForm } from "./GradeForm";
 import { LegRow } from "./LegRow";
+import { LockButton } from "./LockButton";
 import { NoPickSummary } from "./NoPickSummary";
 import { OddsOverrideEditor } from "./OddsOverrideEditor";
 import { PickFlow } from "./PickFlow";
@@ -82,7 +83,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
   });
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-12">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-12">
       <div>
         {parlay.window.label && (
           <p className="text-xs uppercase tracking-wide text-muted">{parlay.window.league}</p>
@@ -149,6 +150,9 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
             oddsOverride={parlay.oddsOverride}
             hasSameGameLegs={hasSameGameLegs}
           />
+          {/* Locking is a whole-parlay action, not part of any one person's pick -- lives
+              on this parlay-level summary card, not inside the per-leg pick flow below. */}
+          {parlay.status === ParlayStatus.OPEN && <LockButton parlayId={parlay.id} />}
         </Card>
       )}
 

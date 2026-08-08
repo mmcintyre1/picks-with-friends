@@ -100,3 +100,24 @@ export function propTypesForPosition(league: string, position: string | undefine
   if (!position) return GENERIC_PROP_TYPES;
   return PROP_TYPES_BY_LEAGUE[league]?.[position] ?? UNMAPPED_POSITION_PROP_TYPES;
 }
+
+// True only for positions with a real, specific mapped list -- used to filter the
+// player-prop picker's roster list down to players actually worth showing (skips
+// offensive linemen etc., which would otherwise only ever offer the generic fallback).
+export function hasMappedPropTypes(league: string, position: string): boolean {
+  return Boolean(PROP_TYPES_BY_LEAGUE[league]?.[position]);
+}
+
+// No real popularity/stats signal to sort by, so this leans on something we do have: each
+// league's map above already declares its positions in a sensible display order (NFL's
+// offensive skill positions -- QB/RB/FB/WR/TE -- come before defense). Reused to sort the
+// player-prop picker's roster list so offense shows up before defense, etc., without
+// needing new data. Unmapped positions (already filtered out by hasMappedPropTypes before
+// this runs) sort last if they ever show up here anyway.
+export function positionSortRank(league: string, position: string): number {
+  const positions = PROP_TYPES_BY_LEAGUE[league];
+  if (!positions) return 0;
+  const keys = Object.keys(positions);
+  const index = keys.indexOf(position);
+  return index === -1 ? keys.length : index;
+}

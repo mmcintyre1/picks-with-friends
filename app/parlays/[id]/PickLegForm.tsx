@@ -7,13 +7,15 @@ import { Market, Side } from "@/app/generated/prisma/enums";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { XIcon } from "@/components/ui/icons";
+import { ArrowLeftIcon, RotateCcwIcon } from "@/components/ui/icons";
 import { getRostersForGame, type GameRosterPlayer } from "@/lib/rosters/actions";
 import { findTeamIdByName, isRosterLeague, LEAGUE_TEAMS, PICKABLE_LEAGUES, teamLogoUrl } from "@/lib/rosters/leagues";
 import { propTypesForPosition } from "@/lib/rosters/propTypes";
 
 import { pickLeg } from "../actions";
+import { PlayerPropPicker } from "./PlayerPropPicker";
 import { ScheduleBrowser } from "./ScheduleBrowser";
+import { TeamMarketGrid } from "./TeamMarketGrid";
 
 type Initial = {
   homeTeam: string;
@@ -134,14 +136,6 @@ function slipFromInitial(initial?: Initial): Slip {
     price: initial.price?.toString() ?? "",
     externalId: null,
   };
-}
-
-// "HOME"/"AWAY" on their own don't say which team that is -- show the actual team name
-// once one's been entered, falling back to the literal side name until then.
-function sideLabel(side: Side, homeTeam: string, awayTeam: string): string {
-  if (side === Side.HOME) return homeTeam.trim() || "Home";
-  if (side === Side.AWAY) return awayTeam.trim() || "Away";
-  return side === Side.OVER ? "Over" : "Under";
 }
 
 const isSlipEmpty = (slip: Slip) =>
@@ -269,7 +263,6 @@ export function PickLegForm({
     });
   }
 
-  const teamSideOptions = slip.kind === "team" && slip.market === Market.TOTAL ? [Side.OVER, Side.UNDER] : [Side.HOME, Side.AWAY];
   // Gate the propType suggestions to the selected player's position (a QB sees passing
   // props, a corner sees interceptions/tackles, etc.).
   const selectedPlayerPosition =
@@ -349,46 +342,42 @@ export function PickLegForm({
       {showSlip && (
         <div className="pb-[env(safe-area-inset-bottom)]">
           <Card className="flex flex-col gap-3 border-border-strong p-4 shadow-xl shadow-black/50">
-            <div className="flex flex-wrap items-center gap-2">
-              {hasMatchup && (
-                <Button type="button" variant="ghost" size="sm" onClick={changeGame}>
-                  Change game
-                </Button>
-              )}
-              <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
                 {hasMatchup && (
-                  <Button type="button" variant="ghost" size="sm" onClick={clearBetDetails}>
-                    Clear bet
-                  </Button>
+                  <button
+                    type="button"
+                    title="Change game"
+                    onClick={changeGame}
+                    className="rounded-md border border-border-strong p-2 text-muted hover:text-foreground"
+                  >
+                    <ArrowLeftIcon className="h-4 w-4" />
+                  </button>
                 )}
-                {slip.kind === "prop" && (
-                  <SegmentedControl
-                    size="sm"
-                    name="Prop shape"
-                    value={slip.propShape}
-                    onChange={(shape) =>
-                      setSlip({ ...slip, propShape: shape, side: shape === "yesNo" ? Side.YES : Side.OVER })
-                    }
-                    options={[
-                      { value: "overUnder", label: "Over/Under" },
-                      { value: "yesNo", label: "Yes/No" },
-                    ]}
-                  />
+                {hasMatchup && (
+                  <button
+                    type="button"
+                    title="Clear bet details"
+                    onClick={clearBetDetails}
+                    className="rounded-md border border-border-strong p-2 text-muted hover:text-foreground"
+                  >
+                    <RotateCcwIcon className="h-4 w-4" />
+                  </button>
                 )}
-                <SegmentedControl
-                  size="sm"
-                  name="Pick kind"
-                  value={slip.kind}
-                  onChange={setKind}
-                  options={[
-                    { value: "team", label: "Team bet" },
-                    { value: "prop", label: "Player prop" },
-                  ]}
-                />
               </div>
+              <SegmentedControl
+                size="sm"
+                name="Pick kind"
+                value={slip.kind}
+                onChange={setKind}
+                options={[
+                  { value: "team", label: "Team bet" },
+                  { value: "prop", label: "Player prop" },
+                ]}
+              />
             </div>
-  
-            <form onSubmit={onSubmit} className="flex flex-col gap-2">
+
+            <form onSubmit={onSubmit} className="flex flex-col gap-3">
               {rosterSupported && (
                 <datalist id="league-teams">
                   {LEAGUE_TEAMS[effectiveLeague]?.map((t) => (
@@ -396,26 +385,14 @@ export function PickLegForm({
                   ))}
                 </datalist>
               )}
-              {players && (
-                <datalist id="prop-players">
-                  {players.map((p) => (
-                    <option key={`${p.name}-${p.team}`} value={p.name}>
-                      {p.team} · {p.position}
-                    </option>
-                  ))}
-                </datalist>
-              )}
-              {slip.kind === "prop" && (
+              {slip.kind === "prop" && !rosterSupported && (
                 <datalist id="prop-types">
                   {propTypeOptions.map((t) => (
                     <option key={t} value={t} />
                   ))}
                 </datalist>
               )}
-  
-              {/* Every data-entry row below shares one continuous surface (one border, one
-                  background, a divider between rows) instead of each row boxed on its own --
-                  the whole thing reads as one form. */}
+
               <div className={fieldListClass}>
                 <div className={fieldRowClass}>
                   <div className="relative min-w-0 flex-1">
@@ -460,34 +437,20 @@ export function PickLegForm({
                     )}
                   </div>
                 </div>
+              </div>
 
-                {slip.kind === "team" ? (
-                  <>
-                    <div className={fieldRowClass}>
-                      <select
-                        value={slip.market}
-                        onChange={(e) => {
-                          const m = e.target.value as Market;
-                          setSlip({ ...slip, market: m, side: m === Market.TOTAL ? Side.OVER : Side.HOME });
-                        }}
-                        className={groupFieldClass}
-                      >
-                        <option value={Market.SPREAD}>Spread</option>
-                        <option value={Market.TOTAL}>Total</option>
-                        <option value={Market.MONEYLINE}>Moneyline</option>
-                      </select>
-                      <select
-                        value={slip.side}
-                        onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
-                        className={groupFieldClass}
-                      >
-                        {teamSideOptions.map((s) => (
-                          <option key={s} value={s}>
-                            {sideLabel(s, slip.homeTeam, slip.awayTeam)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+              {slip.kind === "team" ? (
+                <>
+                  <TeamMarketGrid
+                    awayTeam={slip.awayTeam}
+                    homeTeam={slip.homeTeam}
+                    awayLogo={awayLogo}
+                    homeLogo={homeLogo}
+                    market={slip.market}
+                    side={slip.side}
+                    onSelect={(market, side) => setSlip({ ...slip, market, side })}
+                  />
+                  <div className={fieldListClass}>
                     <div className={fieldRowClass}>
                       {slip.market !== Market.MONEYLINE && (
                         <input
@@ -500,39 +463,59 @@ export function PickLegForm({
                       )}
                       {priceField}
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <div className={fieldRowClass}>
-                      <div className="relative min-w-0 flex-1">
+                  </div>
+                </>
+              ) : (
+                <>
+                  {rosterSupported ? (
+                    <PlayerPropPicker
+                      league={effectiveLeague}
+                      players={players}
+                      loading={loadingPlayers}
+                      error={playersError}
+                      onRetry={() => loadPlayers(slip.homeTeam.trim(), slip.awayTeam.trim())}
+                      playerName={slip.playerName}
+                      playerPosition={selectedPlayerPosition}
+                      propType={slip.propType}
+                      propTypeOptions={propTypeOptions}
+                      onSelectPlayer={(name) => setSlip({ ...slip, playerName: name })}
+                      onClearPlayer={() => setSlip({ ...slip, playerName: "", propType: "" })}
+                      onSelectPropType={(t) => setSlip({ ...slip, propType: t })}
+                    />
+                  ) : (
+                    <div className={fieldListClass}>
+                      <div className={fieldRowClass}>
                         <input
                           value={slip.playerName}
                           onChange={(e) => setSlip({ ...slip, playerName: e.target.value })}
                           placeholder="Player name"
                           autoComplete="off"
-                          list={players ? "prop-players" : undefined}
-                          className={`${groupFieldClass} w-full ${slip.playerName ? "pr-7" : ""}`}
+                          className={groupFieldClass}
                         />
-                        {slip.playerName && (
-                          <button
-                            type="button"
-                            onClick={() => setSlip({ ...slip, playerName: "", propType: "" })}
-                            aria-label="Clear player name"
-                            className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-0.5 text-subtle hover:text-foreground"
-                          >
-                            <XIcon className="h-3.5 w-3.5" />
-                          </button>
-                        )}
+                        <input
+                          value={slip.propType}
+                          onChange={(e) => setSlip({ ...slip, propType: e.target.value })}
+                          placeholder="Stat (e.g. Passing Yards)"
+                          autoComplete="off"
+                          list="prop-types"
+                          className={groupFieldClass}
+                        />
                       </div>
-                      <input
-                        value={slip.propType}
-                        onChange={(e) => setSlip({ ...slip, propType: e.target.value })}
-                        placeholder="Stat (e.g. Passing Yards)"
-                        autoComplete="off"
-                        list="prop-types"
-                        className={groupFieldClass}
-                      />
                     </div>
+                  )}
+                  <SegmentedControl
+                    size="sm"
+                    name="Prop shape"
+                    value={slip.propShape}
+                    onChange={(shape) =>
+                      setSlip({ ...slip, propShape: shape, side: shape === "yesNo" ? Side.YES : Side.OVER })
+                    }
+                    options={[
+                      { value: "overUnder", label: "Over/Under" },
+                      { value: "yesNo", label: "Yes/No" },
+                    ]}
+                  />
+                  <div className={fieldListClass}>
                     {slip.propShape === "overUnder" ? (
                       <>
                         <div className={fieldRowClass}>
@@ -567,29 +550,12 @@ export function PickLegForm({
                         {priceField}
                       </div>
                     )}
-                  </>
-                )}
-              </div>
-  
+                  </div>
+                </>
+              )}
+
               {hadProviderLink && !slip.externalId && (
                 <p className="text-xs text-pending">Unlinked — will save as manual entry.</p>
-              )}
-              {slip.kind === "prop" && rosterSupported && (loadingPlayers || playersError) && (
-                <div className="flex items-center gap-2 text-xs">
-                  {loadingPlayers && <span className="text-muted">Loading players…</span>}
-                  {playersError && (
-                    <>
-                      <span className="text-push">{playersError}</span>
-                      <button
-                        type="button"
-                        onClick={() => loadPlayers(slip.homeTeam.trim(), slip.awayTeam.trim())}
-                        className="text-muted underline hover:text-foreground"
-                      >
-                        Retry
-                      </button>
-                    </>
-                  )}
-                </div>
               )}
 
               {error && <p className="text-xs text-loss">{error}</p>}

@@ -29,7 +29,7 @@ export default async function DashboardPage() {
   const resolved = parlays.filter((p) => p.status === ParlayStatus.RESOLVED);
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-8 px-4 py-12">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-12">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl tracking-wide">Hey {user.name ?? user.username}</h1>
         <Link href="/parlays/new" className={buttonClassName()}>
