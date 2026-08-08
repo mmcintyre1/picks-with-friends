@@ -34,3 +34,15 @@ export function findTeamIdByName(league: string, name: string): string | undefin
   const needle = name.trim().toLowerCase();
   return teams.find((t) => t.name.toLowerCase() === needle)?.id;
 }
+
+// ESPN's team-logo CDN is public, unauthenticated, and keyed by the same numeric team ids
+// as LEAGUE_TEAMS (both come from the same ESPN site API) -- e.g.
+// https://a.espncdn.com/i/teamlogos/nfl/500/12.png for the Chiefs. The CDN's sport slug is
+// just the last segment of LEAGUE_ESPN_PATHS (football/nfl -> nfl).
+export function teamLogoUrl(league: string, name: string): string | null {
+  const id = findTeamIdByName(league, name);
+  const sportPath = LEAGUE_ESPN_PATHS[league];
+  if (!id || !sportPath) return null;
+  const slug = sportPath.split("/").pop();
+  return `https://a.espncdn.com/i/teamlogos/${slug}/500/${id}.png`;
+}
