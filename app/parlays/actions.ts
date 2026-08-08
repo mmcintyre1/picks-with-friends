@@ -13,7 +13,6 @@ export type ActionResult = { error: string } | undefined;
 export type CreateParlayInput = {
   league: string;
   label: string;
-  isFreeForAll: boolean;
   countsForRecord: boolean;
   stake: string;
 };
@@ -39,7 +38,6 @@ export async function createParlay(input: CreateParlayInput): Promise<ActionResu
       label: input.label.trim() || null,
       startsAt: now,
       endsAt: now,
-      isFreeForAll: input.isFreeForAll,
     },
   });
 
@@ -59,9 +57,9 @@ export async function createParlay(input: CreateParlayInput): Promise<ActionResu
 export type PickLegInput = {
   homeTeam: string;
   awayTeam: string;
-  // The sport this specific pick is for -- always "NFL" for the fixed slot presets, but
-  // chosen per pick for Free-for-all windows (see Window.isFreeForAll), since different
-  // members can pick different sports within the same parlay.
+  // The sport this specific pick is for, chosen per pick in PickLegForm's Sport selector --
+  // independent of the parlay's Window.league label, since different members can pick
+  // different sports within the same parlay regardless of what the parlay is tagged.
   league: string;
   market: Market;
   side: Side;

@@ -38,16 +38,12 @@ export function PickFlow({
   parlayId,
   memberRows,
   myLegInitial,
-  liveOddsAvailable,
-  perPickLeague,
-  league,
+  defaultLeague,
 }: {
   parlayId: string;
   memberRows: MemberRow[];
   myLegInitial?: Initial;
-  liveOddsAvailable: boolean;
-  perPickLeague: boolean;
-  league: string;
+  defaultLeague: string;
 }) {
   const hasLeg = Boolean(myLegInitial);
   const [editing, setEditing] = useState(!hasLeg);
@@ -103,9 +99,7 @@ export function PickFlow({
           </div>
           <PickLegForm
             parlayId={parlayId}
-            liveOddsAvailable={liveOddsAvailable}
-            perPickLeague={perPickLeague}
-            league={league}
+            defaultLeague={defaultLeague}
             initial={myLegInitial}
             onDone={() => setEditing(false)}
           />

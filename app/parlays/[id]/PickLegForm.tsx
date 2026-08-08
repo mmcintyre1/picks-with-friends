@@ -7,11 +7,10 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { getRostersForGame, type GameRosterPlayer } from "@/lib/rosters/actions";
-import { findTeamIdByName, FREE_FOR_ALL_SPORTS, isRosterLeague, LEAGUE_TEAMS } from "@/lib/rosters/leagues";
+import { findTeamIdByName, isRosterLeague, LEAGUE_TEAMS, PICKABLE_LEAGUES } from "@/lib/rosters/leagues";
 import { propTypesForPosition } from "@/lib/rosters/propTypes";
 
 import { pickLeg } from "../actions";
-import { LiveOddsBrowser, type PropPick, type TeamBetPick } from "./LiveOddsBrowser";
 import { ScheduleBrowser } from "./ScheduleBrowser";
 
 type Initial = {
@@ -26,7 +25,12 @@ type Initial = {
   propType: string | null;
 };
 
-type Sport = "NBA" | "MLB" | "NHL" | "other";
+type Sport = "NFL" | "NBA" | "MLB" | "NHL" | "other";
+
+const SPORT_OPTIONS: { value: Sport; label: string }[] = [
+  ...PICKABLE_LEAGUES.map((l) => ({ value: l as Sport, label: l })),
+  { value: "other", label: "Other" },
+];
 
 const TEAM_MARKETS = new Set<Market>([Market.SPREAD, Market.TOTAL, Market.MONEYLINE]);
 
@@ -34,7 +38,7 @@ const fieldClass =
   "rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground placeholder:text-subtle";
 
 function initialSport(league: string | null | undefined): Sport {
-  return league && (FREE_FOR_ALL_SPORTS as string[]).includes(league) ? (league as Sport) : "other";
+  return league && (PICKABLE_LEAGUES as string[]).includes(league) ? (league as Sport) : "other";
 }
 
 // A single discriminated-union "slip" replaces the old team-bet-fields-plus-prop-fields
@@ -129,63 +133,31 @@ function sideLabel(side: Side, homeTeam: string, awayTeam: string): string {
   return side === Side.OVER ? "Over" : "Under";
 }
 
-function slipToSelection(slip: Slip): TeamBetPick | PropPick | null {
-  if (!slip.externalId) return null;
-  const price = Number(slip.price);
-  if (Number.isNaN(price)) return null;
-  const line = slip.line ? Number(slip.line) : null;
-  if (slip.kind === "team") {
-    return {
-      homeTeam: slip.homeTeam,
-      awayTeam: slip.awayTeam,
-      market: slip.market,
-      side: slip.side,
-      line,
-      price,
-      externalId: slip.externalId,
-    };
-  }
-  return {
-    homeTeam: slip.homeTeam,
-    awayTeam: slip.awayTeam,
-    market: slip.propShape === "yesNo" ? Market.PLAYER_PROP_YESNO : Market.PLAYER_PROP,
-    side: slip.side,
-    line,
-    price,
-    externalId: slip.externalId,
-    playerName: slip.playerName,
-    propType: slip.propType,
-  };
-}
-
 const isSlipEmpty = (slip: Slip) =>
   !slip.homeTeam.trim() && !slip.awayTeam.trim() && !slip.price.trim() && !slip.externalId;
 
 export function PickLegForm({
   parlayId,
   initial,
-  liveOddsAvailable,
-  perPickLeague,
-  league,
+  defaultLeague,
   onDone,
 }: {
   parlayId: string;
   initial?: Initial;
-  liveOddsAvailable: boolean;
-  // True for Free-for-all windows -- different members can pick different sports within
-  // the same parlay, so the Sport selector below (not the parlay-level `league`) decides
-  // what this specific pick's league actually is. False for NFL slot windows, where
-  // `league` is always "NFL" and there's nothing to choose per pick.
-  perPickLeague: boolean;
-  league: string;
+  // A hint, not a restriction -- seeds the Sport selector's initial value (e.g. a parlay
+  // tagged "1pm" defaults to NFL) but every pick can still choose any sport.
+  defaultLeague: string;
   onDone?: () => void;
 }) {
   const [slip, setSlip] = useState<Slip>(() => slipFromInitial(initial));
-  const [sport, setSport] = useState<Sport>(() => initialSport(initial?.league));
+  const [sport, setSport] = useState<Sport>(() => initialSport(initial?.league ?? defaultLeague));
   const [hadProviderLink, setHadProviderLink] = useState(false);
-  const [entryMode, setEntryMode] = useState<"browse" | "manual">(
-    liveOddsAvailable || perPickLeague ? "browse" : "manual",
-  );
+
+  // The league this specific pick is actually for -- always the Sport selector's choice.
+  const effectiveLeague = sport === "other" ? "" : sport;
+  const canBrowseSchedule = sport !== "other";
+
+  const [entryMode, setEntryMode] = useState<"browse" | "manual">(canBrowseSchedule ? "browse" : "manual");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [players, setPlayers] = useState<GameRosterPlayer[] | null>(null);
@@ -196,14 +168,7 @@ export function PickLegForm({
   // matchup changes. A ref, not state, since it's read/written but never itself rendered.
   const loadedForPair = useRef<string | null>(null);
 
-  // The league this specific pick is actually for -- the Sport selector's choice when
-  // it's a Free-for-all window, otherwise always the parlay's fixed NFL league.
-  const effectiveLeague = perPickLeague ? (sport === "other" ? "" : sport) : league;
-  const canBrowseSchedule = perPickLeague && sport !== "other";
-
-  // Roster/player-prop autofill covers NFL/NBA/MLB/NHL (lib/rosters/leagues.ts) -- distinct
-  // from liveOddsAvailable, which stays NFL-only since it's gated by The Odds API access,
-  // not by whether ESPN publishes rosters for the sport.
+  // Roster/player-prop autofill covers NFL/NBA/MLB/NHL (lib/rosters/leagues.ts).
   const rosterSupported = isRosterLeague(effectiveLeague);
 
   async function loadPlayers(homeTeam: string, awayTeam: string) {
@@ -250,36 +215,6 @@ export function PickLegForm({
     setHadProviderLink(false);
   }
 
-  function onSelectTeamBet(pick: TeamBetPick) {
-    setSlip({
-      kind: "team",
-      homeTeam: pick.homeTeam,
-      awayTeam: pick.awayTeam,
-      market: pick.market,
-      side: pick.side,
-      line: pick.line?.toString() ?? "",
-      price: pick.price.toString(),
-      externalId: pick.externalId,
-    });
-    setHadProviderLink(true);
-  }
-
-  function onSelectProp(pick: PropPick) {
-    setSlip({
-      kind: "prop",
-      homeTeam: pick.homeTeam,
-      awayTeam: pick.awayTeam,
-      propShape: pick.market === Market.PLAYER_PROP_YESNO ? "yesNo" : "overUnder",
-      playerName: pick.playerName,
-      propType: pick.propType,
-      side: pick.side,
-      line: pick.line?.toString() ?? "",
-      price: pick.price.toString(),
-      externalId: pick.externalId,
-    });
-    setHadProviderLink(true);
-  }
-
   function onSelectScheduleGame(game: { homeTeam: string; awayTeam: string; externalId: string }) {
     setSlip((prev) => ({ ...prev, homeTeam: game.homeTeam, awayTeam: game.awayTeam, externalId: game.externalId }));
     setHadProviderLink(true);
@@ -310,7 +245,6 @@ export function PickLegForm({
     });
   }
 
-  const selection = slipToSelection(slip);
   const teamSideOptions = slip.kind === "team" && slip.market === Market.TOTAL ? [Side.OVER, Side.UNDER] : [Side.HOME, Side.AWAY];
   // Gate the propType suggestions to the selected player's position (a QB sees passing
   // props, a corner sees interceptions/tackles, etc.) rather than one generic list --
@@ -321,39 +255,28 @@ export function PickLegForm({
 
   return (
     <div className="flex flex-col gap-3">
-      {perPickLeague && (
-        <SegmentedControl
-          size="sm"
-          name="Sport"
-          value={sport}
-          onChange={(next) => {
-            setSport(next);
-            setHadProviderLink(false);
-          }}
-          options={[
-            { value: "NBA", label: "NBA" },
-            { value: "MLB", label: "MLB" },
-            { value: "NHL", label: "NHL" },
-            { value: "other", label: "Other" },
-          ]}
-        />
-      )}
+      <SegmentedControl
+        size="sm"
+        name="Sport"
+        value={sport}
+        onChange={(next) => {
+          setSport(next);
+          setHadProviderLink(false);
+        }}
+        options={SPORT_OPTIONS}
+      />
 
-      {(liveOddsAvailable || canBrowseSchedule) && (
+      {canBrowseSchedule && (
         <SegmentedControl
           size="sm"
           name="Entry mode"
           value={entryMode}
           onChange={setEntryMode}
           options={[
-            { value: "browse", label: liveOddsAvailable ? "Browse live odds" : "Browse schedule" },
+            { value: "browse", label: "Browse schedule" },
             { value: "manual", label: "Type it manually" },
           ]}
         />
-      )}
-
-      {liveOddsAvailable && entryMode === "browse" && (
-        <LiveOddsBrowser league={league} onSelectTeamBet={onSelectTeamBet} onSelectProp={onSelectProp} selected={selection} />
       )}
 
       {canBrowseSchedule && entryMode === "browse" && (

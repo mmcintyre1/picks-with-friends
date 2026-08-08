@@ -1,6 +1,15 @@
 import type { ScheduleGame, ScheduleProvider } from "./types";
 
 const GAMES: Record<string, ScheduleGame[]> = {
+  NFL: [
+    {
+      id: "evt_broncos_chiefs",
+      league: "NFL",
+      commenceTime: "2026-08-09T20:25:00Z",
+      homeTeam: "Denver Broncos",
+      awayTeam: "Kansas City Chiefs",
+    },
+  ],
   NBA: [
     {
       id: "evt_lakers_celtics",

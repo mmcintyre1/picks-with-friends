@@ -24,9 +24,9 @@ export function isRosterLeague(league: string): boolean {
   return league in LEAGUE_ESPN_PATHS;
 }
 
-// NFL already has its own dedicated slot presets (1pm/4pm/SNF/TNF/MNF), so it's not
-// offered again in Free-for-all's per-pick Sport selector -- these are the rest.
-export const FREE_FOR_ALL_SPORTS = Object.keys(LEAGUE_ESPN_PATHS).filter((l) => l !== "NFL");
+// Every league offered in PickLegForm's per-pick Sport selector -- every parlay uses the
+// same pick flow now regardless of label, so this is just "all roster-backed leagues."
+export const PICKABLE_LEAGUES = Object.keys(LEAGUE_ESPN_PATHS);
 
 export function findTeamIdByName(league: string, name: string): string | undefined {
   const teams = LEAGUE_TEAMS[league];

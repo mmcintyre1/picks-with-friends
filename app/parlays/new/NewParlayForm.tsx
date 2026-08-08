@@ -39,12 +39,12 @@ export function NewParlayForm() {
   const [pending, startTransition] = useTransition();
 
   const preset = PARLAY_PRESETS.find((p) => p.key === slotKey);
-  const isFreeForAll = slotKey === FREE_FOR_ALL_KEY;
+  const isCustom = slotKey === FREE_FOR_ALL_KEY;
 
   const disabledReason = !slotKey
     ? "Pick a label to continue."
-    : isFreeForAll && !freeLeague.trim()
-      ? "Enter a league for Free-for-all."
+    : isCustom && !freeLeague.trim()
+      ? "Enter a league for the custom label."
       : null;
 
   function onSubmit(e: React.FormEvent) {
@@ -55,7 +55,7 @@ export function NewParlayForm() {
     const label = preset ? preset.label : freeLabel;
 
     startTransition(async () => {
-      const result = await createParlay({ league, label, isFreeForAll, countsForRecord, stake });
+      const result = await createParlay({ league, label, countsForRecord, stake });
       if (result?.error) setError(result.error);
     });
   }
@@ -76,7 +76,8 @@ export function NewParlayForm() {
         <div className="flex flex-col gap-2">
           <h2 className="text-xs font-medium uppercase tracking-wide text-muted">Label</h2>
           <p className="text-xs text-subtle">
-            Just a tag for this parlay — helps tell parlays apart, doesn&apos;t restrict who can pick what.
+            Just a tag for this parlay — helps tell parlays apart. Whatever you pick here, every pick can still
+            be its own sport (NFL, NBA, MLB, NHL, or anything else).
           </p>
           <div className="flex flex-wrap gap-2">
             {PARLAY_PRESETS.map((p) => {
@@ -87,13 +88,13 @@ export function NewParlayForm() {
                 </button>
               );
             })}
-            <button type="button" onClick={() => setSlotKey(FREE_FOR_ALL_KEY)} className={tagClass(isFreeForAll)}>
-              Free-for-all
+            <button type="button" onClick={() => setSlotKey(FREE_FOR_ALL_KEY)} className={tagClass(isCustom)}>
+              Custom
             </button>
           </div>
         </div>
 
-        <div className={`grid transition-all duration-200 ease-out ${isFreeForAll ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+        <div className={`grid transition-all duration-200 ease-out ${isCustom ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
           <div className="flex flex-col gap-3 overflow-hidden">
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1 text-sm">
@@ -117,10 +118,6 @@ export function NewParlayForm() {
                 />
               </label>
             </div>
-            <p className="text-xs text-subtle">
-              Each pick in a Free-for-all parlay can be its own sport (NBA, MLB, NHL, or anything else) -- this
-              League field is just a label for the parlay, not a restriction.
-            </p>
           </div>
         </div>
 

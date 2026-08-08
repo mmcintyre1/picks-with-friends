@@ -13,7 +13,6 @@ import {
   formatAmericanOdds,
 } from "@/lib/grading/parlayStats";
 import { legSummary } from "@/lib/legSummary";
-import { toSportKeys } from "@/lib/odds/leagueMap";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 
@@ -67,7 +66,6 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
   const profit = combinedOdds !== null ? computeProfit(parlay.stake, combinedOdds) : null;
   const gameIds = parlay.legs.map((leg) => leg.gameId);
   const hasSameGameLegs = new Set(gameIds).size !== gameIds.length;
-  const liveOddsAvailable = Boolean(toSportKeys(parlay.window.league));
 
   const memberRows = members.map((member) => {
     const leg = parlay.legs.find((l) => l.userId === member.userId);
@@ -173,9 +171,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
                 }
               : undefined
           }
-          liveOddsAvailable={liveOddsAvailable}
-          perPickLeague={parlay.window.isFreeForAll}
-          league={parlay.window.league}
+          defaultLeague={parlay.window.league}
         />
       )}
 
