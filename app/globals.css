@@ -3,16 +3,19 @@
 :root {
   color-scheme: dark;
 
-  --background: #0a0e16;
-  --foreground: #e8ecf5;
+  /* A near-true-black base (not navy-gray) with crisp near-white text and
+     higher-contrast secondary grays -- the previous desaturated blue-gray
+     palette read as pale/lifeless ("zombie") across large text/border areas. */
+  --background: #08090b;
+  --foreground: #f6f7f9;
 
-  --color-page: #0a0e16;
-  --color-card: #131a28;
-  --color-card-elevated: #1b2436;
-  --color-border: #232d42;
-  --color-border-strong: #34405c;
-  --color-muted: #8c96ac;
-  --color-subtle: #5b6580;
+  --color-page: #08090b;
+  --color-card: #111318;
+  --color-card-elevated: #191c22;
+  --color-border: #24262d;
+  --color-border-strong: #383c46;
+  --color-muted: #a6acb8;
+  --color-subtle: #6b7280;
 
   --color-accent: #2fe07a;
   --color-accent-foreground: #06170c;
