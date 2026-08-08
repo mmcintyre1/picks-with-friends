@@ -179,23 +179,37 @@ export default async function LeaderboardPage() {
           <Card className="overflow-x-auto p-0">
             <table className="w-full text-sm">
               <thead>
+                <tr className="text-muted">
+                  <th className="pt-2 pr-4 pl-3" />
+                  <th className="pt-2 pr-4" />
+                  <th className="pt-2 pr-4" />
+                  <th className="pt-2 pr-3" />
+                  <th className="pt-2 pr-3" />
+                  <th className="pt-2 pr-3" />
+                  <th colSpan={2} className="border-l border-border pt-2 pb-1 pl-3 text-center text-[10px] font-medium uppercase tracking-wide text-subtle">
+                    Awards
+                  </th>
+                </tr>
                 <tr className="border-b border-border text-muted">
-                  <th className="py-2 pr-4 pl-3 text-left">Name</th>
-                  <th className="py-2 pr-4 text-right">Record</th>
-                  <th className="py-2 pr-4 text-right">Streak</th>
-                  <th className="py-2 pr-3 text-center" title="Money bag — clean wins">
+                  <th className="pb-2 pr-4 pl-3 text-left">Name</th>
+                  <th className="pb-2 pr-4 text-right">Record</th>
+                  <th className="pb-2 pr-4 text-right">Streak</th>
+                  <th className="pb-2 pr-3 text-center" title="Money bag — clean wins">
                     💰
                   </th>
-                  <th className="py-2 pr-3 text-center" title="Push — tied, stake back for free">
+                  <th className="pb-2 pr-3 text-center" title="Push — tied, stake back for free">
                     🆓
                   </th>
-                  <th className="py-2 pr-3 text-center" title="Poo — losses">
+                  <th className="pb-2 pr-3 text-center" title="Poo — losses">
                     💩
                   </th>
-                  <th className="py-2 pr-3 text-center" title="Trash can — the lone loss in an otherwise-winning parlay">
+                  <th
+                    className="border-l border-border pb-2 pr-3 pl-3 text-center"
+                    title="Trash can — the lone loss in an otherwise-winning parlay"
+                  >
                     🗑️
                   </th>
-                  <th className="py-2 pr-3 text-center" title="Cross — the lone win in an otherwise-losing parlay">
+                  <th className="pb-2 pr-3 text-center" title="Cross — the lone win in an otherwise-losing parlay">
                     ✝️
                   </th>
                 </tr>
@@ -225,7 +239,9 @@ export default async function LeaderboardPage() {
                     <td className="py-2 pr-3 text-center text-win tabular-nums">{row.moneybag}</td>
                     <td className="py-2 pr-3 text-center text-push tabular-nums">{row.pushes}</td>
                     <td className="py-2 pr-3 text-center text-loss tabular-nums">{row.poo}</td>
-                    <td className="py-2 pr-3 text-center text-loss tabular-nums">{row.toilet}</td>
+                    <td className="border-l border-border py-2 pr-3 pl-3 text-center text-loss tabular-nums">
+                      {row.toilet}
+                    </td>
                     <td className="py-2 pr-3 text-center text-win tabular-nums">{row.cross}</td>
                   </tr>
                 ))}
