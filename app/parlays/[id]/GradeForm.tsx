@@ -48,9 +48,9 @@ export function GradeForm({
     <Card className="p-4">
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">{isEdit ? "Fix the grades" : "Grade this parlay"}</h2>
+          <h2 className="text-sm font-medium">{isEdit ? "Fix the evaluation" : "Evaluate this parlay"}</h2>
           <span className="text-xs text-muted">
-            {gradedCount} of {legs.length} graded
+            {gradedCount} of {legs.length} evaluated
           </span>
         </div>
         {legs.map((leg) => (
@@ -71,11 +71,11 @@ export function GradeForm({
         {error && <p className="text-xs text-loss">{error}</p>}
         <div className="flex items-center gap-2">
           <Button type="submit" disabled={pending || !complete}>
-            {pending ? "Saving…" : isEdit ? "Save corrections" : "Submit grades"}
+            {pending ? "Saving…" : isEdit ? "Save the correction" : "Submit evaluation"}
           </Button>
           {onCancel && (
             <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
+              Never mind
             </Button>
           )}
         </div>

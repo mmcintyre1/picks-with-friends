@@ -67,7 +67,7 @@ export function AdminMemberRow({
                 setNameDraft(name);
               }}
             >
-              Cancel
+              Never mind
             </Button>
           </div>
         ) : (

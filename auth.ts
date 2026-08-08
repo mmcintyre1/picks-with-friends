@@ -68,6 +68,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       session.user.id = token.id;
       session.user.username = token.username;
+      // JWT sessions bake in whatever `name` was at login time and never refresh it on
+      // their own -- without this lookup, renaming someone in /admin only takes effect
+      // for that person the next time they actually log back in, which reads as "the
+      // rename didn't work" everywhere their session's name is shown (NavBar, "Hey X").
+      const current = await prisma.user.findUnique({
+        where: { id: token.id },
+        select: { name: true },
+      });
+      session.user.name = current?.name ?? null;
       return session;
     },
   },

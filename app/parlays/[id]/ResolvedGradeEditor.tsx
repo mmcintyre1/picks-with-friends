@@ -23,7 +23,7 @@ export function ResolvedGradeEditor({
   if (!editing) {
     return (
       <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
-        Something wrong? Fix the grades
+        Something wrong? Fix the evaluation
       </Button>
     );
   }

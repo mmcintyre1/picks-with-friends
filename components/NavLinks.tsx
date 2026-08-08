@@ -19,7 +19,7 @@ export function NavLinks() {
         className={`font-display text-lg tracking-wide ${pathname === "/" ? "text-accent" : "text-foreground"}`}
       >
         <span className="hidden sm:inline">Picks with Friends</span>
-        <span className="sm:hidden">🏈 Picks</span>
+        <span className="sm:hidden">🎟️ Picks</span>
       </Link>
       {NAV_LINKS.map((link) => {
         const active = pathname.startsWith(link.href);

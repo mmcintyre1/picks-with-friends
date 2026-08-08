@@ -21,10 +21,10 @@ export type CreateParlayInput = {
 export async function createParlay(input: CreateParlayInput): Promise<ActionResult> {
   const { user, group } = await requireUserAndGroup();
 
-  if (!input.league.trim()) return { error: "League is required." };
+  if (!input.league.trim()) return { error: "Needs a league." };
   const stake = Number(input.stake);
   if (!input.stake.trim() || Number.isNaN(stake) || stake <= 0) {
-    return { error: "Stake must be a positive number." };
+    return { error: "Stake has to be more than zero." };
   }
 
   // Kickoff time isn't tracked -- what matters is the slot (label), not a precise
@@ -118,36 +118,36 @@ export async function pickLeg(parlayId: string, input: PickLegInput): Promise<Ac
   const { user } = await requireUserAndGroup();
 
   if (!input.homeTeam.trim() || !input.awayTeam.trim()) {
-    return { error: "Enter both teams for this game." };
+    return { error: "This game needs both teams, not just one." };
   }
 
   const parlay = await prisma.parlay.findUnique({
     where: { id: parlayId },
     include: { legs: true },
   });
-  if (!parlay) return { error: "Parlay not found." };
+  if (!parlay) return { error: "Couldn't find that parlay." };
   if (parlay.status !== ParlayStatus.OPEN) {
-    return { error: "This parlay is no longer open for picks." };
+    return { error: "Picks are closed on this one." };
   }
 
   const isProp = PROP_MARKETS.has(input.market);
   const playerName = isProp ? input.playerName.trim() : null;
   const propType = isProp ? input.propType.trim() : null;
   if (isProp && (!playerName || !propType)) {
-    return { error: "Player props need a player name and a stat type." };
+    return { error: "Props need a player and a stat -- pick both." };
   }
 
   const line = input.line.trim() ? Number(input.line) : null;
-  if (line !== null && Number.isNaN(line)) return { error: "Line must be a number." };
+  if (line !== null && Number.isNaN(line)) return { error: "That line's not a number." };
   if (input.market === Market.PLAYER_PROP && line === null) {
-    return { error: "Over/under props need a line." };
+    return { error: "Over/under needs a line." };
   }
 
   // Odds are required (not just optional context) since they're what lets the parlay's
   // combined odds/payout be computed -- a leg with no odds would make that unknowable.
   const price = Number(input.price);
   if (!input.price.trim() || Number.isNaN(price)) {
-    return { error: "Odds are required (e.g. -110)." };
+    return { error: "Needs odds (e.g. -110)." };
   }
 
   const game = await findOrCreateGame(
@@ -181,9 +181,9 @@ export async function cancelLeg(parlayId: string): Promise<ActionResult> {
   const { user } = await requireUserAndGroup();
 
   const parlay = await prisma.parlay.findUnique({ where: { id: parlayId } });
-  if (!parlay) return { error: "Parlay not found." };
+  if (!parlay) return { error: "Couldn't find that parlay." };
   if (parlay.status !== ParlayStatus.OPEN) {
-    return { error: "Can't cancel a pick once the parlay is locked." };
+    return { error: "Can't back out now — it's locked." };
   }
 
   await prisma.leg.deleteMany({ where: { parlayId, userId: user.id } });
@@ -198,7 +198,7 @@ export async function setOddsOverride(parlayId: string, value: string): Promise<
   await requireUserAndGroup();
 
   const parlay = await prisma.parlay.findUnique({ where: { id: parlayId } });
-  if (!parlay) return { error: "Parlay not found." };
+  if (!parlay) return { error: "Couldn't find that parlay." };
 
   const trimmed = value.trim();
   if (!trimmed) {
@@ -209,7 +209,7 @@ export async function setOddsOverride(parlayId: string, value: string): Promise<
 
   const odds = Number(trimmed);
   if (!Number.isInteger(odds) || odds === 0) {
-    return { error: "Enter American odds, e.g. -150 or +220." };
+    return { error: "Needs real American odds, e.g. -150 or +220." };
   }
 
   await prisma.parlay.update({ where: { id: parlayId }, data: { oddsOverride: odds } });
@@ -225,10 +225,10 @@ export async function lockParlay(parlayId: string): Promise<ActionResult> {
   const { user } = await requireUserAndGroup();
 
   const parlay = await prisma.parlay.findUnique({ where: { id: parlayId }, include: { legs: true } });
-  if (!parlay) return { error: "Parlay not found." };
-  if (parlay.status !== ParlayStatus.OPEN) return { error: "This parlay isn't open." };
+  if (!parlay) return { error: "Couldn't find that parlay." };
+  if (parlay.status !== ParlayStatus.OPEN) return { error: "This one's not open." };
   if (parlay.legs.length < 2 || parlay.legs.length > 4) {
-    return { error: "Need 2-4 picks in before this can lock." };
+    return { error: "Needs 2 to 4 picks in before it can lock." };
   }
 
   await prisma.parlay.update({
@@ -250,13 +250,13 @@ export async function gradeParlay(
   const { user } = await requireUserAndGroup();
 
   const parlay = await prisma.parlay.findUnique({ where: { id: parlayId }, include: { legs: true } });
-  if (!parlay) return { error: "Parlay not found." };
+  if (!parlay) return { error: "Couldn't find that parlay." };
   if (parlay.status !== ParlayStatus.LOCKED && parlay.status !== ParlayStatus.RESOLVED) {
-    return { error: "This parlay isn't locked yet." };
+    return { error: "Can't evaluate — nothing's locked yet." };
   }
 
   const legInputs = parlay.legs.map((leg) => ({ id: leg.id, result: results[leg.id] }));
-  if (legInputs.some((leg) => !leg.result)) return { error: "Grade every leg before resolving." };
+  if (legInputs.some((leg) => !leg.result)) return { error: "Evaluate every leg before you're done." };
 
   const badges = computeBadges(legInputs);
   const overallResult = legInputs.every((leg) => leg.result !== LegResult.LOSS)

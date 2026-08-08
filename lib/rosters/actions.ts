@@ -33,7 +33,7 @@ export async function getRostersForGame(
   const homeId = findTeamIdByName(league, homeTeam);
   const awayId = findTeamIdByName(league, awayTeam);
   if (!homeId && !awayId) {
-    return { error: `Neither team name matches a known ${league} team -- try picking from the list.` };
+    return { error: `Neither team name matches a known ${league} team — try picking from the list.` };
   }
 
   try {

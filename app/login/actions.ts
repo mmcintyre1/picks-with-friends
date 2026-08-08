@@ -20,7 +20,7 @@ export async function loginWithPin(
   const user = await prisma.user.findUnique({ where: { username } });
   if (user?.lockedUntil && user.lockedUntil > new Date()) {
     const minutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60_000);
-    return { error: `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.` };
+    return { error: `Too many wrong guesses. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.` };
   }
 
   try {
@@ -51,7 +51,7 @@ export async function claimPin(
 
   const user = await prisma.user.findUnique({ where: { username } });
   if (!user || user.pinHash) {
-    return { error: "This username has already been claimed." };
+    return { error: "Someone already claimed that username." };
   }
 
   await prisma.user.update({
@@ -63,7 +63,7 @@ export async function claimPin(
     await signIn("credentials", { username, pin, redirectTo: "/" });
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: "PIN saved, but sign-in failed — try signing in again." };
+      return { error: "PIN's saved, but sign-in hiccuped — try again." };
     }
     throw error;
   }

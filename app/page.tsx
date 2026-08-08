@@ -46,14 +46,14 @@ export default async function DashboardPage() {
       <ParlaySection
         title="Open, waiting on others"
         parlays={openWaiting}
-        emptyText="Nothing here."
+        emptyText="All caught up."
         badge={() => <StatusPill tone="muted">Waiting</StatusPill>}
       />
       <ParlaySection
-        title="Locked, awaiting grading"
+        title="Locked, awaiting evaluation"
         parlays={locked}
-        emptyText="Nothing here."
-        badge={() => <StatusPill tone="pending">Grading</StatusPill>}
+        emptyText="Nothing to evaluate."
+        badge={() => <StatusPill tone="pending">Evaluating</StatusPill>}
       />
       <ParlaySection
         title="Recently resolved"

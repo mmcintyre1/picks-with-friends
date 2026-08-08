@@ -90,7 +90,7 @@ export default async function LeaderboardPage() {
       <section className="flex flex-col gap-3">
         <h2 className="text-xs font-medium uppercase tracking-wide text-muted">Parlay record</h2>
         {parlayRows.length === 0 ? (
-          <p className="text-sm text-muted">No resolved parlays yet.</p>
+          <p className="text-sm text-muted">No parlays on the board yet.</p>
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3">
@@ -152,7 +152,7 @@ export default async function LeaderboardPage() {
       <section className="flex flex-col gap-3">
         <h2 className="text-xs font-medium uppercase tracking-wide text-muted">Individual stats</h2>
         {rows.length === 0 ? (
-          <p className="text-sm text-muted">No resolved parlays yet.</p>
+          <p className="text-sm text-muted">Nobody&apos;s got a track record yet.</p>
         ) : (
           <Card className="overflow-x-auto p-0">
             <table className="w-full text-left text-sm">
@@ -160,10 +160,18 @@ export default async function LeaderboardPage() {
                 <tr className="border-b border-border text-muted">
                   <th className="py-2 pr-4 pl-3">Name</th>
                   <th className="py-2 pr-4">W-L-P</th>
-                  <th className="py-2 pr-4">💰</th>
-                  <th className="py-2 pr-4">💩</th>
-                  <th className="py-2 pr-4">🚽</th>
-                  <th className="py-2 pr-4">✝️</th>
+                  <th className="py-2 pr-4" title="Money bag — clean wins">
+                    💰
+                  </th>
+                  <th className="py-2 pr-4" title="Poo — losses">
+                    💩
+                  </th>
+                  <th className="py-2 pr-4" title="Toilet — the lone loss in an otherwise-winning parlay">
+                    🚽
+                  </th>
+                  <th className="py-2 pr-4" title="Cross — the lone win in an otherwise-losing parlay">
+                    ✝️
+                  </th>
                 </tr>
               </thead>
               <tbody>

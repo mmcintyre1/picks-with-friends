@@ -26,7 +26,7 @@ import { ResolvedGradeEditor } from "./ResolvedGradeEditor";
 
 function parlayStatusPill(status: ParlayStatus, result: LegResult) {
   if (status === ParlayStatus.OPEN) return <StatusPill tone="accent">Open</StatusPill>;
-  if (status === ParlayStatus.LOCKED) return <StatusPill tone="pending">Awaiting grading</StatusPill>;
+  if (status === ParlayStatus.LOCKED) return <StatusPill tone="pending">Awaiting evaluation</StatusPill>;
   if (status === ParlayStatus.RESOLVED) {
     return result === LegResult.WIN ? (
       <StatusPill tone="win">Won</StatusPill>
@@ -116,7 +116,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
       {parlay.legs.length > 0 && (
         <Card className="flex flex-col gap-2 p-3 text-sm">
           {combinedOdds === null ? (
-            <p className="text-muted">Combined odds: N/A (a pick is missing a price)</p>
+            <p className="text-muted">Combined odds: can&apos;t call it — someone&apos;s missing a price.</p>
           ) : (
             <p>
               Combined odds:{" "}

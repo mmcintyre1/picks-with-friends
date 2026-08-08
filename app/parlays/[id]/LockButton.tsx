@@ -32,7 +32,7 @@ export function LockButton({ parlayId }: { parlayId: string }) {
 
       <Modal open={open} onClose={() => setOpen(false)} title="Lock this parlay?">
         <p className="text-sm text-muted">
-          No one will be able to add or change picks after this. Grading opens up once it&apos;s locked.
+          No one will be able to add or change picks after this. It opens up for evaluation once it&apos;s locked.
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <Button type="button" variant="ghost" disabled={pending} onClick={() => setOpen(false)}>

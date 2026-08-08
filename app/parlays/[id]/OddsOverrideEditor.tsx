@@ -36,7 +36,8 @@ export function OddsOverrideEditor({
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {!oddsOverride && hasSameGameLegs && (
           <span className="text-muted">
-            Two or more picks here share a game — a real sportsbook wouldn&apos;t price this as a simple product.
+            Two of these are on the same game — real sportsbooks don&apos;t just multiply the odds together for
+            that. Put in the real number if you&apos;ve got it.
           </span>
         )}
         <button
@@ -71,7 +72,7 @@ export function OddsOverrideEditor({
         </Button>
       )}
       <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setEditing(false)}>
-        Cancel
+        Never mind
       </Button>
       {error && <p className="w-full text-loss">{error}</p>}
     </div>
