@@ -291,6 +291,7 @@ export function PickLegForm({
       placeholder="Odds (e.g. -110)"
       required
       autoComplete="off"
+      inputMode="numeric"
       className={groupFieldClass}
     />
   );
@@ -475,6 +476,7 @@ export function PickLegForm({
                           onChange={(e) => setSlip({ ...slip, line: e.target.value })}
                           placeholder="Line (e.g. -3.5)"
                           autoComplete="off"
+                          inputMode="decimal"
                           className={groupFieldClass}
                         />
                       )}
@@ -549,6 +551,7 @@ export function PickLegForm({
                             onChange={(e) => setSlip({ ...slip, line: e.target.value })}
                             placeholder="Line (e.g. 250.5)"
                             autoComplete="off"
+                            inputMode="decimal"
                             className={groupFieldClass}
                           />
                         </div>

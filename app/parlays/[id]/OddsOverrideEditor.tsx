@@ -61,6 +61,7 @@ export function OddsOverrideEditor({
         onChange={(e) => setValue(e.target.value)}
         placeholder="e.g. -150"
         autoComplete="off"
+        inputMode="numeric"
         className="w-24 rounded-md border border-border bg-card px-2 py-1 text-sm text-foreground"
       />
       <Button type="button" size="sm" disabled={pending} onClick={() => save(value)}>
