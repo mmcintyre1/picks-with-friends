@@ -50,7 +50,7 @@ async function main() {
     return;
   }
 
-  const [alice, bob, carol, dave] = users;
+  const [mike, cam, damon, dave] = users;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const at = (hour: number, minute = 0) => {
@@ -62,7 +62,7 @@ async function main() {
   // 1pm NFL slot -- OPEN, nobody has picked yet.
   await createSampleParlay({
     groupId: group.id,
-    creatorId: alice.id,
+    creatorId: mike.id,
     league: "NFL",
     label: "1 o'clock games",
     startsAt: at(13),
@@ -73,14 +73,14 @@ async function main() {
   // 4pm NFL slot -- OPEN, partially picked (2 of 4): one team bet, one player prop.
   await createSampleParlay({
     groupId: group.id,
-    creatorId: bob.id,
+    creatorId: cam.id,
     league: "NFL",
     label: "4 o'clock games",
     startsAt: at(16, 5),
     endsAt: at(19),
     legs: [
       {
-        userId: alice.id,
+        userId: mike.id,
         homeTeam: "49ers",
         awayTeam: "Rams",
         market: Market.SPREAD,
@@ -89,7 +89,7 @@ async function main() {
         priceAtPick: -110,
       },
       {
-        userId: bob.id,
+        userId: cam.id,
         homeTeam: "Chiefs",
         awayTeam: "Broncos",
         market: Market.PLAYER_PROP,
@@ -107,7 +107,7 @@ async function main() {
   // three legs happen to share the same matchup, which is now perfectly fine.
   await createSampleParlay({
     groupId: group.id,
-    creatorId: carol.id,
+    creatorId: damon.id,
     league: "NFL",
     label: "SNF",
     startsAt: at(20, 20),
@@ -116,7 +116,7 @@ async function main() {
     lockedAt: new Date(),
     legs: [
       {
-        userId: alice.id,
+        userId: mike.id,
         homeTeam: "Bengals",
         awayTeam: "Dolphins",
         market: Market.SPREAD,
@@ -125,7 +125,7 @@ async function main() {
         priceAtPick: -110,
       },
       {
-        userId: bob.id,
+        userId: cam.id,
         homeTeam: "Bengals",
         awayTeam: "Dolphins",
         market: Market.TOTAL,
@@ -134,7 +134,7 @@ async function main() {
         priceAtPick: -110,
       },
       {
-        userId: carol.id,
+        userId: damon.id,
         homeTeam: "Bengals",
         awayTeam: "Dolphins",
         market: Market.MONEYLINE,
@@ -161,7 +161,7 @@ async function main() {
   // everyone winning, to prove the leaderboard query actually excludes it.
   await createSampleParlay({
     groupId: group.id,
-    creatorId: alice.id,
+    creatorId: mike.id,
     league: "NFL",
     label: "Just for laughs",
     startsAt: at(13),
@@ -173,7 +173,7 @@ async function main() {
     result: LegResult.WIN,
     legs: [
       {
-        userId: alice.id,
+        userId: mike.id,
         homeTeam: "Packers",
         awayTeam: "Bears",
         market: Market.SPREAD,
@@ -184,7 +184,7 @@ async function main() {
         badge: Badge.MONEYBAG,
       },
       {
-        userId: bob.id,
+        userId: cam.id,
         homeTeam: "Vikings",
         awayTeam: "Lions",
         market: Market.SPREAD,
@@ -201,7 +201,7 @@ async function main() {
   // a plain POO -- exercises computeBadges end to end and gives the leaderboard data.
   await createSampleParlay({
     groupId: group.id,
-    creatorId: bob.id,
+    creatorId: cam.id,
     league: "NFL",
     label: "1 o'clock games",
     startsAt: new Date(at(13).getTime() - 7 * 24 * 60 * 60 * 1000),
@@ -212,7 +212,7 @@ async function main() {
     result: LegResult.LOSS,
     legs: [
       {
-        userId: alice.id,
+        userId: mike.id,
         homeTeam: "Texans",
         awayTeam: "Colts",
         market: Market.SPREAD,
@@ -223,7 +223,7 @@ async function main() {
         badge: Badge.MONEYBAG,
       },
       {
-        userId: bob.id,
+        userId: cam.id,
         homeTeam: "Titans",
         awayTeam: "Jaguars",
         market: Market.TOTAL,
@@ -234,7 +234,7 @@ async function main() {
         badge: Badge.MONEYBAG,
       },
       {
-        userId: carol.id,
+        userId: damon.id,
         homeTeam: "Saints",
         awayTeam: "Falcons",
         market: Market.MONEYLINE,
