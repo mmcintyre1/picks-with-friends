@@ -15,7 +15,7 @@ import { propTypesForPosition } from "@/lib/rosters/propTypes";
 import { pickLeg } from "../actions";
 import { PlayerPropPicker } from "./PlayerPropPicker";
 import { ScheduleBrowser } from "./ScheduleBrowser";
-import { TeamMarketGrid } from "./TeamMarketGrid";
+import { TeamLabel, TeamMarketGrid } from "./TeamMarketGrid";
 
 type Initial = {
   homeTeam: string;
@@ -393,55 +393,72 @@ export function PickLegForm({
                 </datalist>
               )}
 
-              <div className={fieldListClass}>
-                <div className={fieldRowClass}>
-                  <div className="relative min-w-0 flex-1">
-                    {awayLogo && (
-                      <Image
-                        src={awayLogo}
-                        alt=""
-                        width={20}
-                        height={20}
-                        className="pointer-events-none absolute top-1/2 left-2 h-5 w-5 -translate-y-1/2 object-contain"
+              {/* Typing is only possible (and only needed) in manual mode -- once a
+                  matchup's resolved via schedule browsing, this becomes a compact
+                  read-only label instead (team-bet gets its team names from the grid
+                  below either way, so it doesn't need this row at all in that case). */}
+              {entryMode === "manual" ? (
+                <div className={fieldListClass}>
+                  <div className={fieldRowClass}>
+                    <div className="relative min-w-0 flex-1">
+                      {awayLogo && (
+                        <Image
+                          src={awayLogo}
+                          alt=""
+                          width={20}
+                          height={20}
+                          className="pointer-events-none absolute top-1/2 left-2 h-5 w-5 -translate-y-1/2 object-contain"
+                        />
+                      )}
+                      <input
+                        value={slip.awayTeam}
+                        onChange={(e) => updateAwayTeam(e.target.value)}
+                        placeholder="Away team"
+                        required
+                        autoComplete="off"
+                        list={rosterSupported ? "league-teams" : undefined}
+                        className={`${groupFieldClass} w-full text-right ${awayLogo ? "pl-8" : ""}`}
                       />
-                    )}
-                    <input
-                      value={slip.awayTeam}
-                      onChange={(e) => updateAwayTeam(e.target.value)}
-                      placeholder="Away team"
-                      required
-                      autoComplete="off"
-                      list={rosterSupported ? "league-teams" : undefined}
-                      className={`${groupFieldClass} w-full text-right ${awayLogo ? "pl-8" : ""}`}
-                    />
-                  </div>
-                  <span className="flex shrink-0 items-center px-2 text-xs text-subtle">@</span>
-                  <div className="relative min-w-0 flex-1">
-                    <input
-                      value={slip.homeTeam}
-                      onChange={(e) => updateHomeTeam(e.target.value)}
-                      placeholder="Home team"
-                      required
-                      autoComplete="off"
-                      list={rosterSupported ? "league-teams" : undefined}
-                      className={`${groupFieldClass} w-full ${homeLogo ? "pr-8" : ""}`}
-                    />
-                    {homeLogo && (
-                      <Image
-                        src={homeLogo}
-                        alt=""
-                        width={20}
-                        height={20}
-                        className="pointer-events-none absolute top-1/2 right-2 h-5 w-5 -translate-y-1/2 object-contain"
+                    </div>
+                    <span className="flex shrink-0 items-center px-2 text-xs text-subtle">@</span>
+                    <div className="relative min-w-0 flex-1">
+                      <input
+                        value={slip.homeTeam}
+                        onChange={(e) => updateHomeTeam(e.target.value)}
+                        placeholder="Home team"
+                        required
+                        autoComplete="off"
+                        list={rosterSupported ? "league-teams" : undefined}
+                        className={`${groupFieldClass} w-full ${homeLogo ? "pr-8" : ""}`}
                       />
-                    )}
+                      {homeLogo && (
+                        <Image
+                          src={homeLogo}
+                          alt=""
+                          width={20}
+                          height={20}
+                          className="pointer-events-none absolute top-1/2 right-2 h-5 w-5 -translate-y-1/2 object-contain"
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                slip.kind === "prop" && (
+                  <div className={fieldListClass}>
+                    <div className="flex items-center justify-center gap-2 px-3 py-3">
+                      <TeamLabel name={slip.awayTeam} logo={awayLogo} league={effectiveLeague} />
+                      <span className="shrink-0 text-xs text-subtle">@</span>
+                      <TeamLabel name={slip.homeTeam} logo={homeLogo} league={effectiveLeague} />
+                    </div>
+                  </div>
+                )
+              )}
 
               {slip.kind === "team" ? (
                 <>
                   <TeamMarketGrid
+                    league={effectiveLeague}
                     awayTeam={slip.awayTeam}
                     homeTeam={slip.homeTeam}
                     awayLogo={awayLogo}

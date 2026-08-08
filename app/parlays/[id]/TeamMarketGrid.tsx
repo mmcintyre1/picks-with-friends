@@ -3,6 +3,7 @@
 import Image from "next/image";
 
 import { Market, Side } from "@/app/generated/prisma/enums";
+import { teamAbbreviation } from "@/lib/rosters/leagues";
 
 const cellClass = (active: boolean) =>
   `truncate rounded-lg border px-1.5 py-2 text-xs font-medium transition-colors ${
@@ -13,7 +14,11 @@ const cellClass = (active: boolean) =>
 
 const columnHeaderClass = "truncate text-center text-[10px] font-medium uppercase tracking-wide text-subtle";
 
-function TeamLabel({ name, logo }: { name: string; logo: string | null }) {
+// Full name on desktop (more room), abbreviation on mobile -- this row label is the one
+// place team identity shows up once you're past the schedule/matchup step, so it needs to
+// stay compact without going back to a blind CSS ellipsis mid-name. Exported for reuse in
+// PickLegForm's read-only matchup display (player-prop mode, once a game's resolved).
+export function TeamLabel({ name, logo, league }: { name: string; logo: string | null; league: string }) {
   return (
     <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
       {logo ? (
@@ -23,7 +28,8 @@ function TeamLabel({ name, logo }: { name: string; logo: string | null }) {
           {name.trim().charAt(0).toUpperCase() || "?"}
         </span>
       )}
-      <span className="truncate">{name.trim() || "—"}</span>
+      <span className="truncate sm:hidden">{teamAbbreviation(league, name) || "—"}</span>
+      <span className="hidden truncate sm:inline">{name.trim() || "—"}</span>
     </span>
   );
 }
@@ -35,6 +41,7 @@ function TeamLabel({ name, logo }: { name: string; logo: string | null }) {
 // cell spanning both team rows (row-span-2) rather than a separate Over/Under pair
 // repeated identically in each row -- same column, just not duplicated.
 export function TeamMarketGrid({
+  league,
   awayTeam,
   homeTeam,
   awayLogo,
@@ -43,6 +50,7 @@ export function TeamMarketGrid({
   side,
   onSelect,
 }: {
+  league: string;
   awayTeam: string;
   homeTeam: string;
   awayLogo: string | null;
@@ -61,7 +69,7 @@ export function TeamMarketGrid({
       <span className={columnHeaderClass}>Moneyline</span>
 
       <span className="flex min-w-0 items-center">
-        <TeamLabel name={awayTeam} logo={awayLogo} />
+        <TeamLabel name={awayTeam} logo={awayLogo} league={league} />
       </span>
       <button
         type="button"
@@ -95,7 +103,7 @@ export function TeamMarketGrid({
       </button>
 
       <span className="flex min-w-0 items-center">
-        <TeamLabel name={homeTeam} logo={homeLogo} />
+        <TeamLabel name={homeTeam} logo={homeLogo} league={league} />
       </span>
       <button
         type="button"

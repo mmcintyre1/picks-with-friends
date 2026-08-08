@@ -11,7 +11,7 @@ export const LEAGUE_ESPN_PATHS: Record<string, string> = {
   NHL: "hockey/nhl",
 };
 
-export const LEAGUE_TEAMS: Record<string, { id: string; name: string }[]> = {
+export const LEAGUE_TEAMS: Record<string, { id: string; name: string; abbr: string }[]> = {
   NFL: NFL_TEAMS,
   NBA: NBA_TEAMS,
   MLB: MLB_TEAMS,
@@ -45,4 +45,14 @@ export function teamLogoUrl(league: string, name: string): string | null {
   if (!id || !sportPath) return null;
   const slug = sportPath.split("/").pop();
   return `https://a.espncdn.com/i/teamlogos/${slug}/500/${id}.png`;
+}
+
+// Short display form for tight spaces (mobile team-bet grid rows) -- falls back to the
+// full name for anything that doesn't resolve to a known team (manual entry of an unlisted
+// team), same fallback pattern as teamLogoUrl.
+export function teamAbbreviation(league: string, name: string): string {
+  const trimmed = name.trim();
+  const teams = LEAGUE_TEAMS[league];
+  const match = teams?.find((t) => t.name.toLowerCase() === trimmed.toLowerCase());
+  return match?.abbr ?? trimmed;
 }
