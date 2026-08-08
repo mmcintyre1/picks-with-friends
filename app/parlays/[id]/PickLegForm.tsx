@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { Market, Side } from "@/app/generated/prisma/enums";
@@ -8,7 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { XIcon } from "@/components/ui/icons";
 import { getRostersForGame, type GameRosterPlayer } from "@/lib/rosters/actions";
-import { findTeamIdByName, isRosterLeague, LEAGUE_TEAMS, PICKABLE_LEAGUES } from "@/lib/rosters/leagues";
+import { findTeamIdByName, isRosterLeague, LEAGUE_TEAMS, PICKABLE_LEAGUES, teamLogoUrl } from "@/lib/rosters/leagues";
 import { propTypesForPosition } from "@/lib/rosters/propTypes";
 
 import { pickLeg } from "../actions";
@@ -42,8 +43,10 @@ const TEAM_MARKETS = new Set<Market>([Market.SPREAD, Market.TOTAL, Market.MONEYL
 // fieldListClass container already supplies the border/background for everything.
 const fieldListClass = "flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-card";
 const fieldRowClass = "flex items-stretch divide-x divide-border";
+// text-base (not text-sm) and taller padding -- these are the fields you're most likely to
+// be filling in on a phone, so bigger touch targets and less precision-typing beat density.
 const groupFieldClass =
-  "min-w-0 flex-1 bg-transparent px-2.5 py-2 text-sm text-foreground placeholder:text-subtle focus:bg-white/[0.03] focus:outline-none";
+  "min-w-0 flex-1 bg-transparent px-3 py-3 text-base text-foreground placeholder:text-subtle focus:bg-white/[0.03] focus:outline-none";
 
 function initialSport(league: string | null | undefined): Sport {
   return league && (PICKABLE_LEAGUES as string[]).includes(league) ? (league as Sport) : "other";
@@ -221,8 +224,18 @@ export function PickLegForm({
     setHadProviderLink(false);
   }
 
-  function clearSlip() {
+  // Resets the bet-specific fields (market/side/line/price, or player/stat) but keeps the
+  // matchup -- for redoing the odds/type without re-picking the game.
+  function clearBetDetails() {
     setSlip((prev) => (prev.kind === "team" ? emptyTeamSlip(prev) : emptyPropSlip(prev)));
+    setHadProviderLink(false);
+  }
+
+  // Resets the matchup too (unlike clearBetDetails) -- this is what makes hasMatchup false
+  // again, bringing back the browse/manual step to pick a different game entirely.
+  function changeGame() {
+    const emptyCarry = { homeTeam: "", awayTeam: "" };
+    setSlip((prev) => (prev.kind === "team" ? emptyTeamSlip(emptyCarry) : emptyPropSlip(emptyCarry)));
     setHadProviderLink(false);
   }
 
@@ -271,6 +284,11 @@ export function PickLegForm({
       : []
     : propTypesForPosition(effectiveLeague, undefined);
 
+  // Shows the team's logo once its name resolves to a known team -- returns null (no icon)
+  // for an unmatched name, so manual typing of an unlisted team just shows plain text.
+  const awayLogo = teamLogoUrl(effectiveLeague, slip.awayTeam);
+  const homeLogo = teamLogoUrl(effectiveLeague, slip.homeTeam);
+
   // Reused wherever price needs to stand alone (moneyline, yes/no props) vs. paired with a
   // line (spread/total, over/under props) -- one definition instead of four copies.
   const priceField = (
@@ -284,260 +302,304 @@ export function PickLegForm({
     />
   );
 
+  // The slip doesn't exist yet until there's actually a matchup to fill it in for --
+  // browsing and typing a pick used to render simultaneously (a small sticky slip squeezed
+  // below/behind a scrollable game list), which read as cramped and left too little room
+  // for comfortable typing. Now it's two steps: pick a game (or choose manual entry) first,
+  // then the slip takes over the space to fill in. "Clear" backs out of a selection and
+  // returns to this step.
+  const hasMatchup = !isSlipEmpty(slip);
+  const showSlip = hasMatchup || entryMode === "manual";
+
   return (
     <div className="flex flex-col gap-3">
-      <Card className="flex flex-wrap items-center gap-2 p-2">
-        <SegmentedControl
-          size="sm"
-          name="Sport"
-          value={sport}
-          onChange={(next) => {
-            setSport(next);
-            setHadProviderLink(false);
-          }}
-          options={SPORT_OPTIONS}
-        />
-        {canBrowseSchedule && (
-          <SegmentedControl
-            size="sm"
-            name="Entry mode"
-            value={entryMode}
-            onChange={setEntryMode}
-            options={[
-              { value: "browse", label: "Browse schedule" },
-              { value: "manual", label: "Type it manually" },
-            ]}
-          />
-        )}
-      </Card>
-
-      {canBrowseSchedule && entryMode === "browse" && (
-        <ScheduleBrowser league={effectiveLeague} onSelectGame={onSelectScheduleGame} />
-      )}
-
-      {/* Sticky rather than a modal -- this is the bet slip: it should stay reachable while
-          you keep browsing games above it, snapping to the bottom of the screen once you've
-          scrolled past its normal position, instead of interrupting browsing every click. */}
-      <div className="sticky bottom-4 z-10 pb-[env(safe-area-inset-bottom)]">
-        <Card className="flex flex-col gap-3 border-border-strong p-3 shadow-xl shadow-black/50">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {!isSlipEmpty(slip) && (
-              <Button type="button" variant="ghost" size="sm" onClick={clearSlip}>
-                Clear
-              </Button>
-            )}
-            {slip.kind === "prop" && (
+      {!hasMatchup && (
+        <>
+          <Card className="flex flex-wrap items-center gap-2 p-2">
+            <SegmentedControl
+              size="sm"
+              name="Sport"
+              value={sport}
+              onChange={(next) => {
+                setSport(next);
+                setHadProviderLink(false);
+              }}
+              options={SPORT_OPTIONS}
+            />
+            {canBrowseSchedule && (
               <SegmentedControl
                 size="sm"
-                name="Prop shape"
-                value={slip.propShape}
-                onChange={(shape) =>
-                  setSlip({ ...slip, propShape: shape, side: shape === "yesNo" ? Side.YES : Side.OVER })
-                }
+                name="Entry mode"
+                value={entryMode}
+                onChange={setEntryMode}
                 options={[
-                  { value: "overUnder", label: "Over/Under" },
-                  { value: "yesNo", label: "Yes/No" },
+                  { value: "browse", label: "Browse schedule" },
+                  { value: "manual", label: "Type it manually" },
                 ]}
               />
             )}
-            <SegmentedControl
-              size="sm"
-              name="Pick kind"
-              value={slip.kind}
-              onChange={setKind}
-              options={[
-                { value: "team", label: "Team bet" },
-                { value: "prop", label: "Player prop" },
-              ]}
-            />
-          </div>
+          </Card>
 
-          <form onSubmit={onSubmit} className="flex flex-col gap-2">
-            {rosterSupported && (
-              <datalist id="league-teams">
-                {LEAGUE_TEAMS[effectiveLeague]?.map((t) => (
-                  <option key={t.id} value={t.name} />
-                ))}
-              </datalist>
-            )}
-            {players && (
-              <datalist id="prop-players">
-                {players.map((p) => (
-                  <option key={`${p.name}-${p.team}`} value={p.name}>
-                    {p.team} · {p.position}
-                  </option>
-                ))}
-              </datalist>
-            )}
-            {slip.kind === "prop" && (
-              <datalist id="prop-types">
-                {propTypeOptions.map((t) => (
-                  <option key={t} value={t} />
-                ))}
-              </datalist>
-            )}
+          {canBrowseSchedule && entryMode === "browse" && (
+            <ScheduleBrowser league={effectiveLeague} onSelectGame={onSelectScheduleGame} />
+          )}
+        </>
+      )}
 
-            {/* Every data-entry row below shares one continuous surface (one border, one
-                background, a divider between rows) instead of each row boxed on its own --
-                the whole thing reads as one form. */}
-            <div className={fieldListClass}>
-              <div className={fieldRowClass}>
-                <input
-                  value={slip.awayTeam}
-                  onChange={(e) => updateAwayTeam(e.target.value)}
-                  placeholder="Away team"
-                  required
-                  autoComplete="off"
-                  list={rosterSupported ? "league-teams" : undefined}
-                  className={`${groupFieldClass} text-right`}
-                />
-                <span className="flex shrink-0 items-center px-2 text-xs text-subtle">@</span>
-                <input
-                  value={slip.homeTeam}
-                  onChange={(e) => updateHomeTeam(e.target.value)}
-                  placeholder="Home team"
-                  required
-                  autoComplete="off"
-                  list={rosterSupported ? "league-teams" : undefined}
-                  className={groupFieldClass}
+      {showSlip && (
+        <div className="pb-[env(safe-area-inset-bottom)]">
+          <Card className="flex flex-col gap-3 border-border-strong p-4 shadow-xl shadow-black/50">
+            <div className="flex flex-wrap items-center gap-2">
+              {hasMatchup && (
+                <Button type="button" variant="ghost" size="sm" onClick={changeGame}>
+                  Change game
+                </Button>
+              )}
+              <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+                {hasMatchup && (
+                  <Button type="button" variant="ghost" size="sm" onClick={clearBetDetails}>
+                    Clear bet
+                  </Button>
+                )}
+                {slip.kind === "prop" && (
+                  <SegmentedControl
+                    size="sm"
+                    name="Prop shape"
+                    value={slip.propShape}
+                    onChange={(shape) =>
+                      setSlip({ ...slip, propShape: shape, side: shape === "yesNo" ? Side.YES : Side.OVER })
+                    }
+                    options={[
+                      { value: "overUnder", label: "Over/Under" },
+                      { value: "yesNo", label: "Yes/No" },
+                    ]}
+                  />
+                )}
+                <SegmentedControl
+                  size="sm"
+                  name="Pick kind"
+                  value={slip.kind}
+                  onChange={setKind}
+                  options={[
+                    { value: "team", label: "Team bet" },
+                    { value: "prop", label: "Player prop" },
+                  ]}
                 />
               </div>
-
-              {slip.kind === "team" ? (
-                <>
-                  <div className={fieldRowClass}>
-                    <select
-                      value={slip.market}
-                      onChange={(e) => {
-                        const m = e.target.value as Market;
-                        setSlip({ ...slip, market: m, side: m === Market.TOTAL ? Side.OVER : Side.HOME });
-                      }}
-                      className={groupFieldClass}
-                    >
-                      <option value={Market.SPREAD}>Spread</option>
-                      <option value={Market.TOTAL}>Total</option>
-                      <option value={Market.MONEYLINE}>Moneyline</option>
-                    </select>
-                    <select
-                      value={slip.side}
-                      onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
-                      className={groupFieldClass}
-                    >
-                      {teamSideOptions.map((s) => (
-                        <option key={s} value={s}>
-                          {sideLabel(s, slip.homeTeam, slip.awayTeam)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className={fieldRowClass}>
-                    {slip.market !== Market.MONEYLINE && (
-                      <input
-                        value={slip.line}
-                        onChange={(e) => setSlip({ ...slip, line: e.target.value })}
-                        placeholder="Line (e.g. -3.5)"
-                        autoComplete="off"
-                        className={groupFieldClass}
+            </div>
+  
+            <form onSubmit={onSubmit} className="flex flex-col gap-2">
+              {rosterSupported && (
+                <datalist id="league-teams">
+                  {LEAGUE_TEAMS[effectiveLeague]?.map((t) => (
+                    <option key={t.id} value={t.name} />
+                  ))}
+                </datalist>
+              )}
+              {players && (
+                <datalist id="prop-players">
+                  {players.map((p) => (
+                    <option key={`${p.name}-${p.team}`} value={p.name}>
+                      {p.team} · {p.position}
+                    </option>
+                  ))}
+                </datalist>
+              )}
+              {slip.kind === "prop" && (
+                <datalist id="prop-types">
+                  {propTypeOptions.map((t) => (
+                    <option key={t} value={t} />
+                  ))}
+                </datalist>
+              )}
+  
+              {/* Every data-entry row below shares one continuous surface (one border, one
+                  background, a divider between rows) instead of each row boxed on its own --
+                  the whole thing reads as one form. */}
+              <div className={fieldListClass}>
+                <div className={fieldRowClass}>
+                  <div className="relative min-w-0 flex-1">
+                    {awayLogo && (
+                      <Image
+                        src={awayLogo}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className="pointer-events-none absolute top-1/2 left-2 h-5 w-5 -translate-y-1/2 object-contain"
                       />
                     )}
-                    {priceField}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className={fieldRowClass}>
-                    <div className="relative min-w-0 flex-1">
-                      <input
-                        value={slip.playerName}
-                        onChange={(e) => setSlip({ ...slip, playerName: e.target.value })}
-                        placeholder="Player name"
-                        autoComplete="off"
-                        list={players ? "prop-players" : undefined}
-                        className={`${groupFieldClass} w-full ${slip.playerName ? "pr-7" : ""}`}
-                      />
-                      {slip.playerName && (
-                        <button
-                          type="button"
-                          onClick={() => setSlip({ ...slip, playerName: "", propType: "" })}
-                          aria-label="Clear player name"
-                          className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-0.5 text-subtle hover:text-foreground"
-                        >
-                          <XIcon className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
                     <input
-                      value={slip.propType}
-                      onChange={(e) => setSlip({ ...slip, propType: e.target.value })}
-                      placeholder="Stat (e.g. Passing Yards)"
+                      value={slip.awayTeam}
+                      onChange={(e) => updateAwayTeam(e.target.value)}
+                      placeholder="Away team"
+                      required
                       autoComplete="off"
-                      list="prop-types"
-                      className={groupFieldClass}
+                      list={rosterSupported ? "league-teams" : undefined}
+                      className={`${groupFieldClass} w-full text-right ${awayLogo ? "pl-8" : ""}`}
                     />
                   </div>
-                  <div className={fieldRowClass}>
-                    {slip.propShape === "overUnder" ? (
-                      <>
-                        <select
-                          value={slip.side}
-                          onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
-                          className={groupFieldClass}
-                        >
-                          <option value={Side.OVER}>Over</option>
-                          <option value={Side.UNDER}>Under</option>
-                        </select>
-                        <input
-                          value={slip.line}
-                          onChange={(e) => setSlip({ ...slip, line: e.target.value })}
-                          placeholder="Line (e.g. 250.5)"
-                          autoComplete="off"
-                          className={groupFieldClass}
-                        />
-                      </>
-                    ) : (
+                  <span className="flex shrink-0 items-center px-2 text-xs text-subtle">@</span>
+                  <div className="relative min-w-0 flex-1">
+                    <input
+                      value={slip.homeTeam}
+                      onChange={(e) => updateHomeTeam(e.target.value)}
+                      placeholder="Home team"
+                      required
+                      autoComplete="off"
+                      list={rosterSupported ? "league-teams" : undefined}
+                      className={`${groupFieldClass} w-full ${homeLogo ? "pr-8" : ""}`}
+                    />
+                    {homeLogo && (
+                      <Image
+                        src={homeLogo}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className="pointer-events-none absolute top-1/2 right-2 h-5 w-5 -translate-y-1/2 object-contain"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {slip.kind === "team" ? (
+                  <>
+                    <div className={fieldRowClass}>
+                      <select
+                        value={slip.market}
+                        onChange={(e) => {
+                          const m = e.target.value as Market;
+                          setSlip({ ...slip, market: m, side: m === Market.TOTAL ? Side.OVER : Side.HOME });
+                        }}
+                        className={groupFieldClass}
+                      >
+                        <option value={Market.SPREAD}>Spread</option>
+                        <option value={Market.TOTAL}>Total</option>
+                        <option value={Market.MONEYLINE}>Moneyline</option>
+                      </select>
                       <select
                         value={slip.side}
                         onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
                         className={groupFieldClass}
                       >
-                        <option value={Side.YES}>Yes</option>
-                        <option value={Side.NO}>No</option>
+                        {teamSideOptions.map((s) => (
+                          <option key={s} value={s}>
+                            {sideLabel(s, slip.homeTeam, slip.awayTeam)}
+                          </option>
+                        ))}
                       </select>
-                    )}
-                    {priceField}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {hadProviderLink && !slip.externalId && (
-              <p className="text-xs text-pending">Unlinked — will save as manual entry.</p>
-            )}
-            {slip.kind === "prop" && rosterSupported && (loadingPlayers || playersError) && (
-              <div className="flex items-center gap-2 text-xs">
-                {loadingPlayers && <span className="text-muted">Loading players…</span>}
-                {playersError && (
+                    </div>
+                    <div className={fieldRowClass}>
+                      {slip.market !== Market.MONEYLINE && (
+                        <input
+                          value={slip.line}
+                          onChange={(e) => setSlip({ ...slip, line: e.target.value })}
+                          placeholder="Line (e.g. -3.5)"
+                          autoComplete="off"
+                          className={groupFieldClass}
+                        />
+                      )}
+                      {priceField}
+                    </div>
+                  </>
+                ) : (
                   <>
-                    <span className="text-push">{playersError}</span>
-                    <button
-                      type="button"
-                      onClick={() => loadPlayers(slip.homeTeam.trim(), slip.awayTeam.trim())}
-                      className="text-muted underline hover:text-foreground"
-                    >
-                      Retry
-                    </button>
+                    <div className={fieldRowClass}>
+                      <div className="relative min-w-0 flex-1">
+                        <input
+                          value={slip.playerName}
+                          onChange={(e) => setSlip({ ...slip, playerName: e.target.value })}
+                          placeholder="Player name"
+                          autoComplete="off"
+                          list={players ? "prop-players" : undefined}
+                          className={`${groupFieldClass} w-full ${slip.playerName ? "pr-7" : ""}`}
+                        />
+                        {slip.playerName && (
+                          <button
+                            type="button"
+                            onClick={() => setSlip({ ...slip, playerName: "", propType: "" })}
+                            aria-label="Clear player name"
+                            className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-0.5 text-subtle hover:text-foreground"
+                          >
+                            <XIcon className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        value={slip.propType}
+                        onChange={(e) => setSlip({ ...slip, propType: e.target.value })}
+                        placeholder="Stat (e.g. Passing Yards)"
+                        autoComplete="off"
+                        list="prop-types"
+                        className={groupFieldClass}
+                      />
+                    </div>
+                    {slip.propShape === "overUnder" ? (
+                      <>
+                        <div className={fieldRowClass}>
+                          <select
+                            value={slip.side}
+                            onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
+                            className={groupFieldClass}
+                          >
+                            <option value={Side.OVER}>Over</option>
+                            <option value={Side.UNDER}>Under</option>
+                          </select>
+                          <input
+                            value={slip.line}
+                            onChange={(e) => setSlip({ ...slip, line: e.target.value })}
+                            placeholder="Line (e.g. 250.5)"
+                            autoComplete="off"
+                            className={groupFieldClass}
+                          />
+                        </div>
+                        <div className={fieldRowClass}>{priceField}</div>
+                      </>
+                    ) : (
+                      <div className={fieldRowClass}>
+                        <select
+                          value={slip.side}
+                          onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
+                          className={groupFieldClass}
+                        >
+                          <option value={Side.YES}>Yes</option>
+                          <option value={Side.NO}>No</option>
+                        </select>
+                        {priceField}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
-            )}
+  
+              {hadProviderLink && !slip.externalId && (
+                <p className="text-xs text-pending">Unlinked — will save as manual entry.</p>
+              )}
+              {slip.kind === "prop" && rosterSupported && (loadingPlayers || playersError) && (
+                <div className="flex items-center gap-2 text-xs">
+                  {loadingPlayers && <span className="text-muted">Loading players…</span>}
+                  {playersError && (
+                    <>
+                      <span className="text-push">{playersError}</span>
+                      <button
+                        type="button"
+                        onClick={() => loadPlayers(slip.homeTeam.trim(), slip.awayTeam.trim())}
+                        className="text-muted underline hover:text-foreground"
+                      >
+                        Retry
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
 
-            {error && <p className="text-xs text-loss">{error}</p>}
-            <Button type="submit" disabled={pending} className="w-fit">
-              {pending ? "Saving…" : initial ? "Update pick" : "Confirm pick"}
-            </Button>
-          </form>
-        </Card>
-      </div>
+              {error && <p className="text-xs text-loss">{error}</p>}
+              <Button type="submit" disabled={pending} className="w-fit">
+                {pending ? "Saving…" : initial ? "Update pick" : "Confirm pick"}
+              </Button>
+            </form>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

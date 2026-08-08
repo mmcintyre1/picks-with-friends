@@ -55,6 +55,14 @@
   --font-display: var(--font-oswald);
 }
 
+/* :root's color-scheme should be enough for native form controls to render dark, but
+   <select> dropdown popups have been observed rendering inconsistently (some readable dark,
+   some white-on-white) -- forcing it directly on the element is the reliable cross-browser
+   fix rather than relying on inheritance. */
+select {
+  color-scheme: dark;
+}
+
 body {
   background:
     radial-gradient(1100px 500px at 15% -10%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 60%),
