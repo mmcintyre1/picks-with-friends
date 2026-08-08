@@ -173,6 +173,7 @@ export async function pickLeg(parlayId: string, input: PickLegInput): Promise<Ac
   });
 
   revalidatePath(`/parlays/${parlayId}`);
+  revalidatePath("/");
 }
 
 export async function cancelLeg(parlayId: string): Promise<ActionResult> {
@@ -186,6 +187,7 @@ export async function cancelLeg(parlayId: string): Promise<ActionResult> {
 
   await prisma.leg.deleteMany({ where: { parlayId, userId: user.id } });
   revalidatePath(`/parlays/${parlayId}`);
+  revalidatePath("/");
 }
 
 // Open to any group member, any parlay status -- correlated same-game legs price

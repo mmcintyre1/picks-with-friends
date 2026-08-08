@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Oswald } from "next/font/google";
 import "./globals.css";
 
 import { NavBar } from "@/components/NavBar";
+import { RevalidateOnFocus } from "@/components/RevalidateOnFocus";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 const geistSans = Geist({
@@ -32,6 +33,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
   themeColor: "#0a0e16",
   colorScheme: "dark",
 };
@@ -44,6 +47,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegister />
+        <RevalidateOnFocus />
         <NavBar />
         {children}
       </body>
