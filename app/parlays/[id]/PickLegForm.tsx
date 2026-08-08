@@ -6,16 +6,18 @@ import { Market, Side } from "@/app/generated/prisma/enums";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { findTeamIdByName, NFL_TEAMS } from "@/lib/rosters/nflTeams";
 import { getRostersForGame, type GameRosterPlayer } from "@/lib/rosters/actions";
+import { findTeamIdByName, FREE_FOR_ALL_SPORTS, isRosterLeague, LEAGUE_TEAMS } from "@/lib/rosters/leagues";
 import { propTypesForPosition } from "@/lib/rosters/propTypes";
 
 import { pickLeg } from "../actions";
 import { LiveOddsBrowser, type PropPick, type TeamBetPick } from "./LiveOddsBrowser";
+import { ScheduleBrowser } from "./ScheduleBrowser";
 
 type Initial = {
   homeTeam: string;
   awayTeam: string;
+  league: string | null;
   market: Market;
   side: Side;
   line: number | null;
@@ -24,10 +26,16 @@ type Initial = {
   propType: string | null;
 };
 
+type Sport = "NBA" | "MLB" | "NHL" | "other";
+
 const TEAM_MARKETS = new Set<Market>([Market.SPREAD, Market.TOTAL, Market.MONEYLINE]);
 
 const fieldClass =
   "rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground placeholder:text-subtle";
+
+function initialSport(league: string | null | undefined): Sport {
+  return league && (FREE_FOR_ALL_SPORTS as string[]).includes(league) ? (league as Sport) : "other";
+}
 
 // A single discriminated-union "slip" replaces the old team-bet-fields-plus-prop-fields
 // parallel useState hooks -- switching kind swaps the whole object instead of leaving the
@@ -157,18 +165,27 @@ export function PickLegForm({
   parlayId,
   initial,
   liveOddsAvailable,
+  perPickLeague,
   league,
   onDone,
 }: {
   parlayId: string;
   initial?: Initial;
   liveOddsAvailable: boolean;
+  // True for Free-for-all windows -- different members can pick different sports within
+  // the same parlay, so the Sport selector below (not the parlay-level `league`) decides
+  // what this specific pick's league actually is. False for NFL slot windows, where
+  // `league` is always "NFL" and there's nothing to choose per pick.
+  perPickLeague: boolean;
   league: string;
   onDone?: () => void;
 }) {
   const [slip, setSlip] = useState<Slip>(() => slipFromInitial(initial));
-  const [hadLiveLink, setHadLiveLink] = useState(false);
-  const [entryMode, setEntryMode] = useState<"browse" | "manual">(liveOddsAvailable ? "browse" : "manual");
+  const [sport, setSport] = useState<Sport>(() => initialSport(initial?.league));
+  const [hadProviderLink, setHadProviderLink] = useState(false);
+  const [entryMode, setEntryMode] = useState<"browse" | "manual">(
+    liveOddsAvailable || perPickLeague ? "browse" : "manual",
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [players, setPlayers] = useState<GameRosterPlayer[] | null>(null);
@@ -179,30 +196,42 @@ export function PickLegForm({
   // matchup changes. A ref, not state, since it's read/written but never itself rendered.
   const loadedForPair = useRef<string | null>(null);
 
+  // The league this specific pick is actually for -- the Sport selector's choice when
+  // it's a Free-for-all window, otherwise always the parlay's fixed NFL league.
+  const effectiveLeague = perPickLeague ? (sport === "other" ? "" : sport) : league;
+  const canBrowseSchedule = perPickLeague && sport !== "other";
+
+  // Roster/player-prop autofill covers NFL/NBA/MLB/NHL (lib/rosters/leagues.ts) -- distinct
+  // from liveOddsAvailable, which stays NFL-only since it's gated by The Odds API access,
+  // not by whether ESPN publishes rosters for the sport.
+  const rosterSupported = isRosterLeague(effectiveLeague);
+
   async function loadPlayers(homeTeam: string, awayTeam: string) {
     loadedForPair.current = `${homeTeam}|${awayTeam}`;
     setLoadingPlayers(true);
     setPlayersError(null);
-    const result = await getRostersForGame(homeTeam, awayTeam);
+    const result = await getRostersForGame(effectiveLeague, homeTeam, awayTeam);
     if ("error" in result) setPlayersError(result.error);
     else setPlayers(result.players);
     setLoadingPlayers(false);
   }
 
-  // Auto-loads both rosters as soon as the typed/selected team names resolve to real NFL
-  // teams -- no manual "Load players" button. Safe to fire eagerly: espnProvider.ts
-  // caches each team's roster for 6 hours, so re-visiting the same matchup (or having
-  // this effect re-run) never re-hits the network, just the in-memory cache.
+  // Auto-loads both rosters as soon as the typed/selected team names resolve to real teams
+  // in this pick's league -- no manual "Load players" button. Safe to fire eagerly:
+  // espnProvider.ts caches each team's roster for 6 hours, so re-visiting the same matchup
+  // (or having this effect re-run) never re-hits the network, just the in-memory cache.
   useEffect(() => {
-    if (slip.kind !== "prop") return;
+    if (slip.kind !== "prop" || !rosterSupported) return;
     const home = slip.homeTeam.trim();
     const away = slip.awayTeam.trim();
-    if (!home || !away || !findTeamIdByName(home) || !findTeamIdByName(away)) return;
+    if (!home || !away || !findTeamIdByName(effectiveLeague, home) || !findTeamIdByName(effectiveLeague, away)) {
+      return;
+    }
 
     const pairKey = `${home}|${away}`;
     if (pairKey === loadedForPair.current) return;
     loadPlayers(home, away);
-  }, [slip.kind, slip.homeTeam, slip.awayTeam]);
+  }, [slip.kind, slip.homeTeam, slip.awayTeam, rosterSupported, effectiveLeague]);
 
   function updateHomeTeam(value: string) {
     setSlip((prev) => ({ ...prev, homeTeam: value, externalId: null }));
@@ -213,12 +242,12 @@ export function PickLegForm({
 
   function setKind(kind: "team" | "prop") {
     setSlip((prev) => (kind === "team" ? emptyTeamSlip(prev) : emptyPropSlip(prev)));
-    setHadLiveLink(false);
+    setHadProviderLink(false);
   }
 
   function clearSlip() {
     setSlip((prev) => (prev.kind === "team" ? emptyTeamSlip(prev) : emptyPropSlip(prev)));
-    setHadLiveLink(false);
+    setHadProviderLink(false);
   }
 
   function onSelectTeamBet(pick: TeamBetPick) {
@@ -232,7 +261,7 @@ export function PickLegForm({
       price: pick.price.toString(),
       externalId: pick.externalId,
     });
-    setHadLiveLink(true);
+    setHadProviderLink(true);
   }
 
   function onSelectProp(pick: PropPick) {
@@ -248,7 +277,12 @@ export function PickLegForm({
       price: pick.price.toString(),
       externalId: pick.externalId,
     });
-    setHadLiveLink(true);
+    setHadProviderLink(true);
+  }
+
+  function onSelectScheduleGame(game: { homeTeam: string; awayTeam: string; externalId: string }) {
+    setSlip((prev) => ({ ...prev, homeTeam: game.homeTeam, awayTeam: game.awayTeam, externalId: game.externalId }));
+    setHadProviderLink(true);
   }
 
   function onSubmit(e: React.FormEvent) {
@@ -262,6 +296,7 @@ export function PickLegForm({
       const result = await pickLeg(parlayId, {
         homeTeam: slip.homeTeam,
         awayTeam: slip.awayTeam,
+        league: effectiveLeague,
         market: resolvedMarket,
         side: slip.side,
         line: slip.kind === "prop" && slip.propShape === "yesNo" ? "" : slip.line,
@@ -282,18 +317,36 @@ export function PickLegForm({
   // falls back to a broad generic set until a player's actually been matched.
   const selectedPlayerPosition =
     slip.kind === "prop" ? players?.find((p) => p.name === slip.playerName)?.position : undefined;
-  const propTypeOptions = propTypesForPosition(selectedPlayerPosition);
+  const propTypeOptions = propTypesForPosition(effectiveLeague, selectedPlayerPosition);
 
   return (
     <div className="flex flex-col gap-3">
-      {liveOddsAvailable && (
+      {perPickLeague && (
+        <SegmentedControl
+          size="sm"
+          name="Sport"
+          value={sport}
+          onChange={(next) => {
+            setSport(next);
+            setHadProviderLink(false);
+          }}
+          options={[
+            { value: "NBA", label: "NBA" },
+            { value: "MLB", label: "MLB" },
+            { value: "NHL", label: "NHL" },
+            { value: "other", label: "Other" },
+          ]}
+        />
+      )}
+
+      {(liveOddsAvailable || canBrowseSchedule) && (
         <SegmentedControl
           size="sm"
           name="Entry mode"
           value={entryMode}
           onChange={setEntryMode}
           options={[
-            { value: "browse", label: "Browse live odds" },
+            { value: "browse", label: liveOddsAvailable ? "Browse live odds" : "Browse schedule" },
             { value: "manual", label: "Type it manually" },
           ]}
         />
@@ -303,36 +356,37 @@ export function PickLegForm({
         <LiveOddsBrowser league={league} onSelectTeamBet={onSelectTeamBet} onSelectProp={onSelectProp} selected={selection} />
       )}
 
+      {canBrowseSchedule && entryMode === "browse" && (
+        <ScheduleBrowser league={effectiveLeague} onSelectGame={onSelectScheduleGame} />
+      )}
+
       {/* Sticky rather than a modal -- this is the bet slip: it should stay reachable while
           you keep browsing games above it, snapping to the bottom of the screen once you've
           scrolled past its normal position, instead of interrupting browsing every click. */}
       <div className="sticky bottom-4 z-10 pb-[env(safe-area-inset-bottom)]">
         <Card className="flex flex-col gap-3 border-border-strong p-3 shadow-xl shadow-black/50">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted">Your pick</p>
-            <div className="flex items-center gap-2">
-              {!isSlipEmpty(slip) && (
-                <Button type="button" variant="ghost" size="sm" onClick={clearSlip}>
-                  Clear
-                </Button>
-              )}
-              <SegmentedControl
-                size="sm"
-                name="Pick kind"
-                value={slip.kind}
-                onChange={setKind}
-                options={[
-                  { value: "team", label: "Team bet" },
-                  { value: "prop", label: "Player prop" },
-                ]}
-              />
-            </div>
+          <div className="flex items-center justify-end gap-2">
+            {!isSlipEmpty(slip) && (
+              <Button type="button" variant="ghost" size="sm" onClick={clearSlip}>
+                Clear
+              </Button>
+            )}
+            <SegmentedControl
+              size="sm"
+              name="Pick kind"
+              value={slip.kind}
+              onChange={setKind}
+              options={[
+                { value: "team", label: "Team bet" },
+                { value: "prop", label: "Player prop" },
+              ]}
+            />
           </div>
 
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
-            {liveOddsAvailable && (
-              <datalist id="nfl-teams">
-                {NFL_TEAMS.map((t) => (
+            {rosterSupported && (
+              <datalist id="league-teams">
+                {LEAGUE_TEAMS[effectiveLeague]?.map((t) => (
                   <option key={t.id} value={t.name} />
                 ))}
               </datalist>
@@ -344,7 +398,7 @@ export function PickLegForm({
                 placeholder="Away team"
                 required
                 autoComplete="off"
-                list={liveOddsAvailable ? "nfl-teams" : undefined}
+                list={rosterSupported ? "league-teams" : undefined}
                 className={fieldClass}
               />
               <input
@@ -353,13 +407,13 @@ export function PickLegForm({
                 placeholder="Home team"
                 required
                 autoComplete="off"
-                list={liveOddsAvailable ? "nfl-teams" : undefined}
+                list={rosterSupported ? "league-teams" : undefined}
                 className={fieldClass}
               />
             </div>
 
-            {hadLiveLink && !slip.externalId && (
-              <p className="text-xs text-pending">Unlinked from live odds — will save as manual entry.</p>
+            {hadProviderLink && !slip.externalId && (
+              <p className="text-xs text-pending">Unlinked — will save as manual entry.</p>
             )}
 
             {slip.kind === "team" ? (
@@ -401,7 +455,7 @@ export function PickLegForm({
               </>
             ) : (
               <>
-                {liveOddsAvailable && (loadingPlayers || playersError) && (
+                {rosterSupported && (loadingPlayers || playersError) && (
                   <div className="flex items-center gap-2 text-xs">
                     {loadingPlayers && <span className="text-muted">Loading players…</span>}
                     {playersError && (

@@ -18,6 +18,7 @@ import { requireUserAndGroup } from "@/lib/session";
 
 import { GradeForm } from "./GradeForm";
 import { LegRow } from "./LegRow";
+import { NoPickSummary } from "./NoPickSummary";
 import { OddsOverrideEditor } from "./OddsOverrideEditor";
 import { PickFlow } from "./PickFlow";
 import { ResolvedGradeEditor } from "./ResolvedGradeEditor";
@@ -82,7 +83,9 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-12">
       <div>
-        <p className="text-xs uppercase tracking-wide text-muted">{parlay.window.league}</p>
+        {parlay.window.label && (
+          <p className="text-xs uppercase tracking-wide text-muted">{parlay.window.league}</p>
+        )}
         <h1 className="font-display text-2xl tracking-wide">{parlay.window.label ?? parlay.window.league}</h1>
         <p className="text-xs text-subtle">Created {parlay.createdAt.toLocaleString()}</p>
         {!parlay.countsForRecord && (
@@ -141,6 +144,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
               ? {
                   homeTeam: myLeg.game.homeTeam,
                   awayTeam: myLeg.game.awayTeam,
+                  league: myLeg.game.league,
                   market: myLeg.market,
                   side: myLeg.side,
                   line: myLeg.lineAtPick,
@@ -151,30 +155,32 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
               : undefined
           }
           liveOddsAvailable={liveOddsAvailable}
+          perPickLeague={parlay.window.isFreeForAll}
           league={parlay.window.league}
-          isCreator={parlay.creatorId === user.id}
         />
       )}
 
       {parlay.status !== ParlayStatus.OPEN && (
         <div className="flex flex-col gap-3">
-          {memberRows.map((m) => {
-            const leg = parlay.legs.find((l) => l.userId === m.userId);
-            return (
-              <LegRow
-                key={m.userId}
-                name={m.name}
-                flair={m.flair}
-                noPick={!m.hasLeg}
-                summary={m.summary}
-                odds={m.odds}
-                date={m.date}
-                resultEmoji={
-                  parlay.status === ParlayStatus.RESOLVED && leg ? BADGE_EMOJI[leg.badge] : undefined
-                }
-              />
-            );
-          })}
+          {memberRows
+            .filter((m) => m.hasLeg)
+            .map((m) => {
+              const leg = parlay.legs.find((l) => l.userId === m.userId);
+              return (
+                <LegRow
+                  key={m.userId}
+                  name={m.name}
+                  flair={m.flair}
+                  summary={m.summary}
+                  odds={m.odds}
+                  date={m.date}
+                  resultEmoji={
+                    parlay.status === ParlayStatus.RESOLVED && leg ? BADGE_EMOJI[leg.badge] : undefined
+                  }
+                />
+              );
+            })}
+          <NoPickSummary label="Sat out:" members={memberRows.filter((m) => !m.hasLeg)} />
         </div>
       )}
 

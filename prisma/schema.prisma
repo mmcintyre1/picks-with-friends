@@ -71,6 +71,12 @@ model Window {
   label    String? // free text, e.g. "1 o'clock games", "SNF"
   startsAt DateTime
   endsAt   DateTime
+  // True only for Free-for-all parlays -- the 5 NFL presets leave this false. Free-for-all
+  // legs can each be a different sport (an NBA pick here, an MLB pick there), so `league`
+  // above is just this window's decorative/display label; the real per-leg sport lives on
+  // each Game instead. This flag is what tells PickLegForm whether to show a per-pick
+  // Sport selector (true) or treat the whole window as one fixed league like NFL (false).
+  isFreeForAll Boolean @default(false)
 
   games   Game[]
   parlays Parlay[]
@@ -85,7 +91,12 @@ enum GameStatus {
 model Game {
   id           String     @id @default(cuid())
   windowId     String
-  externalId   String? // odds-provider event id; null in manual-entry mode
+  externalId   String? // provider event id (The Odds API or ESPN's schedule); null in manual-entry mode
+  // The sport this specific game belongs to (e.g. "NFL", "NBA"), set from whatever the
+  // picker chose at pick time. Nullable since rows created before this field existed
+  // can't be retroactively known; new picks always set it, same backfill-only-if-null
+  // discipline externalId already uses.
+  league       String?
   homeTeam     String
   awayTeam     String
   commenceTime DateTime

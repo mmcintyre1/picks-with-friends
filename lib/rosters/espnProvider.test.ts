@@ -20,10 +20,10 @@ describe("createEspnProvider", () => {
     vi.unstubAllGlobals();
   });
 
-  it("builds the exact roster URL for a team id", async () => {
+  it("builds the exact roster URL for a sport path + team id", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ athletes: [] }));
     const provider = createEspnProvider();
-    await provider.getRoster("12");
+    await provider.getRoster("football/nfl", "12");
 
     const url = new URL(fetchMock.mock.calls[0][0]);
     expect(url.origin + url.pathname).toBe(
@@ -31,7 +31,7 @@ describe("createEspnProvider", () => {
     );
   });
 
-  it("flattens every position group into a single player list", async () => {
+  it("flattens every position group into a single player list (NFL/MLB/NHL grouped shape)", async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         athletes: [
@@ -47,7 +47,7 @@ describe("createEspnProvider", () => {
       }),
     );
     const provider = createEspnProvider();
-    const players = await provider.getRoster("12");
+    const players = await provider.getRoster("football/nfl", "12");
 
     expect(players).toEqual([
       { name: "Patrick Mahomes", position: "QB" },
@@ -55,12 +55,30 @@ describe("createEspnProvider", () => {
     ]);
   });
 
+  it("handles NBA's flat (ungrouped) roster shape", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        athletes: [
+          { displayName: "Jayson Tatum", position: { abbreviation: "F" } },
+          { displayName: "Derrick White", position: { abbreviation: "G" } },
+        ],
+      }),
+    );
+    const provider = createEspnProvider();
+    const players = await provider.getRoster("basketball/nba", "2");
+
+    expect(players).toEqual([
+      { name: "Jayson Tatum", position: "F" },
+      { name: "Derrick White", position: "G" },
+    ]);
+  });
+
   it("serves an identical request from cache instead of fetching again", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ athletes: [] }));
     const provider = createEspnProvider();
 
-    await provider.getRoster("12");
-    await provider.getRoster("12");
+    await provider.getRoster("football/nfl", "12");
+    await provider.getRoster("football/nfl", "12");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -69,8 +87,18 @@ describe("createEspnProvider", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ athletes: [] })).mockResolvedValueOnce(jsonResponse({ athletes: [] }));
     const provider = createEspnProvider();
 
-    await provider.getRoster("12");
-    await provider.getRoster("7");
+    await provider.getRoster("football/nfl", "12");
+    await provider.getRoster("football/nfl", "7");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not cache across different sport paths, even with the same numeric team id", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ athletes: [] })).mockResolvedValueOnce(jsonResponse({ athletes: [] }));
+    const provider = createEspnProvider();
+
+    await provider.getRoster("football/nfl", "1");
+    await provider.getRoster("basketball/nba", "1");
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -79,14 +107,14 @@ describe("createEspnProvider", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({}, { status: 404 }));
     const provider = createEspnProvider();
 
-    await expect(provider.getRoster("bad-id")).rejects.toMatchObject({ kind: "not_found" });
+    await expect(provider.getRoster("football/nfl", "bad-id")).rejects.toMatchObject({ kind: "not_found" });
   });
 
   it("maps other non-ok statuses to upstream_error", async () => {
     fetchMock.mockResolvedValue(jsonResponse({}, { status: 500 }));
     const provider = createEspnProvider();
 
-    await expect(provider.getRoster("12")).rejects.toBeInstanceOf(RosterProviderError);
-    await expect(provider.getRoster("12")).rejects.toMatchObject({ kind: "upstream_error" });
+    await expect(provider.getRoster("football/nfl", "12")).rejects.toBeInstanceOf(RosterProviderError);
+    await expect(provider.getRoster("football/nfl", "12")).rejects.toMatchObject({ kind: "upstream_error" });
   });
 });

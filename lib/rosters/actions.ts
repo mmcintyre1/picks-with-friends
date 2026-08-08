@@ -1,7 +1,7 @@
 "use server";
 
 import { getRosterProvider } from "./index";
-import { findTeamIdByName } from "./nflTeams";
+import { findTeamIdByName, LEAGUE_ESPN_PATHS } from "./leagues";
 import { RosterProviderError, type RosterPlayer } from "./types";
 
 // A roster player tagged with which side of the matchup they're on -- the underlying
@@ -18,25 +18,29 @@ function describeError(error: unknown): string {
   return "Couldn't load players.";
 }
 
-// Triggered automatically once both team names resolve to known NFL teams (see
-// PickLegForm's effect) rather than behind a manual button -- safe to do eagerly because
-// espnProvider.ts already caches each team's roster for 6 hours, so re-typing/re-picking
-// the same matchup never re-hits the network.
+// Triggered automatically once both team names resolve to known teams in the parlay's
+// league (see PickLegForm's effect) rather than behind a manual button -- safe to do
+// eagerly because espnProvider.ts already caches each team's roster for 6 hours, so
+// re-typing/re-picking the same matchup never re-hits the network.
 export async function getRostersForGame(
+  league: string,
   homeTeam: string,
   awayTeam: string,
 ): Promise<{ players: GameRosterPlayer[] } | { error: string }> {
-  const homeId = findTeamIdByName(homeTeam);
-  const awayId = findTeamIdByName(awayTeam);
+  const sportPath = LEAGUE_ESPN_PATHS[league];
+  if (!sportPath) return { error: `Player rosters aren't available for ${league}.` };
+
+  const homeId = findTeamIdByName(league, homeTeam);
+  const awayId = findTeamIdByName(league, awayTeam);
   if (!homeId && !awayId) {
-    return { error: "Neither team name matches a known NFL team -- try picking from the list." };
+    return { error: `Neither team name matches a known ${league} team -- try picking from the list.` };
   }
 
   try {
     const provider = getRosterProvider();
     const [homeRoster, awayRoster] = await Promise.all([
-      homeId ? provider.getRoster(homeId) : Promise.resolve([]),
-      awayId ? provider.getRoster(awayId) : Promise.resolve([]),
+      homeId ? provider.getRoster(sportPath, homeId) : Promise.resolve([]),
+      awayId ? provider.getRoster(sportPath, awayId) : Promise.resolve([]),
     ]);
     const players: GameRosterPlayer[] = [
       ...homeRoster.map((p) => ({ ...p, team: homeTeam })),

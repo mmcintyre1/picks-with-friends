@@ -1,7 +1,9 @@
 export type RosterPlayer = { name: string; position: string };
 
 export interface RosterProvider {
-  getRoster(teamId: string): Promise<RosterPlayer[]>;
+  // sportPath is the ESPN site-API sport segment, e.g. "football/nfl" -- see
+  // lib/rosters/leagues.ts's LEAGUE_ESPN_PATHS. The mock provider ignores it.
+  getRoster(sportPath: string, teamId: string): Promise<RosterPlayer[]>;
 }
 
 export type RosterProviderErrorKind = "not_found" | "upstream_error";

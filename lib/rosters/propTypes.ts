@@ -1,8 +1,10 @@
 // Position-gated prop-type suggestions -- broadly "anything DraftKings offers for that
 // position," not just the handful of markets lib/odds/mapping.ts's live-provider
 // integration knows how to map. This is a pure typing aid for the free-text propType
-// field, so being generous here costs nothing and saves a lot of manual typing.
-export const PROP_TYPES_BY_POSITION: Record<string, string[]> = {
+// field, so being generous here costs nothing and saves a lot of manual typing. Keyed by
+// league first since position abbreviations collide across sports (NBA "C" = Center,
+// MLB "C" = Catcher, NHL "C" = Center -- all different stat sets).
+const NFL_PROP_TYPES: Record<string, string[]> = {
   QB: [
     "Passing Yards",
     "Passing TDs",
@@ -38,13 +40,54 @@ export const PROP_TYPES_BY_POSITION: Record<string, string[]> = {
   SS: ["Interceptions", "Passes Defended", "Total Tackles"],
 };
 
-// Used once a player's position is known but isn't one of the mapped skill/defensive
-// positions above (offensive line, long snapper, punter, etc.) -- these rarely get
-// individual props, so keep it minimal rather than suggesting nonsense.
+// NBA's roster endpoint only exposes coarse Guard/Forward/Center splits (no PG/SG/SF/PF).
+const NBA_PROP_TYPES: Record<string, string[]> = {
+  G: ["Points", "Assists", "Three-Pointers Made", "Steals", "Points + Assists", "Pts + Reb + Ast"],
+  F: ["Points", "Rebounds", "Three-Pointers Made", "Blocks", "Pts + Reb + Ast"],
+  C: ["Points", "Rebounds", "Blocks", "Double-Double", "Points + Rebounds"],
+};
+
+// SP/RP are the leaf pitcher positions ESPN returns; "P" covers the rare case a roster
+// only reports the parent "Pitcher" category.
+const MLB_PROP_TYPES: Record<string, string[]> = {
+  SP: ["Strikeouts", "Earned Runs Allowed", "Hits Allowed", "Walks Allowed", "Outs Recorded"],
+  RP: ["Strikeouts", "Earned Runs Allowed", "Hits Allowed", "Walks Allowed", "Outs Recorded"],
+  P: ["Strikeouts", "Earned Runs Allowed", "Hits Allowed", "Walks Allowed", "Outs Recorded"],
+  C: ["Hits", "Home Runs", "RBIs", "Total Bases", "Runs Scored"],
+  "1B": ["Hits", "Home Runs", "RBIs", "Total Bases", "Runs Scored"],
+  "2B": ["Hits", "Home Runs", "RBIs", "Total Bases", "Runs Scored", "Stolen Bases"],
+  "3B": ["Hits", "Home Runs", "RBIs", "Total Bases", "Runs Scored"],
+  SS: ["Hits", "Home Runs", "RBIs", "Total Bases", "Runs Scored", "Stolen Bases"],
+  OF: ["Hits", "Home Runs", "RBIs", "Total Bases", "Runs Scored", "Stolen Bases"],
+  LF: ["Hits", "Home Runs", "RBIs", "Total Bases", "Runs Scored", "Stolen Bases"],
+  CF: ["Hits", "Home Runs", "RBIs", "Total Bases", "Runs Scored", "Stolen Bases"],
+  RF: ["Hits", "Home Runs", "RBIs", "Total Bases", "Runs Scored", "Stolen Bases"],
+  DH: ["Hits", "Home Runs", "RBIs", "Total Bases", "Runs Scored"],
+};
+
+const NHL_PROP_TYPES: Record<string, string[]> = {
+  C: ["Goals", "Assists", "Points", "Shots on Goal"],
+  LW: ["Goals", "Assists", "Points", "Shots on Goal"],
+  RW: ["Goals", "Assists", "Points", "Shots on Goal"],
+  D: ["Goals", "Assists", "Points", "Shots on Goal", "Blocked Shots"],
+  G: ["Saves", "Goals Against"],
+};
+
+const PROP_TYPES_BY_LEAGUE: Record<string, Record<string, string[]>> = {
+  NFL: NFL_PROP_TYPES,
+  NBA: NBA_PROP_TYPES,
+  MLB: MLB_PROP_TYPES,
+  NHL: NHL_PROP_TYPES,
+};
+
+// Used once a player's position is known but isn't one of that league's mapped positions
+// above (NFL offensive line, an MLB two-way player's other position, etc.) -- these
+// rarely get individual props, so keep it minimal rather than suggesting nonsense.
 const UNMAPPED_POSITION_PROP_TYPES = ["Anytime TD"];
 
 // Used before a player has been picked/matched at all (e.g. manual entry without
-// loading a roster) -- a broad, position-agnostic starting point.
+// loading a roster, or a league with no roster support) -- a broad, sport-agnostic
+// starting point that still leans NFL since that's the primary use case.
 export const GENERIC_PROP_TYPES = [
   "Passing Yards",
   "Rushing Yards",
@@ -53,7 +96,7 @@ export const GENERIC_PROP_TYPES = [
   "Anytime TD",
 ];
 
-export function propTypesForPosition(position: string | undefined): string[] {
+export function propTypesForPosition(league: string, position: string | undefined): string[] {
   if (!position) return GENERIC_PROP_TYPES;
-  return PROP_TYPES_BY_POSITION[position] ?? UNMAPPED_POSITION_PROP_TYPES;
+  return PROP_TYPES_BY_LEAGUE[league]?.[position] ?? UNMAPPED_POSITION_PROP_TYPES;
 }

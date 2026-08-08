@@ -13,6 +13,7 @@ export type ActionResult = { error: string } | undefined;
 export type CreateParlayInput = {
   league: string;
   label: string;
+  isFreeForAll: boolean;
   countsForRecord: boolean;
   stake: string;
 };
@@ -38,6 +39,7 @@ export async function createParlay(input: CreateParlayInput): Promise<ActionResu
       label: input.label.trim() || null,
       startsAt: now,
       endsAt: now,
+      isFreeForAll: input.isFreeForAll,
     },
   });
 
@@ -57,6 +59,10 @@ export async function createParlay(input: CreateParlayInput): Promise<ActionResu
 export type PickLegInput = {
   homeTeam: string;
   awayTeam: string;
+  // The sport this specific pick is for -- always "NFL" for the fixed slot presets, but
+  // chosen per pick for Free-for-all windows (see Window.isFreeForAll), since different
+  // members can pick different sports within the same parlay.
+  league: string;
   market: Market;
   side: Side;
   line: string;
@@ -71,13 +77,15 @@ const PROP_MARKETS = new Set<Market>([Market.PLAYER_PROP, Market.PLAYER_PROP_YES
 // Games aren't pre-listed by the creator -- each pick just names its matchup. Reuse an
 // existing Game row for the same two teams (case-insensitive, order-independent) so
 // repeated picks on one matchup share a single record instead of duplicating it.
-// `externalId` (the live-odds provider's event id) is set on create, or backfilled onto
-// an existing manually-created row that doesn't have one yet -- never overwritten once set.
+// `externalId` (the live-odds/schedule provider's event id) and `league` are set on
+// create, or backfilled onto an existing row that doesn't have one yet -- never
+// overwritten once set, same discipline for both fields.
 async function findOrCreateGame(
   windowId: string,
   homeTeamRaw: string,
   awayTeamRaw: string,
   externalId: string | null,
+  league: string | null,
 ) {
   const homeTeam = homeTeamRaw.trim();
   const awayTeam = awayTeamRaw.trim();
@@ -92,13 +100,18 @@ async function findOrCreateGame(
     },
   });
   if (existing) {
-    if (externalId && !existing.externalId) {
-      return prisma.game.update({ where: { id: existing.id }, data: { externalId } });
+    const backfill: { externalId?: string; league?: string } = {};
+    if (externalId && !existing.externalId) backfill.externalId = externalId;
+    if (league && !existing.league) backfill.league = league;
+    if (Object.keys(backfill).length > 0) {
+      return prisma.game.update({ where: { id: existing.id }, data: backfill });
     }
     return existing;
   }
 
-  return prisma.game.create({ data: { windowId, homeTeam, awayTeam, commenceTime: new Date(), externalId } });
+  return prisma.game.create({
+    data: { windowId, homeTeam, awayTeam, commenceTime: new Date(), externalId, league },
+  });
 }
 
 export async function pickLeg(parlayId: string, input: PickLegInput): Promise<ActionResult> {
@@ -142,6 +155,7 @@ export async function pickLeg(parlayId: string, input: PickLegInput): Promise<Ac
     input.homeTeam,
     input.awayTeam,
     input.externalId.trim() || null,
+    input.league.trim() || null,
   );
 
   const data = {
@@ -204,12 +218,13 @@ export async function setOddsOverride(parlayId: string, value: string): Promise<
   revalidatePath("/leaderboard");
 }
 
+// Open to any group member, not just the creator -- same reasoning as gradeParlay below:
+// nothing adversarial about this group, no reason to make one person a bottleneck.
 export async function lockParlay(parlayId: string): Promise<ActionResult> {
-  const { user } = await requireUserAndGroup();
+  await requireUserAndGroup();
 
   const parlay = await prisma.parlay.findUnique({ where: { id: parlayId }, include: { legs: true } });
   if (!parlay) return { error: "Parlay not found." };
-  if (parlay.creatorId !== user.id) return { error: "Only the creator can lock this parlay." };
   if (parlay.status !== ParlayStatus.OPEN) return { error: "This parlay isn't open." };
   if (parlay.legs.length < 2 || parlay.legs.length > 4) {
     return { error: "Need 2-4 picks in before this can lock." };
@@ -230,7 +245,7 @@ export async function gradeParlay(
 ): Promise<ActionResult> {
   // Grading isn't a secret and there's no adversarial concern here -- any group member
   // can grade a locked parlay, and any group member can correct a resolved one later if
-  // something was graded wrong. Not creator-gated like lock is.
+  // something was graded wrong.
   await requireUserAndGroup();
 
   const parlay = await prisma.parlay.findUnique({ where: { id: parlayId }, include: { legs: true } });

@@ -40,7 +40,7 @@ export function NewParlayForm() {
     const label = preset ? preset.label : freeLabel;
 
     startTransition(async () => {
-      const result = await createParlay({ league, label, countsForRecord, stake });
+      const result = await createParlay({ league, label, isFreeForAll, countsForRecord, stake });
       if (result?.error) setError(result.error);
     });
   }
@@ -90,6 +90,10 @@ export function NewParlayForm() {
               />
             </label>
           </div>
+          <p className="text-xs text-subtle">
+            Each pick in a Free-for-all parlay can be its own sport (NBA, MLB, NHL, or anything else) -- this
+            League field is just a label for the parlay, not a restriction.
+          </p>
         </div>
       </div>
 

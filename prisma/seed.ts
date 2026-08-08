@@ -145,7 +145,8 @@ async function main() {
     ],
   });
 
-  // An NBA slot, to show this isn't NFL-only.
+  // A Free-for-all slot, to show this isn't NFL-only -- each pick can be its own sport,
+  // so the window's "NBA" league here is just a decorative label, not a restriction.
   await createSampleParlay({
     groupId: group.id,
     creatorId: dave.id,
@@ -153,6 +154,7 @@ async function main() {
     label: null,
     startsAt: at(19, 30),
     endsAt: at(22, 30),
+    isFreeForAll: true,
     legs: [],
   });
 
@@ -281,6 +283,7 @@ async function createSampleParlay(input: {
   label: string | null;
   startsAt: Date;
   endsAt: Date;
+  isFreeForAll?: boolean;
   stake?: number;
   legs: SampleLeg[];
   status?: ParlayStatus;
@@ -295,6 +298,7 @@ async function createSampleParlay(input: {
       label: input.label,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
+      isFreeForAll: input.isFreeForAll ?? false,
     },
   });
 

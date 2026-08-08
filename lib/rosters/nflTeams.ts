@@ -35,8 +35,3 @@ export const NFL_TEAMS: { id: string; name: string }[] = [
   { id: "10", name: "Tennessee Titans" },
   { id: "28", name: "Washington Commanders" },
 ];
-
-export function findTeamIdByName(name: string): string | undefined {
-  const needle = name.trim().toLowerCase();
-  return NFL_TEAMS.find((t) => t.name.toLowerCase() === needle)?.id;
-}

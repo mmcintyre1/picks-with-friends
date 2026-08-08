@@ -8,11 +8,13 @@ import { PencilIcon } from "@/components/ui/icons";
 import { CancelLegButton } from "./CancelLegButton";
 import { LegRow } from "./LegRow";
 import { LockButton } from "./LockButton";
+import { NoPickSummary } from "./NoPickSummary";
 import { PickLegForm } from "./PickLegForm";
 
 type Initial = {
   homeTeam: string;
   awayTeam: string;
+  league: string | null;
   market: Market;
   side: Side;
   line: number | null;
@@ -37,33 +39,38 @@ export function PickFlow({
   memberRows,
   myLegInitial,
   liveOddsAvailable,
+  perPickLeague,
   league,
-  isCreator,
 }: {
   parlayId: string;
   memberRows: MemberRow[];
   myLegInitial?: Initial;
   liveOddsAvailable: boolean;
+  perPickLeague: boolean;
   league: string;
-  isCreator: boolean;
 }) {
   const hasLeg = Boolean(myLegInitial);
   const [editing, setEditing] = useState(!hasLeg);
 
+  // Members with no pick yet collapse into one line (NoPickSummary) instead of a full
+  // near-empty card each -- my own no-pick case isn't in that line at all, since the
+  // "Make your pick" section below already represents my slot.
+  const pickedRows = memberRows.filter((m) => m.hasLeg);
+  const waitingRows = memberRows.filter((m) => !m.hasLeg && !m.isMe);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
-        {memberRows.map((m) => (
+        {pickedRows.map((m) => (
           <LegRow
             key={m.userId}
             name={m.name}
             flair={m.flair}
-            noPick={!m.hasLeg}
             summary={m.summary}
             odds={m.odds}
             date={m.date}
             actions={
-              m.isMe && m.hasLeg && !editing ? (
+              m.isMe && !editing ? (
                 <>
                   <button
                     type="button"
@@ -79,6 +86,7 @@ export function PickFlow({
             }
           />
         ))}
+        <NoPickSummary label="Waiting on:" members={waitingRows} />
       </div>
 
       {(editing || !hasLeg) && (
@@ -96,6 +104,7 @@ export function PickFlow({
           <PickLegForm
             parlayId={parlayId}
             liveOddsAvailable={liveOddsAvailable}
+            perPickLeague={perPickLeague}
             league={league}
             initial={myLegInitial}
             onDone={() => setEditing(false)}
@@ -103,7 +112,7 @@ export function PickFlow({
         </div>
       )}
 
-      {isCreator && <LockButton parlayId={parlayId} />}
+      <LockButton parlayId={parlayId} />
     </div>
   );
 }
