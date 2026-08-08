@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { FREE_FOR_ALL_KEY, PARLAY_PRESETS } from "@/lib/parlayPresets";
+import { CUSTOM_LABEL_KEY, PARLAY_PRESETS } from "@/lib/parlayPresets";
 
 import { createParlay } from "../actions";
 
@@ -39,7 +39,7 @@ export function NewParlayForm() {
   const [pending, startTransition] = useTransition();
 
   const preset = PARLAY_PRESETS.find((p) => p.key === slotKey);
-  const isCustom = slotKey === FREE_FOR_ALL_KEY;
+  const isCustom = slotKey === CUSTOM_LABEL_KEY;
 
   const disabledReason = !slotKey
     ? "Pick a label to continue."
@@ -88,7 +88,7 @@ export function NewParlayForm() {
                 </button>
               );
             })}
-            <button type="button" onClick={() => setSlotKey(FREE_FOR_ALL_KEY)} className={tagClass(isCustom)}>
+            <button type="button" onClick={() => setSlotKey(CUSTOM_LABEL_KEY)} className={tagClass(isCustom)}>
               Custom
             </button>
           </div>
@@ -96,7 +96,7 @@ export function NewParlayForm() {
 
         <div className={`grid transition-all duration-200 ease-out ${isCustom ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
           <div className="flex flex-col gap-3 overflow-hidden">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1 text-sm">
                 League
                 <input

@@ -12,7 +12,7 @@ const GAMES: Record<string, ScheduleGame[]> = {
   ],
   NBA: [
     {
-      id: "evt_lakers_celtics",
+      id: "evt_celtics_lakers",
       league: "NBA",
       commenceTime: "2026-08-10T23:00:00Z",
       homeTeam: "Boston Celtics",

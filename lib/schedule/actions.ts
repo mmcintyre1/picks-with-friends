@@ -13,8 +13,8 @@ function describeError(error: unknown): string {
 }
 
 // Named distinctly from lib/odds/actions.ts's getUpcomingGames -- same idea (a free
-// schedule browse), different provider (ESPN, no odds/lines) for the leagues Free-for-all
-// supports.
+// schedule browse), different provider (ESPN, no odds/lines), covering every pickable
+// league (see PICKABLE_LEAGUES), not just NFL.
 export async function getScheduleGames(league: string): Promise<{ games: ScheduleGame[] } | { error: string }> {
   const commenceFrom = new Date();
   const commenceTo = new Date(commenceFrom.getTime() + UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000);

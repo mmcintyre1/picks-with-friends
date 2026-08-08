@@ -23,7 +23,7 @@ export async function createParlay(input: CreateParlayInput): Promise<ActionResu
   if (!input.league.trim()) return { error: "Needs a league." };
   const stake = Number(input.stake);
   if (!input.stake.trim() || Number.isNaN(stake) || stake <= 0) {
-    return { error: "Stake has to be more than zero." };
+    return { error: "Needs a stake above zero." };
   }
 
   // Kickoff time isn't tracked -- what matters is the slot (label), not a precise

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -14,9 +15,7 @@ import type { ScheduleGame } from "@/lib/schedule/types";
 function TeamBadge({ league, name }: { league: string; name: string }) {
   const logo = teamLogoUrl(league, name);
   if (logo) {
-    // A plain <img>, not next/image -- this is a tiny external CDN icon, not worth
-    // configuring images.remotePatterns for.
-    return <img src={logo} alt="" className="h-6 w-6 shrink-0 object-contain" />;
+    return <Image src={logo} alt="" width={24} height={24} className="h-6 w-6 shrink-0 object-contain" />;
   }
   return (
     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-[10px] font-semibold text-subtle">
@@ -27,7 +26,7 @@ function TeamBadge({ league, name }: { league: string; name: string }) {
 
 // Sibling to LiveOddsBrowser.tsx but deliberately much simpler -- ESPN's free scoreboard
 // has no odds/lines, just real matchups, so this only ever fills in team names. Price/line
-// for Free-for-all picks stays a manual field either way.
+// stays a manual field either way.
 export function ScheduleBrowser({
   league,
   onSelectGame,
@@ -40,6 +39,10 @@ export function ScheduleBrowser({
 
   useEffect(() => {
     let cancelled = false;
+    // Resetting to a loading state before the fetch below is the standard React
+    // race-condition-safe data-fetching shape (matches the `cancelled` guard pattern) --
+    // the lint rule's concern (an extra render pass) is an acceptable tradeoff here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGames(null);
     setError(null);
     getScheduleGames(league).then((result) => {

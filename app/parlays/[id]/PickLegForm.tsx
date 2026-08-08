@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { Market, Side } from "@/app/generated/prisma/enums";
 import { Button } from "@/components/ui/Button";
@@ -171,15 +171,18 @@ export function PickLegForm({
   // Roster/player-prop autofill covers NFL/NBA/MLB/NHL (lib/rosters/leagues.ts).
   const rosterSupported = isRosterLeague(effectiveLeague);
 
-  async function loadPlayers(homeTeam: string, awayTeam: string) {
-    loadedForPair.current = `${homeTeam}|${awayTeam}`;
-    setLoadingPlayers(true);
-    setPlayersError(null);
-    const result = await getRostersForGame(effectiveLeague, homeTeam, awayTeam);
-    if ("error" in result) setPlayersError(result.error);
-    else setPlayers(result.players);
-    setLoadingPlayers(false);
-  }
+  const loadPlayers = useCallback(
+    async (homeTeam: string, awayTeam: string) => {
+      loadedForPair.current = `${homeTeam}|${awayTeam}`;
+      setLoadingPlayers(true);
+      setPlayersError(null);
+      const result = await getRostersForGame(effectiveLeague, homeTeam, awayTeam);
+      if ("error" in result) setPlayersError(result.error);
+      else setPlayers(result.players);
+      setLoadingPlayers(false);
+    },
+    [effectiveLeague],
+  );
 
   // Auto-loads both rosters as soon as the typed/selected team names resolve to real teams
   // in this pick's league -- no manual "Load players" button. Safe to fire eagerly:
@@ -196,7 +199,7 @@ export function PickLegForm({
     const pairKey = `${home}|${away}`;
     if (pairKey === loadedForPair.current) return;
     loadPlayers(home, away);
-  }, [slip.kind, slip.homeTeam, slip.awayTeam, rosterSupported, effectiveLeague]);
+  }, [slip.kind, slip.homeTeam, slip.awayTeam, rosterSupported, effectiveLeague, loadPlayers]);
 
   function updateHomeTeam(value: string) {
     setSlip((prev) => ({ ...prev, homeTeam: value, externalId: null }));
