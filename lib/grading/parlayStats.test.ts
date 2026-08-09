@@ -6,6 +6,7 @@ import {
   americanToDecimal,
   computeCombinedOdds,
   computeCurrentStreak,
+  computeLongestStreak,
   computeProfit,
   decimalToAmerican,
   effectiveCombinedOdds,
@@ -103,5 +104,33 @@ describe("computeCurrentStreak", () => {
 
   it("a single resolved parlay is a streak of one", () => {
     expect(computeCurrentStreak([LegResult.WIN])).toEqual({ result: LegResult.WIN, count: 1 });
+  });
+});
+
+describe("computeLongestStreak", () => {
+  it("returns 0 for an empty history", () => {
+    expect(computeLongestStreak([], LegResult.WIN)).toBe(0);
+  });
+
+  it("finds the longest run even if it's not the trailing streak", () => {
+    const results = [
+      LegResult.WIN,
+      LegResult.WIN,
+      LegResult.WIN,
+      LegResult.WIN,
+      LegResult.LOSS,
+      LegResult.WIN,
+    ];
+    expect(computeLongestStreak(results, LegResult.WIN)).toBe(4);
+  });
+
+  it("finds the longest losing run independent of the longest winning run", () => {
+    const results = [LegResult.WIN, LegResult.LOSS, LegResult.LOSS, LegResult.LOSS, LegResult.WIN];
+    expect(computeLongestStreak(results, LegResult.LOSS)).toBe(3);
+    expect(computeLongestStreak(results, LegResult.WIN)).toBe(1);
+  });
+
+  it("returns 0 if the target result never occurs", () => {
+    expect(computeLongestStreak([LegResult.WIN, LegResult.WIN], LegResult.LOSS)).toBe(0);
   });
 });

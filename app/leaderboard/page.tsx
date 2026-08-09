@@ -3,9 +3,12 @@ import Link from "next/link";
 import { Badge, LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
 import { PlayerName } from "@/components/PlayerName";
 import { Card } from "@/components/ui/Card";
-import { computeCurrentStreak, computeProfit, effectiveCombinedOdds } from "@/lib/grading/parlayStats";
+import { computeCurrentStreak, computeLongestStreak, computeProfit, effectiveCombinedOdds } from "@/lib/grading/parlayStats";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
+
+import { MobileStatsCard } from "./MobileStatsCard";
+import { StreakPill } from "./streakPill";
 
 type Stats = {
   name: string;
@@ -21,20 +24,6 @@ type Stats = {
   // shouldn't break or extend a streak. Feeds computeCurrentStreak at render time.
   resultsInOrder: LegResult[];
 };
-
-// Pill styling stays fixed-shape across every tier so a streak cell never reflows --
-// only color/weight scale with length ("hotness"), no icon that appears/disappears.
-function streakPillClass(count: number, isWin: boolean): string {
-  const base = "inline-block rounded px-1.5 py-0.5 font-display tracking-wide tabular-nums";
-  if (isWin) {
-    if (count >= 5) return `${base} bg-win font-bold text-win-foreground`;
-    if (count >= 3) return `${base} bg-win/20 font-semibold text-win`;
-    return `${base} text-win`;
-  }
-  if (count >= 5) return `${base} bg-loss font-bold text-loss-foreground`;
-  if (count >= 3) return `${base} bg-loss/20 font-semibold text-loss`;
-  return `${base} text-loss`;
-}
 
 export default async function LeaderboardPage() {
   const { group } = await requireUserAndGroup();
@@ -108,11 +97,22 @@ export default async function LeaderboardPage() {
   // broken out per person here, so nobody's individual results get singled out as a
   // personal dollar loss. Sort by net record instead.
   const rows = Array.from(statsByUser.values())
-    .map((entry) => ({
-      ...entry,
-      winRate: entry.wins + entry.losses > 0 ? entry.wins / (entry.wins + entry.losses) : null,
-      streak: computeCurrentStreak(entry.resultsInOrder),
-    }))
+    .map((entry) => {
+      // Last 10 decided results (pushes already excluded from resultsInOrder), same
+      // "L10" convention as a baseball standings page -- shows fewer than 10 if a
+      // player hasn't got a 10th game yet.
+      const last10Results = entry.resultsInOrder.slice(-10);
+      const last10Wins = last10Results.filter((r) => r === LegResult.WIN).length;
+      return {
+        ...entry,
+        streak: computeCurrentStreak(entry.resultsInOrder),
+        // Best-ever win streak / worst-ever losing streak, independent of where in their
+        // history it happened -- not the same as the current (trailing) streak above.
+        bestStreak: computeLongestStreak(entry.resultsInOrder, LegResult.WIN),
+        worstStreak: computeLongestStreak(entry.resultsInOrder, LegResult.LOSS),
+        last10: { wins: last10Wins, losses: last10Results.length - last10Wins },
+      };
+    })
     .sort((a, b) => b.wins - b.losses - (a.wins - a.losses));
 
   return (
@@ -176,32 +176,54 @@ export default async function LeaderboardPage() {
         {rows.length === 0 ? (
           <p className="text-sm text-muted">Nobody&apos;s got a track record yet.</p>
         ) : (
-          <Card className="overflow-x-auto p-0">
+          <>
+            {/* Mobile: stacked, collapsible cards -- a 10-column table has no room to
+                breathe on a phone width, and showing every stat at once read as noisy
+                clutter. Each card leads with the "at a glance" number (record + current
+                streak) and reveals the rest (pushes/L10/bonus/best-worst) on tap. */}
+            <div className="flex flex-col gap-2 sm:hidden">
+              {rows.map((row) => (
+                <MobileStatsCard key={row.name} row={row} />
+              ))}
+            </div>
+
+            <Card className="hidden overflow-x-auto p-0 sm:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-muted">
                   <th className="pt-2 pr-4 pl-3" />
-                  <th className="pt-2 pr-4" />
-                  <th className="pt-2 pr-4" />
-                  <th className="pt-2 pr-3" />
-                  <th className="pt-2 pr-3" />
-                  <th className="pt-2 pr-3" />
-                  <th colSpan={2} className="border-l border-border pt-2 pb-1 pl-3 text-center text-[10px] font-medium uppercase tracking-wide text-subtle">
-                    Awards
+                  <th
+                    colSpan={4}
+                    className="pt-2 pb-1 text-center text-[10px] font-medium uppercase tracking-wide text-subtle"
+                  >
+                    Record
+                  </th>
+                  <th
+                    colSpan={2}
+                    className="border-l border-border pt-2 pb-1 pl-3 text-center text-[10px] font-medium uppercase tracking-wide text-subtle"
+                  >
+                    Bonus
+                  </th>
+                  <th
+                    colSpan={3}
+                    className="border-l border-border pt-2 pb-1 pl-3 text-center text-[10px] font-medium uppercase tracking-wide text-subtle"
+                  >
+                    Streaks
                   </th>
                 </tr>
                 <tr className="border-b border-border text-muted">
                   <th className="pb-2 pr-4 pl-3 text-left">Name</th>
-                  <th className="pb-2 pr-4 text-right">Record</th>
-                  <th className="pb-2 pr-4 text-right">Streak</th>
                   <th className="pb-2 pr-3 text-center" title="Money bag — clean wins">
                     💰
+                  </th>
+                  <th className="pb-2 pr-3 text-center" title="Poo — losses">
+                    💩
                   </th>
                   <th className="pb-2 pr-3 text-center" title="Push — tied, stake back for free">
                     🆓
                   </th>
-                  <th className="pb-2 pr-3 text-center" title="Poo — losses">
-                    💩
+                  <th className="pb-2 pr-3 text-right" title="Record over the last 10 decided legs">
+                    L10
                   </th>
                   <th
                     className="border-l border-border pb-2 pr-3 pl-3 text-center"
@@ -212,6 +234,15 @@ export default async function LeaderboardPage() {
                   <th className="pb-2 pr-3 text-center" title="Cross — the lone win in an otherwise-losing parlay">
                     ✝️
                   </th>
+                  <th className="w-20 border-l border-border pb-2 pr-3 text-right" title="Current streak">
+                    Current
+                  </th>
+                  <th className="w-20 pb-2 pr-3 text-right" title="Best-ever win streak">
+                    Best
+                  </th>
+                  <th className="w-20 pb-2 pr-3 text-right" title="Worst-ever losing streak">
+                    Worst
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -220,34 +251,43 @@ export default async function LeaderboardPage() {
                     <td className="py-2 pr-4 pl-3 font-medium">
                       <PlayerName name={row.name} flair={row.flair} />
                     </td>
-                    <td className="py-2 pr-4 text-right text-muted tabular-nums">
-                      {row.wins}-{row.losses}-{row.pushes}
-                      {row.winRate !== null && (
-                        <span className="text-subtle"> ({Math.round(row.winRate * 100)}%)</span>
-                      )}
-                    </td>
-                    <td className="py-2 pr-4 text-right">
-                      {row.streak ? (
-                        <span className={streakPillClass(row.streak.count, row.streak.result === LegResult.WIN)}>
-                          {row.streak.count}
-                          {row.streak.result === LegResult.WIN ? "W" : "L"}
-                        </span>
-                      ) : (
-                        <span className="text-subtle">—</span>
-                      )}
-                    </td>
                     <td className="py-2 pr-3 text-center text-win tabular-nums">{row.moneybag}</td>
-                    <td className="py-2 pr-3 text-center text-push tabular-nums">{row.pushes}</td>
                     <td className="py-2 pr-3 text-center text-loss tabular-nums">{row.poo}</td>
+                    <td className="py-2 pr-3 text-center text-push tabular-nums">{row.pushes}</td>
+                    <td className="py-2 pr-3 text-right text-muted tabular-nums">
+                      {row.last10.wins}-{row.last10.losses}
+                    </td>
                     <td className="border-l border-border py-2 pr-3 pl-3 text-center text-loss tabular-nums">
                       {row.toilet}
                     </td>
                     <td className="py-2 pr-3 text-center text-win tabular-nums">{row.cross}</td>
+                    <td className="w-20 border-l border-border py-2 pr-3 text-right">
+                      {row.streak ? (
+                        <StreakPill count={row.streak.count} isWin={row.streak.result === LegResult.WIN} />
+                      ) : (
+                        <span className="text-subtle">—</span>
+                      )}
+                    </td>
+                    <td className="w-20 py-2 pr-3 text-right">
+                      {row.bestStreak > 0 ? (
+                        <StreakPill count={row.bestStreak} isWin={true} />
+                      ) : (
+                        <span className="text-subtle">—</span>
+                      )}
+                    </td>
+                    <td className="w-20 py-2 pr-3 text-right">
+                      {row.worstStreak > 0 ? (
+                        <StreakPill count={row.worstStreak} isWin={false} />
+                      ) : (
+                        <span className="text-subtle">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </Card>
+            </Card>
+          </>
         )}
       </section>
     </main>

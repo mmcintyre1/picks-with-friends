@@ -5,6 +5,7 @@ import { LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
 import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { formatDate } from "@/lib/formatGameTime";
 import { decimalToAmerican, effectiveCombinedOdds, formatAmericanOdds } from "@/lib/grading/parlayStats";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
@@ -115,7 +116,7 @@ function ParlaySection({
                         {combinedOdds !== null ? formatAmericanOdds(decimalToAmerican(combinedOdds)) : "N/A"}
                       </span>
                     )}
-                    {parlay.createdAt.toLocaleDateString()}
+                    {formatDate(parlay.createdAt)}
                   </span>
                 </Card>
               </Link>

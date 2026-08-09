@@ -60,3 +60,20 @@ export function computeCurrentStreak(
   }
   return { result: last, count };
 }
+
+// Longest-ever run of a given result across the whole history, not just the trailing
+// streak -- e.g. a player's best-ever win streak or worst-ever losing streak, which can
+// easily be in the past even if their *current* streak (computeCurrentStreak) is short.
+export function computeLongestStreak(results: LegResult[], target: LegResult): number {
+  let longest = 0;
+  let current = 0;
+  for (const result of results) {
+    if (result === target) {
+      current++;
+      longest = Math.max(longest, current);
+    } else {
+      current = 0;
+    }
+  }
+  return longest;
+}

@@ -5,7 +5,7 @@ import { PlayerName } from "@/components/PlayerName";
 import { Card } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { BADGE_EMOJI } from "@/lib/badges";
-import { formatGameTime } from "@/lib/formatGameTime";
+import { formatDateTime, formatGameTime } from "@/lib/formatGameTime";
 import {
   computeProfit,
   decimalToAmerican,
@@ -89,7 +89,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
           <p className="text-xs uppercase tracking-wide text-muted">{parlay.window.league}</p>
         )}
         <h1 className="font-display text-2xl tracking-wide">{parlay.window.label ?? parlay.window.league}</h1>
-        <p className="text-xs text-subtle">Created {parlay.createdAt.toLocaleString()}</p>
+        <p className="text-xs text-subtle">Created {formatDateTime(parlay.createdAt)}</p>
         {!parlay.countsForRecord && (
           <p className="mt-1 text-xs text-push">Just for fun — doesn&apos;t count toward the record</p>
         )}
