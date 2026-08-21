@@ -21,8 +21,10 @@ import { LegRow } from "./LegRow";
 import { LockButton } from "./LockButton";
 import { NoPickSummary } from "./NoPickSummary";
 import { OddsOverrideEditor } from "./OddsOverrideEditor";
+import { CountsForRecordToggle } from "./CountsForRecordToggle";
 import { PickFlow } from "./PickFlow";
 import { ResolvedGradeEditor } from "./ResolvedGradeEditor";
+import { ShareParlayButton } from "./ShareParlayButton";
 
 function parlayStatusPill(status: ParlayStatus, result: LegResult) {
   if (status === ParlayStatus.OPEN) return <StatusPill tone="accent">Open</StatusPill>;
@@ -90,10 +92,11 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
         )}
         <h1 className="font-display text-2xl tracking-wide">{parlay.window.label ?? parlay.window.league}</h1>
         <p className="text-xs text-subtle">Created {formatDateTime(parlay.createdAt)}</p>
-        {!parlay.countsForRecord && (
-          <p className="mt-1 text-xs text-push">Just for fun — doesn&apos;t count toward the record</p>
-        )}
-        <div className="mt-2">{parlayStatusPill(parlay.status, parlay.result)}</div>
+        <CountsForRecordToggle parlayId={parlay.id} countsForRecord={parlay.countsForRecord} />
+        <div className="mt-2 flex items-center gap-2">
+          {parlayStatusPill(parlay.status, parlay.result)}
+          <ShareParlayButton parlayId={parlay.id} title={parlay.window.label ?? parlay.window.league} />
+        </div>
         {(parlay.lockedBy || parlay.gradedBy) && (
           <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-subtle">
             {parlay.lockedBy && (

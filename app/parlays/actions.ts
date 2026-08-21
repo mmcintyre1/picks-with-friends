@@ -240,6 +240,54 @@ export async function lockParlay(parlayId: string): Promise<ActionResult> {
   revalidatePath("/");
 }
 
+// Open to any group member, any status -- lets a parlay's leaderboard participation be
+// corrected after the fact (e.g. it was created as a real one but should've been "just
+// for fun", or vice versa), not just fixed at creation time.
+export async function setCountsForRecord(parlayId: string, countsForRecord: boolean): Promise<ActionResult> {
+  const { group } = await requireUserAndGroup();
+
+  const parlay = await prisma.parlay.findUnique({ where: { id: parlayId } });
+  if (!parlay || parlay.groupId !== group.id) return { error: "Couldn't find that parlay." };
+
+  await prisma.parlay.update({ where: { id: parlayId }, data: { countsForRecord } });
+
+  revalidatePath(`/parlays/${parlayId}`);
+  revalidatePath("/leaderboard");
+}
+
+// Open to any group member, any status (open/locked/resolved) -- consequential (destroys
+// the parlay and everyone's picks permanently), so the UI gates this behind a confirm
+// modal rather than any server-side role check, matching every other action in this app.
+// Deleting the Window cascades: Window -> Parlay -> Legs, and Window -> Games ->
+// OddsSnapshots (see schema.prisma's onDelete: Cascade chains). Windows are created
+// fresh, 1:1 with their parlay (see createParlay above), so this cleans up everything
+// the parlay owns in one delete instead of leaving orphaned Window/Game rows behind.
+export async function deleteParlay(parlayId: string): Promise<ActionResult> {
+  const { group } = await requireUserAndGroup();
+
+  const parlay = await prisma.parlay.findUnique({ where: { id: parlayId } });
+  if (!parlay || parlay.groupId !== group.id) return { error: "Couldn't find that parlay." };
+
+  await prisma.window.delete({ where: { id: parlay.windowId } });
+
+  revalidatePath("/");
+  revalidatePath("/leaderboard");
+  revalidatePath("/admin");
+}
+
+// Bulk version of deleteParlay for a full board reset -- same cascade reasoning, just
+// for every parlay in the group at once. Player accounts/PINs/flair are untouched.
+export async function wipeAllParlays(): Promise<void> {
+  const { group } = await requireUserAndGroup();
+
+  const parlays = await prisma.parlay.findMany({ where: { groupId: group.id }, select: { windowId: true } });
+  await prisma.window.deleteMany({ where: { id: { in: parlays.map((p) => p.windowId) } } });
+
+  revalidatePath("/");
+  revalidatePath("/leaderboard");
+  revalidatePath("/admin");
+}
+
 export async function gradeParlay(
   parlayId: string,
   results: Record<string, LegResult>,
