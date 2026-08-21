@@ -35,9 +35,17 @@ export function CountsForRecordToggle({
         type="button"
         title={countsForRecord ? "Counts toward the record" : "Just for fun — not on the record"}
         onClick={() => setOpen(true)}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-base opacity-80 transition hover:bg-white/5 hover:opacity-100"
+        className="relative flex h-9 w-9 items-center justify-center rounded-full text-base opacity-80 transition hover:bg-white/5 hover:opacity-100"
       >
         <span className={countsForRecord ? "" : "opacity-40 grayscale"}>🏆</span>
+        {/* A dimmed emoji alone doesn't read as a clear on/off state, especially on mobile
+            with no hover -- this dot is the actual state signal, color-coded to match the
+            same win/subtle language used everywhere else in the app. */}
+        <span
+          className={`absolute right-1 bottom-1 h-2 w-2 rounded-full border border-page ${
+            countsForRecord ? "bg-win" : "bg-subtle"
+          }`}
+        />
       </button>
 
       <Modal

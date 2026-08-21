@@ -60,10 +60,10 @@ export function GradeForm({
           </span>
         </div>
         {legs.map((leg) => (
-          <div key={leg.id} className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <div key={leg.id} className="flex items-center justify-between gap-3 text-sm">
             <div className="min-w-0">
-              <p className="font-medium">{leg.userName}</p>
-              <p className="text-xs text-muted">{leg.summary}</p>
+              <p className="truncate font-medium">{leg.userName}</p>
+              <p className="truncate text-xs text-muted">{leg.summary}</p>
             </div>
             <SegmentedControl
               size="sm"
@@ -71,6 +71,7 @@ export function GradeForm({
               value={results[leg.id] ?? null}
               onChange={(v) => setResults((r) => ({ ...r, [leg.id]: v }))}
               options={RESULT_OPTIONS}
+              className="shrink-0"
             />
           </div>
         ))}

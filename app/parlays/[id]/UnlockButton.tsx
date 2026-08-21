@@ -25,13 +25,16 @@ export function UnlockButton({ parlayId }: { parlayId: string }) {
 
   return (
     <div className="relative">
+      {/* Shows the CURRENT state (locked) -- this button only ever renders while the
+          parlay actually is locked, matching LockButton's same current-state-not-action
+          reasoning. */}
       <button
         type="button"
-        title="Unlock parlay"
+        title="Locked — tap to unlock"
         onClick={() => setOpen(true)}
         className="flex h-9 w-9 items-center justify-center rounded-full text-base opacity-80 transition hover:bg-white/5 hover:opacity-100"
       >
-        🔓
+        🔒
       </button>
       {error && (
         <p className="absolute top-full right-0 z-10 mt-1 w-48 text-right text-xs text-loss">{error}</p>

@@ -33,11 +33,14 @@ export function DeleteParlayButton({ parlayId }: { parlayId: string }) {
 
   return (
     <div className="relative">
+      {/* Permanently tinted, not just on hover -- hover doesn't exist on mobile, and this
+          is the one control here where a misclick actually costs something, so it needs to
+          read as different from the others at a glance, not just up close. */}
       <button
         type="button"
         title="Delete parlay"
         onClick={() => setOpen(true)}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-base opacity-80 transition hover:bg-loss/10 hover:opacity-100"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-loss/10 text-base text-loss opacity-80 transition hover:bg-loss/20 hover:opacity-100"
       >
         🗑️
       </button>

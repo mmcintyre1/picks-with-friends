@@ -25,13 +25,16 @@ export function LockButton({ parlayId }: { parlayId: string }) {
 
   return (
     <div className="relative">
+      {/* Shows the CURRENT state (open), not a preview of the action -- an already-closed
+          padlock here would read as "this is already locked," which is backwards for a
+          button that only ever renders while the parlay is still OPEN. */}
       <button
         type="button"
-        title="Lock parlay"
+        title="Open — tap to lock"
         onClick={() => setOpen(true)}
         className="flex h-9 w-9 items-center justify-center rounded-full text-base opacity-80 transition hover:bg-white/5 hover:opacity-100"
       >
-        🔒
+        🔓
       </button>
       {/* Floats below the icon instead of squeezing into its narrow column -- this button
           sits in a tight horizontal row of same-size icons, not a block layout. */}
