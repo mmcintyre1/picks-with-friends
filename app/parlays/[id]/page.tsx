@@ -16,7 +16,7 @@ import { legSummary } from "@/lib/legSummary";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 
-import { GradeForm } from "./GradeForm";
+import { AutoEvaluatePanel } from "./AutoEvaluatePanel";
 import { LegRow } from "./LegRow";
 import { LockButton } from "./LockButton";
 import { NoPickSummary } from "./NoPickSummary";
@@ -97,7 +97,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
           {parlayStatusPill(parlay.status, parlay.result)}
           <ShareParlayButton parlayId={parlay.id} title={parlay.window.label ?? parlay.window.league} />
         </div>
-        {(parlay.lockedBy || parlay.gradedBy) && (
+        {(parlay.lockedBy || parlay.gradedBy || parlay.status === ParlayStatus.RESOLVED) && (
           <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-subtle">
             {parlay.lockedBy && (
               <span>
@@ -105,12 +105,15 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
                 <PlayerName name={parlay.lockedBy.name ?? parlay.lockedBy.username} flair={parlay.lockedBy.flair} />
               </span>
             )}
-            {parlay.gradedBy && (
-              <span>
-                Evaluated by{" "}
-                <PlayerName name={parlay.gradedBy.name ?? parlay.gradedBy.username} flair={parlay.gradedBy.flair} />
-              </span>
-            )}
+            {parlay.status === ParlayStatus.RESOLVED &&
+              (parlay.gradedBy ? (
+                <span>
+                  Evaluated by{" "}
+                  <PlayerName name={parlay.gradedBy.name ?? parlay.gradedBy.username} flair={parlay.gradedBy.flair} />
+                </span>
+              ) : (
+                <span>Auto-evaluated</span>
+              ))}
           </p>
         )}
       </div>
@@ -207,13 +210,14 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
       )}
 
       {parlay.status === ParlayStatus.LOCKED && (
-        <GradeForm
+        <AutoEvaluatePanel
           parlayId={parlay.id}
           legs={parlay.legs.map((leg) => ({
             id: leg.id,
             userName: leg.user.name ?? leg.user.username,
             summary: legSummary(leg, leg.game),
           }))}
+          lastEvaluatedAt={parlay.lastEvaluatedAt}
         />
       )}
 

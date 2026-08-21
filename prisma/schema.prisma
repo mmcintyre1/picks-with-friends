@@ -93,6 +93,12 @@ model Game {
   // can't be retroactively known; new picks always set it, same backfill-only-if-null
   // discipline externalId already uses.
   league       String?
+  // ESPN's own event id, resolved lazily by evaluateParlay (team-name/date match against
+  // the schedule provider) and cached here once found. Deliberately separate from
+  // externalId above -- that field is ambiguous between two different providers' id
+  // namespaces (The Odds API vs ESPN), so it can't be trusted as an ESPN id directly.
+  // Same backfill-only-if-null discipline as externalId/league.
+  espnEventId  String?
   homeTeam     String
   awayTeam     String
   commenceTime DateTime
@@ -106,6 +112,7 @@ model Game {
   legs          Leg[]
 
   @@unique([windowId, externalId])
+  @@unique([windowId, espnEventId])
 }
 
 enum Market {
@@ -188,6 +195,11 @@ model Parlay {
   // can special-case "Auto-evaluated" once that feature actually exists.
   lockedById      String?
   gradedById      String?
+  // Stamped on every evaluateParlay attempt (resolved or not) -- the spam-prevention
+  // cooldown checks this before doing any ESPN fetch, since a parlay can span several
+  // games and the per-game fetch cache alone wouldn't stop a burst of clicks across all
+  // of them.
+  lastEvaluatedAt DateTime?
 
   group    Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
   window   Window @relation(fields: [windowId], references: [id], onDelete: Cascade)

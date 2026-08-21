@@ -21,17 +21,23 @@ export function GradeForm({
   parlayId,
   legs,
   initialResults,
+  isCorrection,
   onCancel,
 }: {
   parlayId: string;
   legs: Leg[];
   initialResults?: Record<string, LegResult>;
+  // Distinct from "initialResults is present" -- AutoEvaluatePanel also passes a partial
+  // initialResults on a first-time (LOCKED) evaluation, which isn't a correction at all,
+  // just an auto-assisted head start. Defaults to the old inference for ResolvedGradeEditor's
+  // call site (a real initialResults there always means a genuine correction).
+  isCorrection?: boolean;
   onCancel?: () => void;
 }) {
   const [results, setResults] = useState<Record<string, LegResult>>(initialResults ?? {});
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const isEdit = Boolean(initialResults);
+  const isEdit = isCorrection ?? Boolean(initialResults);
   const gradedCount = legs.filter((leg) => results[leg.id]).length;
   const complete = gradedCount === legs.length;
 

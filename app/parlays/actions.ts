@@ -6,6 +6,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 import { computeBadges } from "@/lib/grading/computeBadges";
+import { getBoxScoreProvider } from "@/lib/evaluate";
+import { resolveLeg } from "@/lib/evaluate/resolveLeg";
+import type { BoxScore } from "@/lib/evaluate/types";
+import { LEAGUE_ESPN_PATHS } from "@/lib/rosters/leagues";
+import { getScheduleProvider } from "@/lib/schedule";
 import { LegResult, Market, ParlayStatus, Side } from "@/app/generated/prisma/enums";
 
 export type ActionResult = { error: string } | undefined;
@@ -324,4 +329,178 @@ export async function gradeParlay(
   revalidatePath(`/parlays/${parlayId}`);
   revalidatePath("/leaderboard");
   revalidatePath("/");
+}
+
+// Per-parlay spam guard for evaluateParlay -- checked before any ESPN fetch happens, since
+// a parlay can span several distinct games and the box-score fetch cache (per-game) alone
+// wouldn't stop a burst of clicks from fanning out across all of them.
+const EVALUATE_COOLDOWN_MS = 20_000;
+// How far back/forward to search ESPN's free schedule endpoint when resolving a game's
+// espnEventId. Game.commenceTime isn't the real kickoff time for manually-typed picks
+// (findOrCreateGame stamps it at pick time, not looked up), so this searches a window
+// around *now* instead -- reasonable for a friend-group app that evaluates games around
+// when they're happening or shortly after, not days later.
+const ESPN_MATCH_WINDOW_DAYS_BACK = 3;
+const ESPN_MATCH_WINDOW_DAYS_FORWARD = 1;
+
+function teamNamesMatch(a: string, b: string): boolean {
+  const x = a.trim().toLowerCase();
+  const y = b.trim().toLowerCase();
+  return x === y || x.includes(y) || y.includes(x);
+}
+
+// Resolves and caches a Game's ESPN event id by searching the free schedule endpoint
+// (lib/schedule/, already used by ScheduleBrowser) for a matching matchup. Deliberately
+// not reusing Game.externalId -- that field is ambiguous between two different providers'
+// id namespaces (see schema.prisma's comment on it). Backfill-only-if-null, same
+// discipline findOrCreateGame already uses for externalId/league.
+async function resolveEspnEventId(game: {
+  id: string;
+  espnEventId: string | null;
+  league: string | null;
+  homeTeam: string;
+  awayTeam: string;
+}): Promise<string | null> {
+  if (game.espnEventId) return game.espnEventId;
+  if (!game.league || !(game.league in LEAGUE_ESPN_PATHS)) return null;
+
+  const now = Date.now();
+  const commenceFrom = new Date(now - ESPN_MATCH_WINDOW_DAYS_BACK * 24 * 60 * 60 * 1000);
+  const commenceTo = new Date(now + ESPN_MATCH_WINDOW_DAYS_FORWARD * 24 * 60 * 60 * 1000);
+
+  const scheduled = await getScheduleProvider().listUpcomingGames(game.league, { commenceFrom, commenceTo });
+  const match = scheduled.find(
+    (g) =>
+      (teamNamesMatch(g.homeTeam, game.homeTeam) && teamNamesMatch(g.awayTeam, game.awayTeam)) ||
+      (teamNamesMatch(g.homeTeam, game.awayTeam) && teamNamesMatch(g.awayTeam, game.homeTeam)),
+  );
+  if (!match) return null;
+
+  await prisma.game.update({ where: { id: game.id }, data: { espnEventId: match.id } });
+  return match.id;
+}
+
+export type EvaluateOutcome = {
+  // legId -> result, only for legs that got a definite result THIS call (already-resolved
+  // legs from a prior partial evaluate aren't repeated here).
+  results: Record<string, LegResult>;
+  // legId -> a short human status for every leg that's still not resolved after this call
+  // (live game state, "can't auto-check this one", etc.) -- this is how "signal status"
+  // surfaces in the UI.
+  statuses: Record<string, string>;
+  // Whether the parlay is fully resolved after this call (either just now, or already was).
+  resolved: boolean;
+};
+export type EvaluateParlayResult = { error: string } | EvaluateOutcome;
+
+// Auto-grades whatever legs of a LOCKED parlay can be determined from real ESPN box
+// scores, leaving the rest PENDING for manual grading (GradeForm/ResolvedGradeEditor are
+// completely untouched -- this only ever supplies pre-filled initialResults, never
+// replaces the manual path). See lib/evaluate/resolveLeg.ts for exactly what can resolve
+// early (TOTAL/PLAYER_PROP over-side and PLAYER_PROP_YESNO yes-side clinch the instant a
+// counting stat crosses its line; everything else waits for the game to go FINAL).
+export async function evaluateParlay(parlayId: string): Promise<EvaluateParlayResult> {
+  const { group } = await requireUserAndGroup();
+
+  const parlay = await prisma.parlay.findUnique({
+    where: { id: parlayId },
+    include: { legs: { include: { game: true } } },
+  });
+  if (!parlay || parlay.groupId !== group.id) return { error: "Couldn't find that parlay." };
+  if (parlay.status !== ParlayStatus.LOCKED && parlay.status !== ParlayStatus.RESOLVED) {
+    return { error: "Can't evaluate — nothing's locked yet." };
+  }
+
+  if (parlay.lastEvaluatedAt && Date.now() - parlay.lastEvaluatedAt.getTime() < EVALUATE_COOLDOWN_MS) {
+    return { error: "Just checked — give it a bit before trying again." };
+  }
+  await prisma.parlay.update({ where: { id: parlayId }, data: { lastEvaluatedAt: new Date() } });
+
+  const pendingLegs = parlay.legs.filter((leg) => leg.result === LegResult.PENDING);
+  const results: Record<string, LegResult> = {};
+  const statuses: Record<string, string> = {};
+  const boxScoreByGame = new Map<string, BoxScore>();
+
+  for (const leg of pendingLegs) {
+    const league = leg.game.league;
+    if (!league || !(league in LEAGUE_ESPN_PATHS)) {
+      statuses[leg.id] = "Can't auto-check this one — unrecognized matchup. Grade it manually.";
+      continue;
+    }
+
+    let box = boxScoreByGame.get(leg.gameId);
+    if (!box) {
+      const espnEventId = await resolveEspnEventId(leg.game);
+      if (!espnEventId) {
+        statuses[leg.id] = "Can't find this game on ESPN yet — grade it manually.";
+        continue;
+      }
+      try {
+        box = await getBoxScoreProvider().getBoxScore(LEAGUE_ESPN_PATHS[league], espnEventId);
+      } catch {
+        statuses[leg.id] = "ESPN lookup failed — try again shortly, or grade it manually.";
+        continue;
+      }
+      boxScoreByGame.set(leg.gameId, box);
+    }
+
+    const resolved = resolveLeg(
+      {
+        market: leg.market,
+        side: leg.side,
+        lineAtPick: leg.lineAtPick,
+        playerName: leg.playerName,
+        propType: leg.propType,
+      },
+      box,
+      league,
+    );
+    if (resolved.result) {
+      results[leg.id] = resolved.result;
+    } else if (resolved.reason === "unmappable") {
+      statuses[leg.id] = "Can't auto-check this pick — grade it manually.";
+    } else {
+      statuses[leg.id] = box.status.detail || "Not started yet";
+    }
+  }
+
+  const stillPending = pendingLegs.filter((leg) => !(leg.id in results));
+
+  // Every previously-PENDING leg now has a result -> fully resolve, same finalize shape
+  // gradeParlay uses below, but gradedById stays unset -- the schema's own seam for
+  // "resolved automatically, not by a person" (see Parlay.gradedById's comment).
+  if (pendingLegs.length > 0 && stillPending.length === 0) {
+    const legInputs = parlay.legs.map((leg) => ({ id: leg.id, result: results[leg.id] ?? leg.result }));
+    const badges = computeBadges(legInputs);
+    const overallResult = legInputs.every((leg) => leg.result !== LegResult.LOSS) ? LegResult.WIN : LegResult.LOSS;
+
+    await prisma.$transaction([
+      ...legInputs.map((leg) =>
+        prisma.leg.update({ where: { id: leg.id }, data: { result: leg.result, badge: badges[leg.id] } }),
+      ),
+      prisma.parlay.update({
+        where: { id: parlayId },
+        data: { status: ParlayStatus.RESOLVED, resolvedAt: new Date(), result: overallResult },
+      }),
+    ]);
+
+    revalidatePath(`/parlays/${parlayId}`);
+    revalidatePath("/leaderboard");
+    revalidatePath("/");
+    return { results, statuses, resolved: true };
+  }
+
+  // Partial: persist just the legs that got clinched this round (no badges yet -- those
+  // need the whole parlay's picture, computed once at full resolution, same as today).
+  // Leaves the parlay LOCKED so GradeForm/manual entry stays available for the rest.
+  if (Object.keys(results).length > 0) {
+    await prisma.$transaction(
+      Object.entries(results).map(([legId, result]) =>
+        prisma.leg.update({ where: { id: legId }, data: { result } }),
+      ),
+    );
+    revalidatePath(`/parlays/${parlayId}`);
+  }
+
+  return { results, statuses, resolved: parlay.status === ParlayStatus.RESOLVED };
 }
