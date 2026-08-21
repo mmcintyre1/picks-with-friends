@@ -17,11 +17,12 @@ import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 
 import { AutoEvaluatePanel } from "./AutoEvaluatePanel";
+import { CountsForRecordToggle } from "./CountsForRecordToggle";
+import { DeleteParlayButton } from "./DeleteParlayButton";
 import { LegRow } from "./LegRow";
 import { LockButton } from "./LockButton";
 import { NoPickSummary } from "./NoPickSummary";
 import { OddsOverrideEditor } from "./OddsOverrideEditor";
-import { CountsForRecordToggle } from "./CountsForRecordToggle";
 import { PickFlow } from "./PickFlow";
 import { ResolvedGradeEditor } from "./ResolvedGradeEditor";
 import { ShareParlayButton } from "./ShareParlayButton";
@@ -103,6 +104,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
             {parlay.status === ParlayStatus.OPEN && parlay.legs.length >= 2 && <LockButton parlayId={parlay.id} />}
             {parlay.status === ParlayStatus.LOCKED && <UnlockButton parlayId={parlay.id} />}
             <ShareParlayButton parlayId={parlay.id} title={parlay.window.label ?? parlay.window.league} />
+            <DeleteParlayButton parlayId={parlay.id} />
           </div>
         </div>
         {(parlay.lockedBy || parlay.gradedBy || parlay.status === ParlayStatus.RESOLVED) && (
