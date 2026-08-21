@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Throwaway verification scripts (gitignored, see .gitignore) -- not project source.
+    "tmp/**",
   ]),
 ]);
 

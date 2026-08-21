@@ -47,3 +47,6 @@ next-env.d.ts
 /.windsurf/skills/
 /.agents/skills/
 skills-lock.json
+
+# scratch space for throwaway verification scripts/screenshots -- never real project source
+/tmp/

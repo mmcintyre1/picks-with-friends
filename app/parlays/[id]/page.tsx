@@ -25,6 +25,7 @@ import { CountsForRecordToggle } from "./CountsForRecordToggle";
 import { PickFlow } from "./PickFlow";
 import { ResolvedGradeEditor } from "./ResolvedGradeEditor";
 import { ShareParlayButton } from "./ShareParlayButton";
+import { UnlockButton } from "./UnlockButton";
 
 function parlayStatusPill(status: ParlayStatus, result: LegResult) {
   if (status === ParlayStatus.OPEN) return <StatusPill tone="accent">Open</StatusPill>;
@@ -92,10 +93,17 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
         )}
         <h1 className="font-display text-2xl tracking-wide">{parlay.window.label ?? parlay.window.league}</h1>
         <p className="text-xs text-subtle">Created {formatDateTime(parlay.createdAt)}</p>
-        <CountsForRecordToggle parlayId={parlay.id} countsForRecord={parlay.countsForRecord} />
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-2 flex items-center justify-between">
           {parlayStatusPill(parlay.status, parlay.result)}
-          <ShareParlayButton parlayId={parlay.id} title={parlay.window.label ?? parlay.window.league} />
+          {/* Quiet, unbordered, same weight as each other -- secondary to the status pill,
+              not competing with it. Tight -mr-2 so the circular hit-targets' padding
+              doesn't visually push the row wider than it needs to be. */}
+          <div className="-mr-2 flex items-center gap-0.5">
+            <CountsForRecordToggle parlayId={parlay.id} countsForRecord={parlay.countsForRecord} />
+            {parlay.status === ParlayStatus.OPEN && parlay.legs.length >= 2 && <LockButton parlayId={parlay.id} />}
+            {parlay.status === ParlayStatus.LOCKED && <UnlockButton parlayId={parlay.id} />}
+            <ShareParlayButton parlayId={parlay.id} title={parlay.window.label ?? parlay.window.league} />
+          </div>
         </div>
         {(parlay.lockedBy || parlay.gradedBy || parlay.status === ParlayStatus.RESOLVED) && (
           <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-subtle">
@@ -156,9 +164,6 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
             oddsOverride={parlay.oddsOverride}
             hasSameGameLegs={hasSameGameLegs}
           />
-          {/* Locking is a whole-parlay action, not part of any one person's pick -- lives
-              on this parlay-level summary card, not inside the per-leg pick flow below. */}
-          {parlay.status === ParlayStatus.OPEN && <LockButton parlayId={parlay.id} />}
         </Card>
       )}
 

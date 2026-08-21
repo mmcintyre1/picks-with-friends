@@ -55,8 +55,15 @@ export function EvaluateButton({
   const secondsLeft = onCooldown && cooldownUntil ? Math.ceil((cooldownUntil - now) / 1000) : 0;
 
   return (
-    <div className="flex flex-col gap-1">
-      <Button type="button" variant="secondary" size="sm" disabled={pending || onCooldown} onClick={evaluate}>
+    <div className="flex flex-col items-start gap-1">
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="w-fit"
+        disabled={pending || onCooldown}
+        onClick={evaluate}
+      >
         {pending ? "Checking ESPN…" : onCooldown ? `Check again in ${secondsLeft}s` : "Evaluate against ESPN"}
       </Button>
       {error && <p className="text-xs text-loss">{error}</p>}

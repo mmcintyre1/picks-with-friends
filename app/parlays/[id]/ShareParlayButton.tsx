@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import { Button } from "@/components/ui/Button";
 import { CheckIcon, ShareIcon } from "@/components/ui/icons";
 
 // The parlay page itself already requires login (requireUserAndGroup), so "sharing" just
@@ -30,16 +29,13 @@ export function ShareParlayButton({ parlayId, title }: { parlayId: string; title
   }
 
   return (
-    <Button type="button" variant="secondary" size="sm" onClick={share}>
-      {copied ? (
-        <>
-          <CheckIcon className="h-3.5 w-3.5" /> Copied
-        </>
-      ) : (
-        <>
-          <ShareIcon className="h-3.5 w-3.5" /> Share
-        </>
-      )}
-    </Button>
+    <button
+      type="button"
+      title={copied ? "Copied!" : "Share"}
+      onClick={share}
+      className="flex h-9 w-9 items-center justify-center rounded-full text-muted opacity-80 transition hover:bg-white/5 hover:text-foreground hover:opacity-100"
+    >
+      {copied ? <CheckIcon className="h-4 w-4 text-win" /> : <ShareIcon className="h-4 w-4" />}
+    </button>
   );
 }

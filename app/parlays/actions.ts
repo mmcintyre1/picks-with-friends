@@ -245,6 +245,25 @@ export async function lockParlay(parlayId: string): Promise<ActionResult> {
   revalidatePath("/");
 }
 
+// Reverts a mis-timed lock back to OPEN so picks can be added or changed again --
+// LOCKED only, not RESOLVED (undoing an actual evaluation is a different, bigger action
+// than this). Same open-to-any-member posture as lockParlay itself.
+export async function unlockParlay(parlayId: string): Promise<ActionResult> {
+  const { group } = await requireUserAndGroup();
+
+  const parlay = await prisma.parlay.findUnique({ where: { id: parlayId } });
+  if (!parlay || parlay.groupId !== group.id) return { error: "Couldn't find that parlay." };
+  if (parlay.status !== ParlayStatus.LOCKED) return { error: "This one's not locked." };
+
+  await prisma.parlay.update({
+    where: { id: parlayId },
+    data: { status: ParlayStatus.OPEN, lockedAt: null, lockedById: null },
+  });
+
+  revalidatePath(`/parlays/${parlayId}`);
+  revalidatePath("/");
+}
+
 // Open to any group member, any status -- lets a parlay's leaderboard participation be
 // corrected after the fact (e.g. it was created as a real one but should've been "just
 // for fun", or vice versa), not just fixed at creation time.
