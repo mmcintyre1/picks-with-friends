@@ -24,7 +24,11 @@ export function CountsForRecordToggle({
       <button
         type="button"
         disabled={pending}
-        onClick={() => startTransition(() => setCountsForRecord(parlayId, !countsForRecord))}
+        onClick={() =>
+          startTransition(async () => {
+            await setCountsForRecord(parlayId, !countsForRecord);
+          })
+        }
         className="text-muted underline hover:text-foreground disabled:opacity-50"
       >
         {pending ? "Saving…" : countsForRecord ? "Remove from record" : "Add back to record"}

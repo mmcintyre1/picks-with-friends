@@ -232,7 +232,11 @@ model Leg {
 
   parlay Parlay @relation(fields: [parlayId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id])
-  game   Game   @relation(fields: [gameId], references: [id])
+  // Cascade, not the default RESTRICT -- deleting a parlay (or a bulk wipe) deletes its
+  // Window, which cascades to Game; without this, that cascade hits a RESTRICT wall the
+  // moment a Leg still references the Game being removed, even though that same Leg is
+  // also being deleted a moment later via the Parlay cascade above.
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
 
   @@unique([parlayId, userId])
 }
