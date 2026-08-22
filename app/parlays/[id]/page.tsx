@@ -81,6 +81,9 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
       isMe: member.userId === user.id,
       hasLeg: Boolean(leg),
       summary: leg ? legSummary(leg, leg.game) : undefined,
+      awayTeam: leg?.game.awayTeam,
+      homeTeam: leg?.game.homeTeam,
+      league: leg?.game.league,
       odds: leg?.priceAtPick != null ? formatAmericanOdds(leg.priceAtPick) : null,
       date: leg ? formatGameTime(leg.game.commenceTime.toISOString()) : undefined,
     };
@@ -209,6 +212,9 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
                   name={m.name}
                   flair={m.flair}
                   summary={m.summary}
+                  awayTeam={m.awayTeam}
+                  homeTeam={m.homeTeam}
+                  league={m.league}
                   odds={m.odds}
                   date={m.date}
                   resultEmoji={

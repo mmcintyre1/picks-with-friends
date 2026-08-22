@@ -29,6 +29,9 @@ export type MemberRow = {
   isMe: boolean;
   hasLeg: boolean;
   summary?: string;
+  awayTeam?: string;
+  homeTeam?: string;
+  league?: string | null;
   odds?: string | null;
   date?: string;
 };
@@ -62,6 +65,9 @@ export function PickFlow({
             name={m.name}
             flair={m.flair}
             summary={m.summary}
+            awayTeam={m.awayTeam}
+            homeTeam={m.homeTeam}
+            league={m.league}
             odds={m.odds}
             date={m.date}
             actions={

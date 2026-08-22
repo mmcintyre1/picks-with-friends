@@ -17,14 +17,30 @@ const columnHeaderClass = "truncate text-center text-[10px] font-medium uppercas
 // Full name on desktop (more room), abbreviation on mobile -- this row label is the one
 // place team identity shows up once you're past the schedule/matchup step, so it needs to
 // stay compact without going back to a blind CSS ellipsis mid-name. Exported for reuse in
-// PickLegForm's read-only matchup display (player-prop mode, once a game's resolved).
-export function TeamLabel({ name, logo, league }: { name: string; logo: string | null; league: string }) {
+// PickLegForm's read-only matchup display and LegRow's game line -- `size`/`textClassName`
+// let each caller fit its own context (the pick grid's row labels vs. a muted secondary
+// line) without forking the component.
+export function TeamLabel({
+  name,
+  logo,
+  league,
+  size = "h-[18px] w-[18px]",
+  textClassName = "text-sm font-medium",
+}: {
+  name: string;
+  logo: string | null;
+  league: string;
+  size?: string;
+  textClassName?: string;
+}) {
   return (
-    <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+    <span className={`flex min-w-0 items-center gap-1.5 ${textClassName}`}>
       {logo ? (
-        <Image src={logo} alt="" width={18} height={18} className="h-[18px] w-[18px] shrink-0 object-contain" />
+        <Image src={logo} alt="" width={18} height={18} className={`${size} shrink-0 object-contain`} />
       ) : (
-        <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-white/5 text-[9px] font-semibold text-subtle">
+        <span
+          className={`flex shrink-0 items-center justify-center rounded-full bg-white/5 text-[9px] font-semibold text-subtle ${size}`}
+        >
           {name.trim().charAt(0).toUpperCase() || "?"}
         </span>
       )}
