@@ -279,6 +279,21 @@ export async function setCountsForRecord(parlayId: string, countsForRecord: bool
   revalidatePath("/leaderboard");
 }
 
+// The label lives on Window, not Parlay -- open to any group member, any status, same as
+// the rest of this app's controls. Purely a display tag, so there's nothing to validate
+// beyond trimming; an empty value clears back to showing the league name instead.
+export async function setWindowLabel(parlayId: string, label: string): Promise<ActionResult> {
+  const { group } = await requireUserAndGroup();
+
+  const parlay = await prisma.parlay.findUnique({ where: { id: parlayId } });
+  if (!parlay || parlay.groupId !== group.id) return { error: "Couldn't find that parlay." };
+
+  await prisma.window.update({ where: { id: parlay.windowId }, data: { label: label.trim() || null } });
+
+  revalidatePath(`/parlays/${parlayId}`);
+  revalidatePath("/");
+}
+
 // Open to any group member, any status (open/locked/resolved) -- consequential (destroys
 // the parlay and everyone's picks permanently), so the UI gates this behind a confirm
 // modal rather than any server-side role check, matching every other action in this app.

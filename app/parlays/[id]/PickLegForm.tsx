@@ -11,6 +11,7 @@ import { ArrowLeftIcon, RotateCcwIcon } from "@/components/ui/icons";
 import { getRostersForGame, type GameRosterPlayer } from "@/lib/rosters/actions";
 import { findTeamIdByName, isRosterLeague, LEAGUE_TEAMS, PICKABLE_LEAGUES, teamLogoUrl } from "@/lib/rosters/leagues";
 import { propTypesForPosition } from "@/lib/rosters/propTypes";
+import { useIsIOS } from "@/lib/useIsIOS";
 
 import { pickLeg } from "../actions";
 import { PlayerPropPicker } from "./PlayerPropPicker";
@@ -157,6 +158,9 @@ export function PickLegForm({
   const [slip, setSlip] = useState<Slip>(() => slipFromInitial(initial));
   const [sport, setSport] = useState<Sport>(() => initialSport(initial?.league ?? defaultLeague));
   const [hadProviderLink, setHadProviderLink] = useState(false);
+  // iOS's numeric/decimal keyboards have no minus key, breaking negative odds/spread entry
+  // -- falls back to a plain keyboard there specifically, not for every platform.
+  const isIOS = useIsIOS();
 
   // The league this specific pick is actually for -- always the Sport selector's choice.
   const effectiveLeague = sport === "other" ? "" : sport;
@@ -291,7 +295,10 @@ export function PickLegForm({
       placeholder="Odds (e.g. -110)"
       required
       autoComplete="off"
-      inputMode="numeric"
+      // American odds are routinely negative (favorites) -- iOS's numeric keypad has no
+      // minus key at all, so iOS falls back to a plain keyboard; other platforms keep the
+      // numeric one.
+      inputMode={isIOS ? "text" : "numeric"}
       className={groupFieldClass}
     />
   );
@@ -476,7 +483,10 @@ export function PickLegForm({
                           onChange={(e) => setSlip({ ...slip, line: e.target.value })}
                           placeholder="Line (e.g. -3.5)"
                           autoComplete="off"
-                          inputMode="decimal"
+                          // Shared between SPREAD (routinely negative, e.g. -3.5 for a
+                          // favorite) and TOTAL (always positive) -- iOS's decimal keypad
+                          // has no minus key, so iOS falls back to a plain keyboard here.
+                          inputMode={isIOS ? "text" : "decimal"}
                           className={groupFieldClass}
                         />
                       )}

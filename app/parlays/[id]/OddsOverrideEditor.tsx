@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { useIsIOS } from "@/lib/useIsIOS";
 
 import { setOddsOverride } from "../actions";
 
@@ -19,6 +20,9 @@ export function OddsOverrideEditor({
   const [value, setValue] = useState(oddsOverride?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // iOS's numeric keyboard has no minus key, breaking negative-odds entry -- falls back
+  // to a plain keyboard there specifically, not for every platform.
+  const isIOS = useIsIOS();
 
   function save(next: string) {
     startTransition(async () => {
@@ -61,7 +65,9 @@ export function OddsOverrideEditor({
         onChange={(e) => setValue(e.target.value)}
         placeholder="e.g. -150"
         autoComplete="off"
-        inputMode="numeric"
+        // American odds are routinely negative -- iOS's numeric keypad has no minus key,
+        // so iOS falls back to a plain keyboard; other platforms keep the numeric one.
+        inputMode={isIOS ? "text" : "numeric"}
         className="w-24 rounded-md border border-border bg-card px-2 py-1 text-sm text-foreground"
       />
       <Button type="button" size="sm" disabled={pending} onClick={() => save(value)}>

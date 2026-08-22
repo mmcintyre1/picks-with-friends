@@ -19,6 +19,7 @@ import { requireUserAndGroup } from "@/lib/session";
 import { AutoEvaluatePanel } from "./AutoEvaluatePanel";
 import { CountsForRecordToggle } from "./CountsForRecordToggle";
 import { DeleteParlayButton } from "./DeleteParlayButton";
+import { EditableParlayLabel } from "./EditableParlayLabel";
 import { LegRow } from "./LegRow";
 import { LockButton } from "./LockButton";
 import { NoPickSummary } from "./NoPickSummary";
@@ -95,7 +96,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
         {parlay.window.label && (
           <p className="text-xs uppercase tracking-wide text-muted">{parlay.window.league}</p>
         )}
-        <h1 className="font-display text-2xl tracking-wide">{parlay.window.label ?? parlay.window.league}</h1>
+        <EditableParlayLabel parlayId={parlay.id} label={parlay.window.label} league={parlay.window.league} />
         <p className="text-xs text-subtle">Created {formatDateTime(parlay.createdAt)}</p>
         <div className="mt-2 flex items-center justify-between">
           {/* Left: the parlay's own lifecycle controls, grouped with the status pill they
