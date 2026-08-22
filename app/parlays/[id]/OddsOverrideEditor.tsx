@@ -36,8 +36,8 @@ export function OddsOverrideEditor({
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {!oddsOverride && hasSameGameLegs && (
           <span className="text-muted">
-            Two of these are on the same game — real sportsbooks don&apos;t just multiply the odds together for
-            that. Put in the real number if you&apos;ve got it.
+            Two of these share a game, so the combined odds above are just an estimate — enter the real number
+            if you&apos;ve got it.
           </span>
         )}
         <button

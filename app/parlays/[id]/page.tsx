@@ -214,6 +214,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
                   resultEmoji={
                     parlay.status === ParlayStatus.RESOLVED && leg ? BADGE_EMOJI[leg.badge] : undefined
                   }
+                  result={parlay.status === ParlayStatus.RESOLVED ? leg?.result : undefined}
                 />
               );
             })}
@@ -235,9 +236,9 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
 
       {parlay.status === ParlayStatus.RESOLVED && (
         <div className="flex flex-col gap-2">
-          <p className={`text-lg font-semibold ${parlay.result === LegResult.WIN ? "text-win" : "text-loss"}`}>
-            {parlay.result === LegResult.WIN ? "Parlay hit! 🎉" : "Parlay busted."}
-          </p>
+          {/* No separate "Parlay hit!/busted" banner here anymore -- it was just restating
+              what the status pill up top and the now-color-coded leg rows above already
+              make obvious, adding nothing new. */}
           <ResolvedGradeEditor
             parlayId={parlay.id}
             legs={parlay.legs.map((leg) => ({
