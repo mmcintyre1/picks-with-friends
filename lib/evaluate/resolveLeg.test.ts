@@ -117,6 +117,24 @@ describe("resolveLeg -- PLAYER_PROP", () => {
     expect(resolveLeg(leg, combo, "NFL")).toEqual({ result: LegResult.WIN });
   });
 
+  it("sums a multi-stat mapping for MLB (Hits + Runs + RBIs)", () => {
+    const combo = box({
+      status: { state: "post", completed: true, detail: "Final" },
+      playerStats: new Map([
+        [
+          "ronald acuna jr.",
+          new Map([
+            ["batting.hits", "2"],
+            ["batting.runs", "1"],
+            ["batting.RBIs", "1"],
+          ]),
+        ],
+      ]),
+    });
+    const leg = { ...baseLeg, market: Market.PLAYER_PROP, side: Side.OVER, lineAtPick: 2.5, playerName: "Ronald Acuna Jr.", propType: "Hits + Runs + RBIs" };
+    expect(resolveLeg(leg, combo, "MLB")).toEqual({ result: LegResult.WIN });
+  });
+
   it("extracts a numerator from a compound completions/attempts stat", () => {
     const b = box({
       status: { state: "post", completed: true, detail: "Final" },

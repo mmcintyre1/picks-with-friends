@@ -59,6 +59,13 @@ const MLB: Record<string, PropStatMapping> = {
   "Home Runs": [{ group: "batting", key: "homeRuns" }],
   RBIs: [{ group: "batting", key: "RBIs" }],
   "Runs Scored": [{ group: "batting", key: "runs" }],
+  // Real DK/FD market ("H+R+RBI") -- summed from the same three already-verified keys
+  // above, same multi-entry-sum convention as NFL's "Rush + Rec Yards".
+  "Hits + Runs + RBIs": [
+    { group: "batting", key: "hits" },
+    { group: "batting", key: "runs" },
+    { group: "batting", key: "RBIs" },
+  ],
   Strikeouts: [{ group: "pitching", key: "strikeouts" }],
   "Earned Runs Allowed": [{ group: "pitching", key: "earnedRuns" }],
   "Hits Allowed": [{ group: "pitching", key: "hits" }],
