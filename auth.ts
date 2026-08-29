@@ -9,7 +9,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // included) it must be told explicitly, or every request fails with a generic
   // "server configuration" error regardless of how correct the rest of the config is.
   trustHost: true,
-  session: { strategy: "jwt" },
+  // Auth.js's default is a 30-day sliding window (session.updateAge, also 30 days by
+  // default) -- fine for most apps, but logging back in every month is real friction for
+  // a friend-group app people dip into a few times a week. A year is "basically forever"
+  // for how this actually gets used, while still being a real boundary rather than no
+  // expiry at all. updateAge stays short (1 day) so the sliding refresh happens on
+  // essentially every visit, not just once a month.
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 365, updateAge: 60 * 60 * 24 },
   pages: { signIn: "/login" },
   providers: [
     Credentials({

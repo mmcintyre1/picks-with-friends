@@ -10,7 +10,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ArrowLeftIcon, RotateCcwIcon } from "@/components/ui/icons";
 import { getRostersForGame, type GameRosterPlayer } from "@/lib/rosters/actions";
 import { findTeamIdByName, isRosterLeague, LEAGUE_TEAMS, PICKABLE_LEAGUES, teamLogoUrl } from "@/lib/rosters/leagues";
-import { propTypesForPosition } from "@/lib/rosters/propTypes";
+import { isYesNoPropType, propTypesForPosition } from "@/lib/rosters/propTypes";
 import { useIsIOS } from "@/lib/useIsIOS";
 
 import { pickLeg } from "../actions";
@@ -509,7 +509,19 @@ export function PickLegForm({
                       propTypeOptions={propTypeOptions}
                       onSelectPlayer={(name) => setSlip({ ...slip, playerName: name })}
                       onClearPlayer={() => setSlip({ ...slip, playerName: "", propType: "" })}
-                      onSelectPropType={(t) => setSlip({ ...slip, propType: t })}
+                      // Auto-sets the shape (and matching default side) from the stat
+                      // itself for known yes/no props (Anytime TD, Double-Double) instead
+                      // of leaving the picker to notice and separately flip the Prop
+                      // shape toggle -- one fewer tap, and no more Over/Under selector
+                      // left showing for a bet that isn't shaped that way.
+                      onSelectPropType={(t) =>
+                        setSlip({
+                          ...slip,
+                          propType: t,
+                          propShape: isYesNoPropType(t) ? "yesNo" : "overUnder",
+                          side: isYesNoPropType(t) ? Side.YES : Side.OVER,
+                        })
+                      }
                     />
                   ) : (
                     <div className={fieldListClass}>

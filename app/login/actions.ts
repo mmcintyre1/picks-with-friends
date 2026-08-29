@@ -8,8 +8,21 @@ import { hashPin, PIN_PATTERN } from "@/lib/pin";
 
 export type ActionState = { error: string } | null;
 
+// `callbackUrl` comes from a query param on the login page (see lib/session.ts's
+// requireUserAndGroup), so it's attacker-controllable -- someone could craft a link like
+// /login?callbackUrl=https://evil.example and use this app to redirect a signed-in
+// session somewhere else (open redirect). Only ever trust it as a same-origin relative
+// path: must start with a single "/", never "//" (protocol-relative) or contain "://".
+function safeRedirectTarget(callbackUrl: string | undefined): string {
+  if (callbackUrl && callbackUrl.startsWith("/") && !callbackUrl.startsWith("//") && !callbackUrl.includes("://")) {
+    return callbackUrl;
+  }
+  return "/";
+}
+
 export async function loginWithPin(
   username: string,
+  callbackUrl: string | undefined,
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -24,7 +37,7 @@ export async function loginWithPin(
   }
 
   try {
-    await signIn("credentials", { username, pin, redirectTo: "/" });
+    await signIn("credentials", { username, pin, redirectTo: safeRedirectTarget(callbackUrl) });
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: "Wrong PIN. Try again." };
@@ -36,6 +49,7 @@ export async function loginWithPin(
 
 export async function claimPin(
   username: string,
+  callbackUrl: string | undefined,
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -60,7 +74,7 @@ export async function claimPin(
   });
 
   try {
-    await signIn("credentials", { username, pin, redirectTo: "/" });
+    await signIn("credentials", { username, pin, redirectTo: safeRedirectTarget(callbackUrl) });
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: "PIN's saved, but sign-in hiccuped — try again." };

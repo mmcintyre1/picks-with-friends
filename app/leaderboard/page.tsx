@@ -26,7 +26,7 @@ type Stats = {
 };
 
 export default async function LeaderboardPage() {
-  const { group } = await requireUserAndGroup();
+  const { group } = await requireUserAndGroup("/leaderboard");
 
   // Parlay-level record: the group's collective parlay (not per-person), oldest first
   // so the dot strip reads left-to-right chronologically and streaks/order line up.

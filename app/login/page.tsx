@@ -2,7 +2,12 @@ import { prisma } from "@/lib/prisma";
 
 import { LoginForm } from "./LoginForm";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string }>;
+}) {
+  const { callbackUrl } = await searchParams;
   const members = await prisma.user.findMany({
     select: { username: true, name: true, flair: true, pinHash: true },
     orderBy: { username: "asc" },
@@ -21,6 +26,7 @@ export default async function LoginPage() {
           flair: m.flair,
           claimed: m.pinHash !== null,
         }))}
+        callbackUrl={callbackUrl}
       />
     </main>
   );

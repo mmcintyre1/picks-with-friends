@@ -44,7 +44,7 @@ function parlayStatusPill(status: ParlayStatus, result: LegResult) {
 
 export default async function ParlayPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { user, group } = await requireUserAndGroup();
+  const { user, group } = await requireUserAndGroup(`/parlays/${id}`);
 
   const parlay = await prisma.parlay.findUnique({
     where: { id },

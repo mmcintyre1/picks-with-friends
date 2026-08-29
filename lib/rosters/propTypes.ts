@@ -101,6 +101,18 @@ export function propTypesForPosition(league: string, position: string | undefine
   return PROP_TYPES_BY_LEAGUE[league]?.[position] ?? UNMAPPED_POSITION_PROP_TYPES;
 }
 
+// The handful of canonical propType strings that are inherently yes/no (did it happen at
+// all) rather than over/under a numeric line. Used to auto-set PickLegForm's prop-shape
+// toggle when one of these is picked, instead of leaving it defaulted to Over/Under and
+// making the picker remember to flip it manually -- a real "too many taps" gap, since
+// missing that flip left an Over/Under selector and a line field showing for a bet that
+// has neither.
+const YES_NO_PROP_TYPES = new Set(["Anytime TD", "Double-Double"]);
+
+export function isYesNoPropType(propType: string): boolean {
+  return YES_NO_PROP_TYPES.has(propType);
+}
+
 // True only for positions with a real, specific mapped list -- used to filter the
 // player-prop picker's roster list down to players actually worth showing (skips
 // offensive linemen etc., which would otherwise only ever offer the generic fallback).

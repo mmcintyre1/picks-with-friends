@@ -16,7 +16,7 @@ function initials(label: string): string {
   return label.trim().slice(0, 2).toUpperCase();
 }
 
-export function LoginForm({ members }: { members: Member[] }) {
+export function LoginForm({ members, callbackUrl }: { members: Member[]; callbackUrl?: string }) {
   const [selected, setSelected] = useState<Member | null>(null);
 
   if (!selected) {
@@ -40,14 +40,22 @@ export function LoginForm({ members }: { members: Member[] }) {
   }
 
   return selected.claimed ? (
-    <PinLoginStep member={selected} onBack={() => setSelected(null)} />
+    <PinLoginStep member={selected} callbackUrl={callbackUrl} onBack={() => setSelected(null)} />
   ) : (
-    <PinClaimStep member={selected} onBack={() => setSelected(null)} />
+    <PinClaimStep member={selected} callbackUrl={callbackUrl} onBack={() => setSelected(null)} />
   );
 }
 
-function PinLoginStep({ member, onBack }: { member: Member; onBack: () => void }) {
-  const [state, formAction, pending] = useActionState(loginWithPin.bind(null, member.username), null);
+function PinLoginStep({
+  member,
+  callbackUrl,
+  onBack,
+}: {
+  member: Member;
+  callbackUrl?: string;
+  onBack: () => void;
+}) {
+  const [state, formAction, pending] = useActionState(loginWithPin.bind(null, member.username, callbackUrl), null);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -75,8 +83,16 @@ function PinLoginStep({ member, onBack }: { member: Member; onBack: () => void }
   );
 }
 
-function PinClaimStep({ member, onBack }: { member: Member; onBack: () => void }) {
-  const [state, formAction, pending] = useActionState(claimPin.bind(null, member.username), null);
+function PinClaimStep({
+  member,
+  callbackUrl,
+  onBack,
+}: {
+  member: Member;
+  callbackUrl?: string;
+  onBack: () => void;
+}) {
+  const [state, formAction, pending] = useActionState(claimPin.bind(null, member.username, callbackUrl), null);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">

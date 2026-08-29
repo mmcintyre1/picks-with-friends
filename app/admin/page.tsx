@@ -6,7 +6,7 @@ import { AdminParlayRow } from "./AdminParlayRow";
 import { WipeParlaysButton } from "./WipeParlaysButton";
 
 export default async function AdminPage() {
-  const { group } = await requireUserAndGroup();
+  const { group } = await requireUserAndGroup("/admin");
 
   const members = await prisma.groupMember.findMany({
     where: { groupId: group.id },
