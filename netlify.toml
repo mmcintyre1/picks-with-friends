@@ -7,7 +7,7 @@
   # false-positive as "leaked secrets" when they're really just our own code. Real secrets
   # (DATABASE_URL, AUTH_SECRET, ODDS_API_KEY) are high-entropy and won't collide with our
   # source like this, so they intentionally stay scanned.
-  SECRETS_SCAN_OMIT_KEYS = "ODDS_PROVIDER,ROSTER_PROVIDER,NODE_ENV"
+  SECRETS_SCAN_OMIT_KEYS = "ODDS_PROVIDER,ROSTER_PROVIDER,SHARPAPI_PROVIDER,NODE_ENV"
   # Turbopack's persistent build cache records the literal value of every env var it reads
   # (for cache-invalidation fingerprinting), so real secrets like AUTH_SECRET/ODDS_API_KEY
   # do genuinely end up in these .sst cache files. That's expected Turbopack behavior, not

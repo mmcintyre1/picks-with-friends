@@ -11,10 +11,12 @@ import { ArrowLeftIcon, RotateCcwIcon } from "@/components/ui/icons";
 import { getRostersForGame, type GameRosterPlayer } from "@/lib/rosters/actions";
 import { findTeamIdByName, isRosterLeague, LEAGUE_TEAMS, PICKABLE_LEAGUES, teamLogoUrl } from "@/lib/rosters/leagues";
 import { isYesNoPropType, propTypesForPosition } from "@/lib/rosters/propTypes";
+import type { PropPick, TeamBetPick } from "@/lib/sharpapi/types";
 import { useIsIOS } from "@/lib/useIsIOS";
 
 import { pickLeg } from "../actions";
 import { PlayerPropPicker } from "./PlayerPropPicker";
+import { ResearchBrowser } from "./ResearchBrowser";
 import { ScheduleBrowser } from "./ScheduleBrowser";
 import { TeamLabel, TeamMarketGrid } from "./TeamMarketGrid";
 
@@ -242,6 +244,40 @@ export function PickLegForm({
     setHadProviderLink(true);
   }
 
+  // Research (SharpAPI/NFL) picks carry a real market/side/line/price, unlike
+  // ScheduleBrowser's bare matchup -- these replace the whole slip object (like setKind
+  // does) rather than merging into whatever was there before, then still land in the same
+  // editable slip UI below for a final review before confirming.
+  function onSelectResearchTeamBet(pick: TeamBetPick) {
+    setSlip({
+      kind: "team",
+      homeTeam: pick.homeTeam,
+      awayTeam: pick.awayTeam,
+      market: pick.market,
+      side: pick.side,
+      line: pick.line?.toString() ?? "",
+      price: pick.price.toString(),
+      externalId: pick.externalId,
+    });
+    setHadProviderLink(true);
+  }
+
+  function onSelectResearchProp(pick: PropPick) {
+    setSlip({
+      kind: "prop",
+      homeTeam: pick.homeTeam,
+      awayTeam: pick.awayTeam,
+      propShape: pick.market === Market.PLAYER_PROP_YESNO ? "yesNo" : "overUnder",
+      playerName: pick.playerName,
+      propType: pick.propType,
+      side: pick.side,
+      line: pick.line?.toString() ?? "",
+      price: pick.price.toString(),
+      externalId: pick.externalId,
+    });
+    setHadProviderLink(true);
+  }
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -334,7 +370,7 @@ export function PickLegForm({
                 value={entryMode}
                 onChange={setEntryMode}
                 options={[
-                  { value: "browse", label: "Browse schedule" },
+                  { value: "browse", label: effectiveLeague === "NFL" ? "Browse research" : "Browse schedule" },
                   { value: "manual", label: "Type it manually" },
                 ]}
               />
@@ -342,7 +378,11 @@ export function PickLegForm({
           </Card>
 
           {canBrowseSchedule && entryMode === "browse" && (
-            <ScheduleBrowser league={effectiveLeague} onSelectGame={onSelectScheduleGame} />
+            effectiveLeague === "NFL" ? (
+              <ResearchBrowser onSelectTeamBet={onSelectResearchTeamBet} onSelectProp={onSelectResearchProp} />
+            ) : (
+              <ScheduleBrowser league={effectiveLeague} onSelectGame={onSelectScheduleGame} />
+            )
           )}
         </>
       )}
