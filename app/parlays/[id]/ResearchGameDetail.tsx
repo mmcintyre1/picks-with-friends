@@ -118,6 +118,7 @@ export function ResearchGameDetail({
             onSelectTeamBet={onSelectTeamBet}
           />
           <ResearchTeamTotals
+            league={league}
             homeTeam={game.homeTeam}
             awayTeam={game.awayTeam}
             externalId={game.externalId}
@@ -141,6 +142,7 @@ export function ResearchGameDetail({
           const category = propCategories.find((c) => c.key === active.key);
           return category ? (
             <ResearchPropTable
+              league={league}
               homeTeam={game.homeTeam}
               awayTeam={game.awayTeam}
               externalId={game.externalId}

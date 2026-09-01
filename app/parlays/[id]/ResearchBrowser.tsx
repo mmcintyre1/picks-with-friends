@@ -99,8 +99,15 @@ export function ResearchBrowser({
               const odds = oddsById[game.externalId];
               return (
                 <Card key={game.externalId} className="flex flex-col gap-2 p-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="min-w-0 truncate text-sm font-medium">
+                  <div className="flex items-start justify-between gap-2">
+                    {/* One flowing text node, not two separately-boxed team-name spans --
+                        splitting them each into their own 50/50 flex column produced a
+                        lopsided wrap whenever only one side needed two lines (the other
+                        team's name ends up clinging to line 1 with nothing below it,
+                        while the wrapped side's second line sits alone). Plain inline text
+                        lets the browser pick a natural break point across the whole
+                        "Away @ Home" string instead. */}
+                    <p className="min-w-0 flex-1 text-sm font-medium">
                       {game.awayTeam} <span className="text-subtle">@</span> {game.homeTeam}
                     </p>
                     <span className="shrink-0 text-xs text-muted">{formatGameTime(game.commenceTime)}</span>

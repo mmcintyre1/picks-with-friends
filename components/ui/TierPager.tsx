@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "./icons";
 
 const navButtonClass =
-  "flex h-8 w-6 shrink-0 items-center justify-center text-subtle transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30";
+  "flex h-9 w-9 shrink-0 items-center justify-center text-subtle transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30";
 
 // DraftKings pages tiered lines (e.g. multiple thresholds for one player's stat) a few at a
 // time with chevron arrows rather than listing every one inline -- this reproduces that
@@ -50,7 +50,7 @@ export function TierPager<T>({
         onClick={() => setStart(Math.max(0, clampedStart - pageSize))}
         className={navButtonClass}
       >
-        <ChevronLeftIcon className="h-4 w-4" />
+        <ChevronLeftIcon className="h-5 w-5" />
       </button>
       <div className="flex min-w-0 flex-1 gap-1.5">
         {visible.map((item) => (
@@ -66,7 +66,7 @@ export function TierPager<T>({
         onClick={() => setStart(clampedStart + pageSize)}
         className={navButtonClass}
       >
-        <ChevronRightIcon className="h-4 w-4" />
+        <ChevronRightIcon className="h-5 w-5" />
       </button>
     </div>
   );

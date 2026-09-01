@@ -384,7 +384,7 @@ export function PickLegForm({
               value={entryMode}
               onChange={setEntryMode}
               options={[
-                { value: "browse", label: effectiveLeague === "NFL" ? "Browse research" : "Browse schedule" },
+                { value: "browse", label: effectiveLeague === "NFL" ? "Browse odds" : "Browse schedule" },
                 { value: "manual", label: "Type it manually" },
               ]}
             />

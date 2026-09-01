@@ -58,6 +58,17 @@
   --font-display: var(--font-oswald);
 }
 
+/* The app never set a base font-size anywhere, so every Tailwind text-* utility (all
+   rem-based) rendered identically on a 375px phone and a 27" monitor -- real feedback was
+   that text reads small "especially on desktop." Bumping the root size only past a real
+   desktop breakpoint scales every existing text/padding utility proportionally in one
+   place, rather than editing the ~170 individual text-* occurrences across the app. */
+@media (min-width: 1024px) {
+  html {
+    font-size: 17px;
+  }
+}
+
 /* :root's color-scheme should be enough for native form controls to render dark, but
    <select> dropdown popups have been observed rendering inconsistently (some readable dark,
    some white-on-white) -- forcing it directly on the element is the reliable cross-browser

@@ -32,7 +32,12 @@ export function SegmentedControl<T extends string>({
         // defaults to `auto` (its content's intrinsic width), which silently overrides
         // `w-full` and lets it grow past its flex-col parent's bounds anyway unless
         // min-w-0 explicitly permits shrinking below that.
-        scroll ? "flex w-full min-w-0 max-w-full flex-nowrap overflow-x-auto" : "inline-flex flex-wrap"
+        // The mask-image edge-fade is the missing "more tabs this way" cue -- without it,
+        // scrollable content just hard-clips at the container's rounded border with zero
+        // sign anything is off-screen, which read as an abrupt/unpolished cutoff.
+        scroll
+          ? "flex w-full min-w-0 max-w-full flex-nowrap overflow-x-auto [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)]"
+          : "inline-flex flex-wrap"
       } ${className}`}
     >
       {options.map((opt) => {

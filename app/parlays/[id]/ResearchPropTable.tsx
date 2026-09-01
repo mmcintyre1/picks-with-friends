@@ -1,11 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { Market, Side } from "@/app/generated/prisma/enums";
 import { Card } from "@/components/ui/Card";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { TierPager } from "@/components/ui/TierPager";
+import { getRostersForGame } from "@/lib/rosters/actions";
+import { teamLogoUrl } from "@/lib/rosters/leagues";
 import type { ResearchCategory, ResearchSelection, PropPick } from "@/lib/sharpapi/types";
 import { bookLabel, propTypeLabel } from "@/lib/sharpapi/categorize";
+
+import { bookTagClass, nameGridCols, nameGridColsOU, oddsCellClass, oddsCellMinWidth, priceClass } from "./researchOddsStyles";
+import { TeamAvatar } from "./TeamMarketGrid";
 
 function formatPrice(price: number): string {
   return `${price > 0 ? "+" : ""}${price}`;
@@ -42,16 +49,31 @@ function buildPick(
   };
 }
 
-// The line/price are what actually matters when scanning a board -- the sportsbook is
-// secondary context, so it's a small corner tag rather than its own line competing with the
-// odds for space. min-w shrinks below sm: so tiers still compress into the grid's 1fr
-// column(s) on a 360-375px phone.
-const tierButtonClass =
-  "relative flex w-full min-w-[4.5rem] sm:min-w-[6rem] flex-col items-center gap-0.5 rounded-lg border border-border bg-card px-2.5 pt-3.5 pb-2 text-sm font-medium text-foreground transition-colors hover:border-accent hover:bg-accent/10";
-const bookTagClass = "absolute right-1 top-1 text-[8px] leading-none text-subtle";
-const priceClass = "font-display text-base tracking-wide text-accent tabular-nums";
+const tierButtonClass = `${oddsCellClass} ${oddsCellMinWidth}`;
 
-const ouColumnsClass = "grid grid-cols-[minmax(4.5rem,7rem)_1fr_1fr] items-center gap-2";
+const ouColumnsClass = `grid ${nameGridColsOU} items-center gap-2`;
+
+// A player's own team logo (circular, or an initial-letter fallback) to the left of their
+// name -- resolved via the same roster lookup PlayerPropPicker/PickLegForm already use for
+// manual prop entry, not a new data source. A roster-lookup miss (name mismatch) just
+// leaves `team` null and falls back to TeamAvatar's own initial-circle treatment using the
+// player's own initial instead of a team's -- never a crash, never a guess.
+//
+// Wraps onto a second line rather than truncating -- on a narrow phone there's no spare
+// horizontal room to give a long name (e.g. "Jaxon Smith-Njigba"), but there's always
+// vertical room, since each row's own height is free to grow. No `truncate`/`whitespace-
+// nowrap` here at all: a name that fits stays on one line on its own: only one that doesn't
+// wraps, at any viewport width.
+function PlayerNameCell({ playerName, team, league }: { playerName: string; team: string | null; league: string }) {
+  return (
+    <span className="flex min-w-0 items-start gap-1.5">
+      <span className="mt-0.5">
+        <TeamAvatar logo={team ? teamLogoUrl(league, team) : null} name={team ?? playerName} />
+      </span>
+      <span className="min-w-0 text-sm font-medium">{playerName}</span>
+    </span>
+  );
+}
 
 // One row per player per stat -- DK distinguishes a pure tiered "ladder" (increasing Over
 // thresholds only, paged a few at a time, e.g. "227+ / 230+ / 240+") from a separate,
@@ -60,18 +82,37 @@ const ouColumnsClass = "grid grid-cols-[minmax(4.5rem,7rem)_1fr_1fr] items-cente
 // together, which is what this looked like before) is what actually reproduces DK's real
 // layout -- confirmed against the real reference screenshots.
 export function ResearchPropTable({
+  league,
   homeTeam,
   awayTeam,
   externalId,
   category,
   onSelectProp,
 }: {
+  league: string;
   homeTeam: string;
   awayTeam: string;
   externalId: string;
   category: ResearchCategory;
   onSelectProp: (pick: PropPick) => void;
 }) {
+  // Resolves which team each player belongs to, purely for the logo avatar -- the SharpAPI
+  // prop rows themselves carry no team field (only team_total rows do). Reuses the same
+  // roster action PlayerPropPicker already fetches from for manual entry, so this costs no
+  // new network surface, just a second consumer of an already-cached (6h) roster fetch.
+  const [teamByPlayer, setTeamByPlayer] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    getRostersForGame(league, homeTeam, awayTeam).then((result) => {
+      if (cancelled || "error" in result) return;
+      setTeamByPlayer(new Map(result.players.map((p) => [p.name, p.team])));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [league, homeTeam, awayTeam]);
+
   const groups = category.marketGroups.filter((g) => g.segment === null);
 
   if (groups.length === 0) {
@@ -99,10 +140,8 @@ export function ResearchPropTable({
           return (
             <CollapsibleSection key={group.marketType} title={label}>
               {[...byPlayer.entries()].map(([playerName, selections]) => (
-                <Card key={playerName} className="grid grid-cols-[minmax(4.5rem,7rem)_1fr] items-center gap-2 p-2">
-                  <span className="min-w-0 truncate text-sm font-medium" title={playerName}>
-                    {playerName}
-                  </span>
+                <Card key={playerName} elevated className={`grid ${nameGridCols} items-center gap-2 p-2`}>
+                  <PlayerNameCell playerName={playerName} team={teamByPlayer.get(playerName) ?? null} league={league} />
                   <div className="flex flex-wrap gap-1.5">
                     {selections.map((selection) => (
                       <button
@@ -148,10 +187,8 @@ export function ResearchPropTable({
             {ladderRows.length > 0 && (
               <CollapsibleSection title={label}>
                 {ladderRows.map(({ playerName, tiers }) => (
-                  <Card key={playerName} className="grid grid-cols-[minmax(4.5rem,7rem)_1fr] items-center gap-2 p-2">
-                    <span className="min-w-0 truncate text-sm font-medium" title={playerName}>
-                      {playerName}
-                    </span>
+                  <Card key={playerName} elevated className={`grid ${nameGridCols} items-center gap-2 p-2`}>
+                    <PlayerNameCell playerName={playerName} team={teamByPlayer.get(playerName) ?? null} league={league} />
                     <TierPager
                       items={tiers}
                       keyFor={(s) => s.selectionId}
@@ -180,10 +217,8 @@ export function ResearchPropTable({
                   <span className="text-center">Under</span>
                 </div>
                 {ouRows.map(({ playerName, over, under }) => (
-                  <Card key={playerName} className={`${ouColumnsClass} p-2`}>
-                    <span className="min-w-0 truncate text-sm font-medium" title={playerName}>
-                      {playerName}
-                    </span>
+                  <Card key={playerName} elevated className={`${ouColumnsClass} p-2`}>
+                    <PlayerNameCell playerName={playerName} team={teamByPlayer.get(playerName) ?? null} league={league} />
                     {over ? (
                       <button
                         type="button"

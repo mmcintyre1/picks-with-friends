@@ -76,12 +76,22 @@ export function ScheduleBrowser({
           key={game.id}
           className="flex flex-col gap-1.5 p-2.5 transition-colors hover:border-border-strong sm:flex-row sm:items-center sm:justify-between"
         >
-          <div className="flex min-w-0 items-center gap-1.5">
-            <TeamBadge league={league} name={game.awayTeam} />
-            <span className="min-w-0 truncate text-sm font-medium">{game.awayTeam}</span>
-            <span className="shrink-0 text-xs text-subtle">@</span>
-            <TeamBadge league={league} name={game.homeTeam} />
-            <span className="min-w-0 truncate text-sm font-medium">{game.homeTeam}</span>
+          {/* flex-wrap, not two fixed 50/50 columns -- forcing each team name into its own
+              equal-width box produced a lopsided wrap whenever only one side needed two
+              lines (the other name clings to line 1 with nothing below it). Letting the
+              badge+name+"@"+badge+name sequence wrap as whole chunks breaks at a natural
+              boundary (after "@", between a badge and the next name) instead of splitting
+              either name in isolation. */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span className="flex items-center gap-1.5">
+              <TeamBadge league={league} name={game.awayTeam} />
+              <span className="text-sm font-medium">{game.awayTeam}</span>
+            </span>
+            <span className="text-xs text-subtle">@</span>
+            <span className="flex items-center gap-1.5">
+              <TeamBadge league={league} name={game.homeTeam} />
+              <span className="text-sm font-medium">{game.homeTeam}</span>
+            </span>
           </div>
           <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
             <span className="font-display text-xs tracking-wide text-subtle tabular-nums">

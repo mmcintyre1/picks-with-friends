@@ -7,6 +7,8 @@ import { TierPager } from "@/components/ui/TierPager";
 import { altLinesForMarket, altTeamTotalLines, bookLabel, mapGameLinesSelectionToPick } from "@/lib/sharpapi/categorize";
 import type { ResearchCategory, TeamBetPick } from "@/lib/sharpapi/types";
 
+import { bookTagClass, nameGridCols, oddsCellClass, oddsCellMinWidth, priceClass } from "./researchOddsStyles";
+
 function formatPrice(price: number): string {
   return `${price > 0 ? "+" : ""}${price}`;
 }
@@ -16,14 +18,7 @@ function formatSignedLine(line: number | null): string {
   return line > 0 ? `+${line}` : `${line}`;
 }
 
-// The line/price are what actually matters when scanning a board -- the sportsbook is
-// secondary context, so it's a small corner tag rather than its own line competing with the
-// odds for space. min-w shrinks below sm: so tiers still compress into the row's 1fr column
-// on a 360-375px phone.
-const tierButtonClass =
-  "relative flex w-full min-w-[4.5rem] sm:min-w-[6rem] flex-col items-center gap-0.5 rounded-lg border border-border bg-card px-2.5 pt-3.5 pb-2 text-sm font-medium text-foreground transition-colors hover:border-accent hover:bg-accent/10";
-const bookTagClass = "absolute right-1 top-1 text-[8px] leading-none text-subtle";
-const priceClass = "font-display text-base tracking-wide text-accent tabular-nums";
+const tierButtonClass = `${oddsCellClass} ${oddsCellMinWidth}`;
 
 const SIDE_LABELS: Partial<Record<Side, string>> = {
   [Side.AWAY]: "Away",
@@ -69,10 +64,8 @@ export function ResearchAltLines({
             return (
               // Grid, not flex-wrap -- same overflow fix as ResearchPropTable: a bounded
               // name-column track can't be pushed past the viewport by a long team name.
-              <Card key={side} className="grid grid-cols-[minmax(4.5rem,7rem)_1fr] items-center gap-2 p-2">
-                <span className="min-w-0 truncate text-sm font-medium" title={teamName}>
-                  {teamName}
-                </span>
+              <Card key={side} elevated className={`grid ${nameGridCols} items-center gap-2 p-2`}>
+                <span className="min-w-0 text-sm font-medium">{teamName}</span>
                 <TierPager
                   items={selections}
                   keyFor={(s) => s.selectionId}
@@ -102,10 +95,8 @@ export function ResearchAltLines({
           {totalGroups.map(({ side, selections }) => {
             const sideName = SIDE_LABELS[side] ?? side;
             return (
-              <Card key={side} className="grid grid-cols-[minmax(4.5rem,7rem)_1fr] items-center gap-2 p-2">
-                <span className="min-w-0 truncate text-sm font-medium" title={sideName}>
-                  {sideName}
-                </span>
+              <Card key={side} elevated className={`grid ${nameGridCols} items-center gap-2 p-2`}>
+                <span className="min-w-0 text-sm font-medium">{sideName}</span>
                 <TierPager
                   items={selections}
                   keyFor={(s) => s.selectionId}
@@ -137,10 +128,8 @@ export function ResearchAltLines({
             const sideName = SIDE_LABELS[side] ?? side;
             const label = `${teamName} ${sideName}`;
             return (
-              <Card key={`${teamSide}-${side}`} className="grid grid-cols-[minmax(4.5rem,7rem)_1fr] items-center gap-2 p-2">
-                <span className="min-w-0 truncate text-sm font-medium" title={label}>
-                  {label}
-                </span>
+              <Card key={`${teamSide}-${side}`} elevated className={`grid ${nameGridCols} items-center gap-2 p-2`}>
+                <span className="min-w-0 text-sm font-medium">{label}</span>
                 <TierPager
                   items={selections}
                   keyFor={(s) => s.selectionId}
