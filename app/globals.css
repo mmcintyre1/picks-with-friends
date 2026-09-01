@@ -3,31 +3,34 @@
 :root {
   color-scheme: dark;
 
-  /* A near-true-black base (not navy-gray) with crisp near-white text and
-     higher-contrast secondary grays -- the previous desaturated blue-gray
-     palette read as pale/lifeless ("zombie") across large text/border areas. */
-  --background: #08090b;
-  --foreground: #f6f7f9;
+  /* "Night Broadcast" -- stadium-lights navy with a broadcast-graphic amber accent,
+     chosen over the previous near-black + lime-green palette specifically because that
+     one read as a cloud-database dashboard (Neon's own brand colors), not a sportsbook.
+     Win/loss/push/pending are now genuinely distinct hues from the accent (previously
+     --color-win was literally identical to --color-accent), so a result badge can't be
+     mistaken for a brand/CTA element. */
+  --background: #0a0e1a;
+  --foreground: #f4f6fb;
 
-  --color-page: #08090b;
-  --color-card: #111318;
-  --color-card-elevated: #191c22;
-  --color-border: #24262d;
-  --color-border-strong: #383c46;
-  --color-muted: #a6acb8;
-  --color-subtle: #6b7280;
+  --color-page: #0a0e1a;
+  --color-card: #121b30;
+  --color-card-elevated: #1a2646;
+  --color-border: #263355;
+  --color-border-strong: #3a4d7a;
+  --color-muted: #a7b1cc;
+  --color-subtle: #67719a;
 
-  --color-accent: #2fe07a;
-  --color-accent-foreground: #06170c;
+  --color-accent: #ff9d3d;
+  --color-accent-foreground: #2b1400;
 
-  --color-win: #2fe07a;
-  --color-win-foreground: #06170c;
-  --color-loss: #ef4757;
-  --color-loss-foreground: #1a0407;
-  --color-push: #f2b807;
-  --color-push-foreground: #1f1500;
-  --color-pending: #4d9bf5;
-  --color-pending-foreground: #05121f;
+  --color-win: #3ecf8e;
+  --color-win-foreground: #062015;
+  --color-loss: #ff5c72;
+  --color-loss-foreground: #2a0209;
+  --color-push: #f2c94c;
+  --color-push-foreground: #221a02;
+  --color-pending: #5fb4ff;
+  --color-pending-foreground: #051220;
 }
 
 @theme inline {
