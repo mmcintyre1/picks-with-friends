@@ -90,7 +90,7 @@ export function ScheduleBrowser({
             <Button
               type="button"
               variant="secondary"
-              size="sm"
+              size="md"
               onClick={() =>
                 onSelectGame({ homeTeam: game.homeTeam, awayTeam: game.awayTeam, externalId: game.id })
               }

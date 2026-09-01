@@ -1,4 +1,4 @@
-import { Market, Side } from "@/app/generated/prisma/enums";
+import { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
 
 export function legSummary(
   leg: {
@@ -7,9 +7,14 @@ export function legSummary(
     lineAtPick: number | null;
     playerName?: string | null;
     propType?: string | null;
+    teamSide?: TeamSide | null;
   },
   game: { homeTeam: string; awayTeam: string },
 ) {
+  if (leg.market === Market.TEAM_TOTAL) {
+    const team = leg.teamSide === TeamSide.HOME ? game.homeTeam : game.awayTeam;
+    return `${team} Total ${leg.side === Side.OVER ? "Over" : "Under"} ${leg.lineAtPick ?? "?"}`;
+  }
   if (leg.market === Market.PLAYER_PROP) {
     return `${leg.playerName ?? "?"} (${leg.propType ?? "?"}) ${leg.side === Side.OVER ? "Over" : "Under"} ${leg.lineAtPick ?? "?"}`;
   }

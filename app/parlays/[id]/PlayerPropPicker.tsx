@@ -2,15 +2,17 @@
 
 import { useMemo, useState } from "react";
 
+import { Card } from "@/components/ui/Card";
+import { IconButton } from "@/components/ui/IconButton";
 import { XIcon } from "@/components/ui/icons";
 import type { GameRosterPlayer } from "@/lib/rosters/actions";
 import { hasMappedPropTypes, positionSortRank } from "@/lib/rosters/propTypes";
 
 const pillClass = (active: boolean) =>
-  `rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+  `rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
     active
       ? "border-accent bg-accent text-accent-foreground"
-      : "border-border bg-card text-muted hover:border-border-strong hover:text-foreground"
+      : "border-border bg-card text-muted hover:border-accent hover:bg-accent/10 hover:text-foreground"
   }`;
 
 const inputClass =
@@ -73,20 +75,13 @@ export function PlayerPropPicker({
   if (playerName) {
     return (
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2">
+        <Card className="flex items-center justify-between px-3 py-2">
           <span className="text-sm font-medium">
             {playerName}
             {playerPosition && <span className="ml-1.5 text-xs text-subtle">{playerPosition}</span>}
           </span>
-          <button
-            type="button"
-            onClick={onClearPlayer}
-            aria-label="Change player"
-            className="rounded p-1 text-subtle hover:text-foreground"
-          >
-            <XIcon className="h-3.5 w-3.5" />
-          </button>
-        </div>
+          <IconButton size="sm" variant="ghost" title="Change player" icon={<XIcon className="h-3.5 w-3.5" />} onClick={onClearPlayer} />
+        </Card>
         {propTypeOptions.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {propTypeOptions.map((t) => (

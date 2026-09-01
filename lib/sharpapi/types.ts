@@ -1,4 +1,4 @@
-import type { Market, Side } from "@/app/generated/prisma/enums";
+import type { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
 
 // Verbatim shape of one row from SharpAPI's /odds response, confirmed against real,
 // live-fetched NFL data during Phase 2.14 planning/implementation (see the plan file's
@@ -104,6 +104,9 @@ export type ResearchSelection = {
   // of implying it's all one book.
   sportsbook: string;
   isMainLine: boolean;
+  // Which team this selection's total belongs to -- only meaningful for team_total rows
+  // (see categorize.ts's toSelection), null for every other market.
+  teamSide: TeamSide | null;
 };
 
 export type ResearchMarketGroup = {
@@ -137,6 +140,8 @@ export type TeamBetPick = {
   line: number | null;
   price: number;
   externalId: string;
+  // Only present for TEAM_TOTAL picks -- which team the total belongs to.
+  teamSide?: TeamSide;
 };
 
 export type PropPick = TeamBetPick & { playerName: string; propType: string };

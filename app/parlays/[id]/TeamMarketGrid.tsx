@@ -2,14 +2,15 @@
 
 import Image from "next/image";
 
-import { Market, Side } from "@/app/generated/prisma/enums";
+import { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
+import { Card } from "@/components/ui/Card";
 import { teamAbbreviation } from "@/lib/rosters/leagues";
 
 const cellClass = (active: boolean) =>
   `truncate rounded-lg border px-1.5 py-2 text-xs font-medium transition-colors ${
     active
       ? "border-accent bg-accent text-accent-foreground"
-      : "border-border bg-card text-muted hover:border-border-strong hover:text-foreground"
+      : "border-border bg-card text-muted hover:border-accent hover:bg-accent/10 hover:text-foreground"
   }`;
 
 const columnHeaderClass = "truncate text-center text-[10px] font-medium uppercase tracking-wide text-subtle";
@@ -64,6 +65,7 @@ export function TeamMarketGrid({
   homeLogo,
   market,
   side,
+  teamSide,
   onSelect,
 }: {
   league: string;
@@ -73,68 +75,104 @@ export function TeamMarketGrid({
   homeLogo: string | null;
   market: Market;
   side: Side;
-  onSelect: (market: Market, side: Side) => void;
+  teamSide: TeamSide | null;
+  onSelect: (market: Market, side: Side, teamSide?: TeamSide) => void;
 }) {
-  const isSelected = (m: Market, s: Side) => market === m && side === s;
+  const isSelected = (m: Market, s: Side, ts?: TeamSide) =>
+    market === m && side === s && (m !== Market.TEAM_TOTAL || teamSide === ts);
 
   return (
-    <div className="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-x-1.5 gap-y-2 overflow-hidden rounded-lg border border-border bg-card p-2">
-      <span />
-      <span className={columnHeaderClass}>Spread</span>
-      <span className={columnHeaderClass}>Total</span>
-      <span className={columnHeaderClass}>Moneyline</span>
+    <Card className="flex flex-col gap-3 p-2">
+      <div className="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-x-1.5 gap-y-2 overflow-hidden">
+        <span />
+        <span className={columnHeaderClass}>Spread</span>
+        <span className={columnHeaderClass}>Total</span>
+        <span className={columnHeaderClass}>Moneyline</span>
 
-      <span className="flex min-w-0 items-center">
-        <TeamLabel name={awayTeam} logo={awayLogo} league={league} />
-      </span>
-      <button
-        type="button"
-        className={cellClass(isSelected(Market.SPREAD, Side.AWAY))}
-        onClick={() => onSelect(Market.SPREAD, Side.AWAY)}
-      >
-        Spread
-      </button>
-      <div className="row-span-2 flex min-w-0 flex-col gap-1">
+        <span className="flex min-w-0 items-center">
+          <TeamLabel name={awayTeam} logo={awayLogo} league={league} />
+        </span>
         <button
           type="button"
-          className={`flex-1 ${cellClass(isSelected(Market.TOTAL, Side.OVER))}`}
-          onClick={() => onSelect(Market.TOTAL, Side.OVER)}
+          className={cellClass(isSelected(Market.SPREAD, Side.AWAY))}
+          onClick={() => onSelect(Market.SPREAD, Side.AWAY)}
         >
-          Over
+          Spread
+        </button>
+        <div className="row-span-2 flex min-w-0 flex-col gap-1">
+          <button
+            type="button"
+            className={`flex-1 ${cellClass(isSelected(Market.TOTAL, Side.OVER))}`}
+            onClick={() => onSelect(Market.TOTAL, Side.OVER)}
+          >
+            Over
+          </button>
+          <button
+            type="button"
+            className={`flex-1 ${cellClass(isSelected(Market.TOTAL, Side.UNDER))}`}
+            onClick={() => onSelect(Market.TOTAL, Side.UNDER)}
+          >
+            Under
+          </button>
+        </div>
+        <button
+          type="button"
+          className={cellClass(isSelected(Market.MONEYLINE, Side.AWAY))}
+          onClick={() => onSelect(Market.MONEYLINE, Side.AWAY)}
+        >
+          ML
+        </button>
+
+        <span className="flex min-w-0 items-center">
+          <TeamLabel name={homeTeam} logo={homeLogo} league={league} />
+        </span>
+        <button
+          type="button"
+          className={cellClass(isSelected(Market.SPREAD, Side.HOME))}
+          onClick={() => onSelect(Market.SPREAD, Side.HOME)}
+        >
+          Spread
         </button>
         <button
           type="button"
-          className={`flex-1 ${cellClass(isSelected(Market.TOTAL, Side.UNDER))}`}
-          onClick={() => onSelect(Market.TOTAL, Side.UNDER)}
+          className={cellClass(isSelected(Market.MONEYLINE, Side.HOME))}
+          onClick={() => onSelect(Market.MONEYLINE, Side.HOME)}
         >
-          Under
+          ML
         </button>
       </div>
-      <button
-        type="button"
-        className={cellClass(isSelected(Market.MONEYLINE, Side.AWAY))}
-        onClick={() => onSelect(Market.MONEYLINE, Side.AWAY)}
-      >
-        ML
-      </button>
 
-      <span className="flex min-w-0 items-center">
-        <TeamLabel name={homeTeam} logo={homeLogo} league={league} />
-      </span>
-      <button
-        type="button"
-        className={cellClass(isSelected(Market.SPREAD, Side.HOME))}
-        onClick={() => onSelect(Market.SPREAD, Side.HOME)}
-      >
-        Spread
-      </button>
-      <button
-        type="button"
-        className={cellClass(isSelected(Market.MONEYLINE, Side.HOME))}
-        onClick={() => onSelect(Market.MONEYLINE, Side.HOME)}
-      >
-        ML
-      </button>
-    </div>
+      {/* A separate block, not a 5th grid column -- the 4-column layout above is
+          mobile-overflow-hardened (Phase 2.15); a team's own total is naturally a
+          "drill further" pick like alternate lines, not a top-line one, so it gets its own
+          row pair instead of squeezing a column back into that grid. */}
+      <div className="flex flex-col gap-1.5 border-t border-border pt-2">
+        <span className={columnHeaderClass}>Team Total</span>
+        {([
+          { team: awayTeam, logo: awayLogo, teamSideValue: TeamSide.AWAY },
+          { team: homeTeam, logo: homeLogo, teamSideValue: TeamSide.HOME },
+        ] as const).map(({ team, logo, teamSideValue }) => (
+          <div key={teamSideValue} className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-1.5">
+            <span className="flex min-w-0 items-center">
+              <TeamLabel name={team} logo={logo} league={league} />
+            </span>
+            <button
+              type="button"
+              className={cellClass(isSelected(Market.TEAM_TOTAL, Side.OVER, teamSideValue))}
+              onClick={() => onSelect(Market.TEAM_TOTAL, Side.OVER, teamSideValue)}
+            >
+              Over
+            </button>
+            <button
+              type="button"
+              className={cellClass(isSelected(Market.TEAM_TOTAL, Side.UNDER, teamSideValue))}
+              onClick={() => onSelect(Market.TEAM_TOTAL, Side.UNDER, teamSideValue)}
+            >
+              Under
+            </button>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }

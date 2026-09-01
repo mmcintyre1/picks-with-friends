@@ -1,4 +1,4 @@
-import { LegResult, Market, Side } from "@/app/generated/prisma/enums";
+import { LegResult, Market, Side, TeamSide } from "@/app/generated/prisma/enums";
 
 import { resolvePropStatMapping } from "./statLabels";
 import type { PropStatMapping } from "./statLabels";
@@ -75,6 +75,7 @@ export function resolveLeg(
     lineAtPick: number | null;
     playerName: string | null;
     propType: string | null;
+    teamSide: TeamSide | null;
   },
   box: BoxScore,
   league: string,
@@ -101,6 +102,13 @@ export function resolveLeg(
     case Market.TOTAL: {
       if (box.homeScore === null || box.awayScore === null || leg.lineAtPick === null) return PENDING;
       const current = box.homeScore + box.awayScore;
+      const result = resolveOverUnder(current, leg.lineAtPick, leg.side, box.status.completed);
+      return result === undefined ? PENDING : { result };
+    }
+
+    case Market.TEAM_TOTAL: {
+      if (box.homeScore === null || box.awayScore === null || leg.lineAtPick === null || !leg.teamSide) return PENDING;
+      const current = leg.teamSide === TeamSide.HOME ? box.homeScore : box.awayScore;
       const result = resolveOverUnder(current, leg.lineAtPick, leg.side, box.status.completed);
       return result === undefined ? PENDING : { result };
     }

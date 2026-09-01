@@ -1,6 +1,7 @@
 "use client";
 
 import { Side } from "@/app/generated/prisma/enums";
+import { Card } from "@/components/ui/Card";
 import { teamLogoUrl } from "@/lib/rosters/leagues";
 import { bookLabel, mapGameLinesSelectionToPick } from "@/lib/sharpapi/categorize";
 import type { ResearchCategory, ResearchSelection, TeamBetPick } from "@/lib/sharpapi/types";
@@ -19,8 +20,12 @@ function formatSignedLine(line: number | null): string {
   return line > 0 ? `+${line}` : `${line}`;
 }
 
+// The book is secondary context to the line/price -- a small corner tag rather than its own
+// line, so it doesn't compete with the numbers that actually matter for space in this
+// already-compact grid.
 const cellClass =
-  "flex flex-col items-center gap-0.5 truncate rounded-lg border border-border bg-card px-1.5 py-2 text-xs font-medium text-foreground transition-colors hover:border-accent hover:bg-accent/10";
+  "relative flex flex-col items-center gap-0.5 truncate rounded-lg border border-border bg-card px-1.5 pt-3 pb-2 text-xs font-medium text-foreground transition-colors hover:border-accent hover:bg-accent/10";
+const bookTagClass = "absolute right-1 top-0.5 text-[7px] leading-none text-subtle";
 const columnHeaderClass = "truncate text-center text-[10px] font-medium uppercase tracking-wide text-subtle";
 const emptyCellClass = "flex items-center justify-center rounded-lg border border-border/50 px-1.5 py-2 text-xs text-subtle";
 
@@ -38,9 +43,9 @@ function TeamCell({
   if (!selection) return <div className={emptyCellClass}>—</div>;
   return (
     <button type="button" className={cellClass} onClick={() => onSelect(selection)}>
+      <span className={bookTagClass}>{bookLabel(selection.sportsbook)}</span>
       <span>{label}</span>
       <span className="font-display tracking-wide text-accent tabular-nums">{formatPrice(selection.priceAmerican)}</span>
-      <span className="text-[9px] text-subtle">{bookLabel(selection.sportsbook)}</span>
     </button>
   );
 }
@@ -99,7 +104,7 @@ export function ResearchNumberedGrid({
   const under = findSelection(total, Side.UNDER);
 
   return (
-    <div className="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-x-1.5 gap-y-2 overflow-hidden rounded-lg border border-border bg-card p-2">
+    <Card className="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-x-1.5 gap-y-2 overflow-hidden p-2">
       <span />
       <span className={columnHeaderClass}>Spread</span>
       <span className={columnHeaderClass}>Total</span>
@@ -122,9 +127,9 @@ export function ResearchNumberedGrid({
         >
           {over ? (
             <>
+              <span className={bookTagClass}>{bookLabel(over.sportsbook)}</span>
               <span>O {over.line}</span>
               <span className="font-display tracking-wide text-accent tabular-nums">{formatPrice(over.priceAmerican)}</span>
-              <span className="text-[9px] text-subtle">{bookLabel(over.sportsbook)}</span>
             </>
           ) : (
             "—"
@@ -138,9 +143,9 @@ export function ResearchNumberedGrid({
         >
           {under ? (
             <>
+              <span className={bookTagClass}>{bookLabel(under.sportsbook)}</span>
               <span>U {under.line}</span>
               <span className="font-display tracking-wide text-accent tabular-nums">{formatPrice(under.priceAmerican)}</span>
-              <span className="text-[9px] text-subtle">{bookLabel(under.sportsbook)}</span>
             </>
           ) : (
             "—"
@@ -158,6 +163,6 @@ export function ResearchNumberedGrid({
         onSelect={(s) => select("point_spread", s)}
       />
       <TeamCell selection={homeMoneyline} label="ML" onSelect={(s) => select("moneyline", s)} />
-    </div>
+    </Card>
   );
 }

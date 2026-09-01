@@ -119,6 +119,7 @@ enum Market {
   SPREAD
   TOTAL
   MONEYLINE
+  TEAM_TOTAL // a specific team's own point total, Over/Under a line -- Side still carries OVER/UNDER; Leg.teamSide (below) says which team
   PLAYER_PROP // player prop, over/under a numeric line (e.g. "Mahomes passing yards")
   PLAYER_PROP_YESNO // player prop with no line, just yes/no (e.g. "anytime TD")
 }
@@ -130,6 +131,11 @@ enum Side {
   UNDER
   YES
   NO
+}
+
+enum TeamSide {
+  HOME
+  AWAY
 }
 
 // Point-in-time line/price for a game+market+bookmaker. Unused substantively until live-odds
@@ -231,6 +237,10 @@ model Leg {
   gameId      String
   market      Market
   side        Side
+  // Set only when market is TEAM_TOTAL -- which team the total belongs to. Side still
+  // carries OVER/UNDER for this market (same semantics as TOTAL); this is the second axis
+  // team_total needs that a single Side value can't hold on its own.
+  teamSide    TeamSide?
   lineAtPick  Float?
   priceAtPick Int?
   // Set only when market is PLAYER_PROP or PLAYER_PROP_YESNO; null for team markets.

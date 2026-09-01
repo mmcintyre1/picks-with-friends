@@ -190,6 +190,7 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
                   league: myLeg.game.league,
                   market: myLeg.market,
                   side: myLeg.side,
+                  teamSide: myLeg.teamSide,
                   line: myLeg.lineAtPick,
                   price: myLeg.priceAtPick,
                   playerName: myLeg.playerName,

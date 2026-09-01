@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { Market, Side } from "@/app/generated/prisma/enums";
+import { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
 
 import {
   altLinesForMarket,
+  altTeamTotalLines,
   buildResearchGame,
   categorizeBaseMarket,
   groupRowsByGame,
+  mainTeamTotalLines,
   mapGameLinesSelectionToPick,
   stripSegmentPrefix,
   summarizeSchedule,
@@ -55,8 +57,8 @@ describe("stripSegmentPrefix", () => {
 });
 
 describe("categorizeBaseMarket", () => {
-  it("buckets the three confirmed full-game markets as game_lines", () => {
-    for (const base of ["moneyline", "point_spread", "total_points"]) {
+  it("buckets the confirmed full-game markets as game_lines, including team_total", () => {
+    for (const base of ["moneyline", "point_spread", "total_points", "team_total"]) {
       expect(categorizeBaseMarket(base, row({ market_type: base }))).toBe("game_lines");
     }
   });
@@ -70,9 +72,6 @@ describe("categorizeBaseMarket", () => {
   });
 
   it("routes an unrecognized market_type to uncategorized instead of guessing", () => {
-    // team_total is deliberately excluded even though it's confirmed real and high-volume --
-    // its compound selection_type has no matching Market/Side combination in the schema.
-    expect(categorizeBaseMarket("team_total", row({ market_type: "team_total" }))).toBe("uncategorized");
     expect(categorizeBaseMarket("winning_margin", row({ market_type: "winning_margin" }))).toBe("uncategorized");
     expect(categorizeBaseMarket("mvp", row({ market_type: "mvp", is_player_prop: false }))).toBe("uncategorized");
     expect(
@@ -198,6 +197,69 @@ describe("groupRowsByGame", () => {
   });
 });
 
+describe("team_total handling", () => {
+  it("maps the real compound selection_type values and populates teamSide from team_side", () => {
+    const games = groupRowsByGame([
+      row({
+        id: "tt-home-over",
+        market_type: "team_total",
+        selection_type: "home_over",
+        team_side: "home",
+        line: 23.5,
+      }),
+      row({
+        id: "tt-away-under",
+        market_type: "team_total",
+        selection_type: "away_under",
+        team_side: "away",
+        line: 19.5,
+      }),
+    ]);
+    const gameLines = games[0].categories.find((c) => c.key === "game_lines")!;
+    const group = gameLines.marketGroups.find((g) => g.marketType === "team_total")!;
+    const homeOver = group.selections.find((s) => s.selectionId === "tt-home-over")!;
+    const awayUnder = group.selections.find((s) => s.selectionId === "tt-away-under")!;
+    expect(homeOver.side).toBe(Side.OVER);
+    expect(homeOver.teamSide).toBe(TeamSide.HOME);
+    expect(awayUnder.side).toBe(Side.UNDER);
+    expect(awayUnder.teamSide).toBe(TeamSide.AWAY);
+  });
+
+  it("mainTeamTotalLines returns one entry per team with its main-line Over/Under", () => {
+    const game = buildResearchGame([
+      row({ id: "home-over", market_type: "team_total", selection_type: "home_over", team_side: "home", line: 23.5, is_main_line: true }),
+      row({ id: "home-under", market_type: "team_total", selection_type: "home_under", team_side: "home", line: 23.5, is_main_line: true }),
+      row({ id: "away-over", market_type: "team_total", selection_type: "away_over", team_side: "away", line: 19.5, is_main_line: true }),
+      row({ id: "away-over-alt", market_type: "team_total", selection_type: "away_over", team_side: "away", line: 25.5, is_main_line: false }),
+    ])!;
+    const gameLines = game.categories.find((c) => c.key === "game_lines")!;
+    const rows = mainTeamTotalLines(gameLines, null);
+    expect(rows).toHaveLength(2);
+    const home = rows.find((r) => r.teamSide === TeamSide.HOME)!;
+    const away = rows.find((r) => r.teamSide === TeamSide.AWAY)!;
+    expect(home.overSelection?.selectionId).toBe("home-over");
+    expect(home.underSelection?.selectionId).toBe("home-under");
+    expect(away.overSelection?.selectionId).toBe("away-over");
+    expect(away.underSelection).toBeUndefined();
+  });
+
+  it("altTeamTotalLines groups non-main-line selections by (teamSide, side)", () => {
+    const game = buildResearchGame([
+      row({ id: "home-over-main", market_type: "team_total", selection_type: "home_over", team_side: "home", line: 23.5, is_main_line: true }),
+      row({ id: "home-over-alt-1", market_type: "team_total", selection_type: "home_over", team_side: "home", line: 28.5, is_main_line: false }),
+      row({ id: "home-over-alt-2", market_type: "team_total", selection_type: "home_over", team_side: "home", line: 18.5, is_main_line: false }),
+      row({ id: "away-under-alt", market_type: "team_total", selection_type: "away_under", team_side: "away", line: 21.5, is_main_line: false }),
+    ])!;
+    const gameLines = game.categories.find((c) => c.key === "game_lines")!;
+    const groups = altTeamTotalLines(gameLines, null);
+    expect(groups).toHaveLength(2);
+    const homeOverGroup = groups.find((g) => g.teamSide === TeamSide.HOME && g.side === Side.OVER)!;
+    expect(homeOverGroup.selections.map((s) => s.line)).toEqual([18.5, 28.5]);
+    const awayUnderGroup = groups.find((g) => g.teamSide === TeamSide.AWAY && g.side === Side.UNDER)!;
+    expect(awayUnderGroup.selections).toHaveLength(1);
+  });
+});
+
 describe("altLinesForMarket", () => {
   it("returns only non-main-line selections, grouped by side and sorted by line", () => {
     const game = buildResearchGame([
@@ -232,6 +294,7 @@ describe("mapGameLinesSelectionToPick", () => {
       playerName: null,
       isMainLine: true,
       sportsbook: "draftkings",
+      teamSide: null,
     };
     expect(mapGameLinesSelectionToPick(game, "moneyline", selection)?.market).toBe(Market.MONEYLINE);
     expect(mapGameLinesSelectionToPick(game, "point_spread", { ...selection, line: 3.5 })?.market).toBe(Market.SPREAD);
@@ -250,8 +313,26 @@ describe("mapGameLinesSelectionToPick", () => {
       playerName: null,
       isMainLine: true,
       sportsbook: "draftkings",
+      teamSide: null,
     };
-    expect(mapGameLinesSelectionToPick(game, "team_total", selection)).toBeNull();
+    expect(mapGameLinesSelectionToPick(game, "winning_margin", selection)).toBeNull();
+  });
+
+  it("maps team_total to Market.TEAM_TOTAL and carries teamSide through", () => {
+    const selection = {
+      selectionId: "s1",
+      selection: "SEA Seahawks Over",
+      line: 23.5,
+      priceAmerican: -115,
+      side: Side.OVER,
+      playerName: null,
+      isMainLine: true,
+      sportsbook: "draftkings",
+      teamSide: TeamSide.HOME,
+    };
+    const pick = mapGameLinesSelectionToPick(game, "team_total", selection);
+    expect(pick?.market).toBe(Market.TEAM_TOTAL);
+    expect(pick?.teamSide).toBe(TeamSide.HOME);
   });
 });
 

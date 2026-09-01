@@ -17,7 +17,11 @@ const navButtonClass =
 // to reset scroll position on data change.
 export function TierPager<T>({
   items,
-  pageSize = 3,
+  // 2, not 3: a real 360px-viewport check found 3 tiers (each with a 4rem min-width floor)
+  // plus both chevron buttons genuinely didn't fit next to a name column at that width, even
+  // after the name column was already capped by the grid fix in ResearchPropTable/
+  // ResearchAltLines -- this is the CSS-only fix's fallback the plan anticipated.
+  pageSize = 2,
   keyFor,
   renderItem,
 }: {
@@ -32,18 +36,13 @@ export function TierPager<T>({
   const canPrev = clampedStart > 0;
   const canNext = clampedStart + pageSize < items.length;
 
-  if (items.length <= pageSize) {
-    return (
-      <div className="flex flex-wrap gap-1.5">
-        {items.map((item) => (
-          <div key={keyFor(item)}>{renderItem(item)}</div>
-        ))}
-      </div>
-    );
-  }
-
+  // Always render both chevrons (disabled when there's nothing to page to) rather than
+  // switching to a chevron-less layout when items.length <= pageSize -- a real ladder
+  // otherwise ends up a different width row-to-row depending on how many tiers each
+  // specific player happens to have, which read as visually "mismatched" rather than one
+  // consistent ladder pattern.
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex min-w-0 items-center gap-1">
       <button
         type="button"
         aria-label="Previous lines"
@@ -53,9 +52,9 @@ export function TierPager<T>({
       >
         <ChevronLeftIcon className="h-4 w-4" />
       </button>
-      <div className="flex flex-1 gap-1.5">
+      <div className="flex min-w-0 flex-1 gap-1.5">
         {visible.map((item) => (
-          <div key={keyFor(item)} className="flex-1">
+          <div key={keyFor(item)} className="min-w-0 flex-1">
             {renderItem(item)}
           </div>
         ))}

@@ -11,7 +11,7 @@ import { resolveLeg } from "@/lib/evaluate/resolveLeg";
 import type { BoxScore } from "@/lib/evaluate/types";
 import { LEAGUE_ESPN_PATHS } from "@/lib/rosters/leagues";
 import { getScheduleProvider } from "@/lib/schedule";
-import { LegResult, Market, ParlayStatus, Side } from "@/app/generated/prisma/enums";
+import { LegResult, Market, ParlayStatus, Side, TeamSide } from "@/app/generated/prisma/enums";
 
 export type ActionResult = { error: string } | undefined;
 
@@ -68,6 +68,8 @@ export type PickLegInput = {
   league: string;
   market: Market;
   side: Side;
+  // Only meaningful when market is TEAM_TOTAL -- which team the total belongs to.
+  teamSide: TeamSide | null;
   line: string;
   price: string;
   playerName: string;
@@ -165,6 +167,7 @@ export async function pickLeg(parlayId: string, input: PickLegInput): Promise<Ac
     gameId: game.id,
     market: input.market,
     side: input.side,
+    teamSide: input.market === Market.TEAM_TOTAL ? input.teamSide : null,
     lineAtPick: input.market === Market.PLAYER_PROP_YESNO ? null : line,
     priceAtPick: price,
     playerName,
@@ -482,6 +485,7 @@ export async function evaluateParlay(parlayId: string): Promise<EvaluateParlayRe
       {
         market: leg.market,
         side: leg.side,
+        teamSide: leg.teamSide,
         lineAtPick: leg.lineAtPick,
         playerName: leg.playerName,
         propType: leg.propType,

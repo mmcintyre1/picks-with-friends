@@ -9,6 +9,7 @@ import type { PropPick, ResearchGame, TeamBetPick } from "@/lib/sharpapi/types";
 import { ResearchAltLines } from "./ResearchAltLines";
 import { ResearchNumberedGrid } from "./ResearchNumberedGrid";
 import { ResearchPropTable } from "./ResearchPropTable";
+import { ResearchTeamTotals } from "./ResearchTeamTotals";
 
 type SegmentGroupKey = "halves" | "quarters";
 
@@ -84,7 +85,8 @@ export function ResearchGameDetail({
   return (
     <div className="flex flex-col gap-3">
       <SegmentedControl
-        size="sm"
+        size="md"
+        scroll
         name="Category"
         value={active.key}
         onChange={setActiveKey}
@@ -93,7 +95,11 @@ export function ResearchGameDetail({
 
       {(active.kind === "gameLines" || active.kind === "segmentGroup") && gameLines && (
         <>
-          {active.kind === "segmentGroup" && active.availableSegments.length > 1 && (
+          {/* Always shown, even with only one real segment available -- dropping this
+              whenever there was nothing to toggle between used to leave "Quarters"/"Halves"
+              selected with no indication of *which* quarter or half was actually being
+              displayed. */}
+          {active.kind === "segmentGroup" && (
             <SegmentedControl
               size="sm"
               name={SEGMENT_GROUP_LABELS[active.group]}
@@ -104,6 +110,14 @@ export function ResearchGameDetail({
           )}
           <ResearchNumberedGrid
             league={league}
+            homeTeam={game.homeTeam}
+            awayTeam={game.awayTeam}
+            externalId={game.externalId}
+            category={gameLines}
+            segment={active.kind === "segmentGroup" ? currentSegment : null}
+            onSelectTeamBet={onSelectTeamBet}
+          />
+          <ResearchTeamTotals
             homeTeam={game.homeTeam}
             awayTeam={game.awayTeam}
             externalId={game.externalId}

@@ -1,4 +1,4 @@
-import { Market, Side } from "@/app/generated/prisma/enums";
+import { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
 
 import type {
   ResearchCategory,
@@ -33,14 +33,12 @@ export function stripSegmentPrefix(marketType: string): { base: string; segment:
 }
 
 // Confirmed real market_type values for each bucket -- see the plan's "Verified this
-// session" section. Anything not listed here (team_total, winning_margin, most_points_player,
+// session" section. Anything not listed here (winning_margin, most_points_player,
 // will_there_be_overtime, and any market_type not yet captured) falls to "uncategorized"
-// rather than a guess. team_total is deliberately excluded even though it's confirmed real
-// and high-volume: its selection_type is a compound "home_over"/"away_under" shape with no
-// matching Market/Side combination in the schema (there's no Market.TEAM_TOTAL) -- wiring
-// it up needs a real schema decision, not a categorization tweak, so it's flagged rather
-// than silently forced into a shape that doesn't fit.
-const GAME_LINES_BASE = new Set(["moneyline", "point_spread", "total_points"]);
+// rather than a guess. team_total is a specific team's own Over/Under -- its selection_type
+// is a compound "home_over"/"away_under" shape, handled below in sideFromSelectionType/
+// toSelection via the row's own team_side field (Market.TEAM_TOTAL, Leg.teamSide).
+const GAME_LINES_BASE = new Set(["moneyline", "point_spread", "total_points", "team_total"]);
 const PASSING_PREFIX = "player_passing";
 const RECEIVING_PREFIXES = ["player_receiving", "player_receptions"];
 const RUSHING_PREFIX = "player_rushing";
@@ -79,7 +77,11 @@ const PROP_TYPE_LABELS: Record<string, string> = {
   player_receiving_yards: "Receiving Yards",
   player_receptions: "Receptions",
   player_rushing_yards: "Rushing Yards",
-  player_touchdowns: "Touchdowns",
+  // "Total TDs", not "Touchdowns" -- this is a real Over/Under-count market (e.g. "Over 1.5
+  // TDs"), a genuinely different bet from the single-outcome "did they score at all"
+  // markets (1st/Last TD Scorer) sitting right next to it in the same TD Scorers category.
+  // The plain "Touchdowns" label read as if it might be the same kind of bet as those.
+  player_touchdowns: "Total TDs",
   first_touchdown_scorer: "1st TD Scorer",
   last_touchdown_scorer: "Last TD Scorer",
 };
@@ -91,7 +93,10 @@ export function propTypeLabel(base: string): string | null {
 // selection_type values confirmed on real full-game/segment team markets and player-prop
 // markets. "other" is ambiguous across markets (winning_margin's range bets and
 // player_touchdowns' exact-count outrights both use it too) so it's only ever accepted for
-// the two whitelisted single-outcome markets above, not generically.
+// the two whitelisted single-outcome markets above, not generically. team_total's real
+// selection_type values are the compound "home_over"/"home_under"/"away_over"/"away_under"
+// (confirmed real, never bare "home"/"over" etc.) -- the team half is read separately off
+// the row's own team_side field in toSelection below, not parsed out of this string.
 function sideFromSelectionType(selectionType: string, marketType: string): Side | null {
   switch (selectionType) {
     case "home":
@@ -99,8 +104,12 @@ function sideFromSelectionType(selectionType: string, marketType: string): Side 
     case "away":
       return Side.AWAY;
     case "over":
+    case "home_over":
+    case "away_over":
       return Side.OVER;
     case "under":
+    case "home_under":
+    case "away_under":
       return Side.UNDER;
     case "other":
       return OUTRIGHT_YES_MARKETS.has(marketType) ? Side.YES : null;
@@ -121,6 +130,7 @@ function toSelection(row: SharpApiRow): ResearchSelection | null {
     playerName: row.player_name ?? null,
     isMainLine: row.is_main_line ?? true,
     sportsbook: row.sportsbook,
+    teamSide: row.team_side === "home" ? TeamSide.HOME : row.team_side === "away" ? TeamSide.AWAY : null,
   };
 }
 
@@ -261,7 +271,15 @@ export function mapGameLinesSelectionToPick(
   selection: ResearchSelection,
 ): TeamBetPick | null {
   const market =
-    marketType === "moneyline" ? Market.MONEYLINE : marketType === "point_spread" ? Market.SPREAD : marketType === "total_points" ? Market.TOTAL : null;
+    marketType === "moneyline"
+      ? Market.MONEYLINE
+      : marketType === "point_spread"
+        ? Market.SPREAD
+        : marketType === "total_points"
+          ? Market.TOTAL
+          : marketType === "team_total"
+            ? Market.TEAM_TOTAL
+            : null;
   if (!market) return null;
 
   return {
@@ -272,5 +290,52 @@ export function mapGameLinesSelectionToPick(
     line: selection.line,
     price: selection.priceAmerican,
     externalId: game.externalId,
+    teamSide: selection.teamSide ?? undefined,
   };
+}
+
+// Main-line team_total selections only, one entry per team -- feeds ResearchTeamTotals'
+// display directly (no grouping logic needed in that component). Returns [] if this game
+// has no team_total group for the given segment (most segments outside full-game/halves).
+export function mainTeamTotalLines(
+  category: ResearchCategory,
+  segment: string | null,
+): { teamSide: TeamSide; overSelection: ResearchSelection | undefined; underSelection: ResearchSelection | undefined }[] {
+  const group = category.marketGroups.find((g) => g.marketType === "team_total" && g.segment === segment);
+  if (!group) return [];
+
+  const teamSides = [TeamSide.AWAY, TeamSide.HOME] as const;
+  return teamSides.map((teamSide) => ({
+    teamSide,
+    overSelection:
+      group.selections.find((s) => s.teamSide === teamSide && s.side === Side.OVER && s.isMainLine) ??
+      group.selections.find((s) => s.teamSide === teamSide && s.side === Side.OVER),
+    underSelection:
+      group.selections.find((s) => s.teamSide === teamSide && s.side === Side.UNDER && s.isMainLine) ??
+      group.selections.find((s) => s.teamSide === teamSide && s.side === Side.UNDER),
+  }));
+}
+
+// Alternate (non-main) team_total lines, grouped by (teamSide, side) -- team_total genuinely
+// has up to 4 independent alt-line groups (each team's Over and Under can each carry several
+// alternate lines), unlike altLinesForMarket's 2-group (side-only) shape above.
+export function altTeamTotalLines(
+  category: ResearchCategory,
+  segment: string | null,
+): { teamSide: TeamSide; side: Side; selections: ResearchSelection[] }[] {
+  const group = category.marketGroups.find((g) => g.marketType === "team_total" && g.segment === segment);
+  if (!group) return [];
+
+  const byKey = new Map<string, { teamSide: TeamSide; side: Side; selections: ResearchSelection[] }>();
+  for (const selection of group.selections) {
+    if (selection.isMainLine || !selection.teamSide) continue;
+    const key = `${selection.teamSide}|${selection.side}`;
+    const existing = byKey.get(key) ?? { teamSide: selection.teamSide, side: selection.side, selections: [] };
+    existing.selections.push(selection);
+    byKey.set(key, existing);
+  }
+
+  return [...byKey.values()]
+    .map((g) => ({ ...g, selections: g.selections.sort((a, b) => (a.line ?? 0) - (b.line ?? 0)) }))
+    .filter((g) => g.selections.length > 0);
 }

@@ -1,6 +1,8 @@
 "use client";
 
-import { Market } from "@/app/generated/prisma/enums";
+import { Market, Side } from "@/app/generated/prisma/enums";
+import { Card } from "@/components/ui/Card";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { TierPager } from "@/components/ui/TierPager";
 import type { ResearchCategory, ResearchSelection, PropPick } from "@/lib/sharpapi/types";
 import { bookLabel, propTypeLabel } from "@/lib/sharpapi/categorize";
@@ -17,12 +19,46 @@ function sideLabel(selection: ResearchSelection): string {
   return selection.selection || "Bet";
 }
 
-const tierButtonClass =
-  "flex min-w-[5.5rem] flex-col items-center gap-0.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-accent hover:bg-accent/10";
+function buildPick(
+  selection: ResearchSelection,
+  playerName: string,
+  propType: string,
+  homeTeam: string,
+  awayTeam: string,
+  externalId: string,
+): PropPick {
+  return {
+    homeTeam,
+    awayTeam,
+    // A null line (first/last touchdown scorer) is a genuine yes/no prop, not an
+    // over/under one -- same distinction manual entry makes via the Prop shape toggle.
+    market: selection.line === null ? Market.PLAYER_PROP_YESNO : Market.PLAYER_PROP,
+    side: selection.side,
+    line: selection.line,
+    price: selection.priceAmerican,
+    externalId,
+    playerName,
+    propType,
+  };
+}
 
-// One row per player per stat, tiered-line buttons side by side -- this is what naturally
-// reproduces DK's "85+/-112, 90+/+108, 100+/+156" layout (see the reference screenshots),
-// since it falls straight out of groupRowsByGame's grouping with no extra pairing logic.
+// The line/price are what actually matters when scanning a board -- the sportsbook is
+// secondary context, so it's a small corner tag rather than its own line competing with the
+// odds for space. min-w shrinks below sm: so tiers still compress into the grid's 1fr
+// column(s) on a 360-375px phone.
+const tierButtonClass =
+  "relative flex w-full min-w-[4.5rem] sm:min-w-[6rem] flex-col items-center gap-0.5 rounded-lg border border-border bg-card px-2.5 pt-3.5 pb-2 text-sm font-medium text-foreground transition-colors hover:border-accent hover:bg-accent/10";
+const bookTagClass = "absolute right-1 top-1 text-[8px] leading-none text-subtle";
+const priceClass = "font-display text-base tracking-wide text-accent tabular-nums";
+
+const ouColumnsClass = "grid grid-cols-[minmax(4.5rem,7rem)_1fr_1fr] items-center gap-2";
+
+// One row per player per stat -- DK distinguishes a pure tiered "ladder" (increasing Over
+// thresholds only, paged a few at a time, e.g. "227+ / 230+ / 240+") from a separate,
+// compact "<Stat> O/U" table showing just the single main line's Over and Under side by
+// side. Splitting these (rather than one paged list mixing Over and Under of the same line
+// together, which is what this looked like before) is what actually reproduces DK's real
+// layout -- confirmed against the real reference screenshots.
 export function ResearchPropTable({
   homeTeam,
   awayTeam,
@@ -43,7 +79,7 @@ export function ResearchPropTable({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {groups.map((group) => {
         const label = propTypeLabel(group.marketType) ?? group.marketType;
         const byPlayer = new Map<string, ResearchSelection[]>();
@@ -54,50 +90,130 @@ export function ResearchPropTable({
           byPlayer.set(selection.playerName, list);
         }
 
-        return (
-          <div key={`${group.marketType}-${group.segment ?? "full"}`} className="flex flex-col gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-subtle">{label}</p>
-            <div className="flex flex-col gap-2">
+        const hasOverUnderShape = group.selections.some((s) => s.side === Side.OVER || s.side === Side.UNDER);
+
+        // Single-outcome markets (first/last touchdown scorer, line: null) have no
+        // ladder/O-U concept at all -- always exactly one real selection per player, so no
+        // pager chrome either, just one flat section of plain buttons.
+        if (!hasOverUnderShape) {
+          return (
+            <CollapsibleSection key={group.marketType} title={label}>
               {[...byPlayer.entries()].map(([playerName, selections]) => (
-                <div key={playerName} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2">
-                  <span className="min-w-0 shrink-0 truncate text-sm font-medium sm:w-32">{playerName}</span>
-                  <div className="min-w-0 flex-1">
+                <Card key={playerName} className="grid grid-cols-[minmax(4.5rem,7rem)_1fr] items-center gap-2 p-2">
+                  <span className="min-w-0 truncate text-sm font-medium" title={playerName}>
+                    {playerName}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selections.map((selection) => (
+                      <button
+                        key={selection.selectionId}
+                        type="button"
+                        className={tierButtonClass}
+                        onClick={() => onSelectProp(buildPick(selection, playerName, label, homeTeam, awayTeam, externalId))}
+                      >
+                        <span className={bookTagClass}>{bookLabel(selection.sportsbook)}</span>
+                        <span>{sideLabel(selection)}</span>
+                        <span className={priceClass}>{formatPrice(selection.priceAmerican)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              ))}
+            </CollapsibleSection>
+          );
+        }
+
+        // Ladder: every Over-side tier for players who have more than one -- a single tier
+        // is just the O/U section's Over button again, not a real ladder to page through.
+        const ladderRows = [...byPlayer.entries()]
+          .map(([playerName, selections]) => ({
+            playerName,
+            tiers: [...selections.filter((s) => s.side === Side.OVER)].sort((a, b) => (a.line ?? 0) - (b.line ?? 0)),
+          }))
+          .filter((r) => r.tiers.length >= 2);
+
+        // O/U: every player's single main-line Over + Under pair, shown as a compact table
+        // (a "Player / Over / Under" header once, then one row per player) rather than
+        // repeating the word "Over"/"Under" inside every cell.
+        const ouRows = [...byPlayer.entries()]
+          .map(([playerName, selections]) => ({
+            playerName,
+            over: selections.find((s) => s.side === Side.OVER && s.isMainLine),
+            under: selections.find((s) => s.side === Side.UNDER && s.isMainLine),
+          }))
+          .filter((r) => r.over || r.under);
+
+        return (
+          <div key={group.marketType} className="flex flex-col gap-2">
+            {ladderRows.length > 0 && (
+              <CollapsibleSection title={label}>
+                {ladderRows.map(({ playerName, tiers }) => (
+                  <Card key={playerName} className="grid grid-cols-[minmax(4.5rem,7rem)_1fr] items-center gap-2 p-2">
+                    <span className="min-w-0 truncate text-sm font-medium" title={playerName}>
+                      {playerName}
+                    </span>
                     <TierPager
-                      items={[...selections].sort((a, b) => (a.line ?? 0) - (b.line ?? 0))}
+                      items={tiers}
                       keyFor={(s) => s.selectionId}
-                      renderItem={(selection) => (
+                      renderItem={(s) => (
                         <button
                           type="button"
-                          className={`${tierButtonClass} w-full`}
-                          onClick={() =>
-                            onSelectProp({
-                              homeTeam,
-                              awayTeam,
-                              // A null line (first/last touchdown scorer) is a genuine
-                              // yes/no prop, not an over/under one -- same distinction
-                              // manual entry makes via the Prop shape toggle.
-                              market: selection.line === null ? Market.PLAYER_PROP_YESNO : Market.PLAYER_PROP,
-                              side: selection.side,
-                              line: selection.line,
-                              price: selection.priceAmerican,
-                              externalId,
-                              playerName,
-                              propType: label,
-                            })
-                          }
+                          className={tierButtonClass}
+                          onClick={() => onSelectProp(buildPick(s, playerName, label, homeTeam, awayTeam, externalId))}
                         >
-                          <span>{selection.line === null ? sideLabel(selection) : `${sideLabel(selection)} ${selection.line}`}</span>
-                          <span className="font-display tracking-wide text-accent tabular-nums">
-                            {formatPrice(selection.priceAmerican)}
-                          </span>
-                          <span className="text-[9px] text-subtle">{bookLabel(selection.sportsbook)}</span>
+                          <span className={bookTagClass}>{bookLabel(s.sportsbook)}</span>
+                          <span>{s.line}+</span>
+                          <span className={priceClass}>{formatPrice(s.priceAmerican)}</span>
                         </button>
                       )}
                     />
-                  </div>
+                  </Card>
+                ))}
+              </CollapsibleSection>
+            )}
+
+            {ouRows.length > 0 && (
+              <CollapsibleSection title={`${label} O/U`}>
+                <div className={`${ouColumnsClass} px-1 text-[10px] font-medium uppercase tracking-wide text-subtle`}>
+                  <span>Player</span>
+                  <span className="text-center">Over</span>
+                  <span className="text-center">Under</span>
                 </div>
-              ))}
-            </div>
+                {ouRows.map(({ playerName, over, under }) => (
+                  <Card key={playerName} className={`${ouColumnsClass} p-2`}>
+                    <span className="min-w-0 truncate text-sm font-medium" title={playerName}>
+                      {playerName}
+                    </span>
+                    {over ? (
+                      <button
+                        type="button"
+                        className={tierButtonClass}
+                        onClick={() => onSelectProp(buildPick(over, playerName, label, homeTeam, awayTeam, externalId))}
+                      >
+                        <span className={bookTagClass}>{bookLabel(over.sportsbook)}</span>
+                        <span>O {over.line}</span>
+                        <span className={priceClass}>{formatPrice(over.priceAmerican)}</span>
+                      </button>
+                    ) : (
+                      <span />
+                    )}
+                    {under ? (
+                      <button
+                        type="button"
+                        className={tierButtonClass}
+                        onClick={() => onSelectProp(buildPick(under, playerName, label, homeTeam, awayTeam, externalId))}
+                      >
+                        <span className={bookTagClass}>{bookLabel(under.sportsbook)}</span>
+                        <span>U {under.line}</span>
+                        <span className={priceClass}>{formatPrice(under.priceAmerican)}</span>
+                      </button>
+                    ) : (
+                      <span />
+                    )}
+                  </Card>
+                ))}
+              </CollapsibleSection>
+            )}
           </div>
         );
       })}

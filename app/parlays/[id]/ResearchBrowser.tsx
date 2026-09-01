@@ -98,7 +98,7 @@ export function ResearchBrowser({
               const expanded = expandedId === game.externalId;
               const odds = oddsById[game.externalId];
               return (
-                <Card key={game.externalId} className="flex flex-col gap-2 p-3">
+                <Card key={game.externalId} className="flex flex-col gap-2 p-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <p className="min-w-0 truncate text-sm font-medium">
                       {game.awayTeam} <span className="text-subtle">@</span> {game.homeTeam}
@@ -109,7 +109,7 @@ export function ResearchBrowser({
                   <Button
                     type="button"
                     variant="secondary"
-                    size="sm"
+                    size="md"
                     className="self-start"
                     onClick={() => toggleExpanded(game.externalId)}
                   >

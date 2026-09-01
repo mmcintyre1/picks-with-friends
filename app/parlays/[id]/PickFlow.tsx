@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { Market, Side } from "@/app/generated/prisma/enums";
+import { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
+import { IconButton } from "@/components/ui/IconButton";
 import { PencilIcon } from "@/components/ui/icons";
 
 import { CancelLegButton } from "./CancelLegButton";
@@ -16,6 +17,7 @@ type Initial = {
   league: string | null;
   market: Market;
   side: Side;
+  teamSide: TeamSide | null;
   line: number | null;
   price: number | null;
   playerName: string | null;
@@ -73,14 +75,7 @@ export function PickFlow({
             actions={
               m.isMe && !editing ? (
                 <>
-                  <button
-                    type="button"
-                    title="Edit pick"
-                    onClick={() => setEditing(true)}
-                    className="rounded-md border border-border-strong p-2.5 text-muted hover:text-foreground"
-                  >
-                    <PencilIcon className="h-3.5 w-3.5" />
-                  </button>
+                  <IconButton size="sm" title="Edit pick" icon={<PencilIcon className="h-3.5 w-3.5" />} onClick={() => setEditing(true)} />
                   <CancelLegButton parlayId={parlayId} />
                 </>
               ) : undefined

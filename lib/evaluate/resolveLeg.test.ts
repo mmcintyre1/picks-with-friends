@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { LegResult, Market, Side } from "@/app/generated/prisma/enums";
+import { LegResult, Market, Side, TeamSide } from "@/app/generated/prisma/enums";
 
 import { resolveLeg } from "./resolveLeg";
 import type { BoxScore } from "./types";
@@ -18,6 +18,7 @@ function box(overrides: Partial<BoxScore> = {}): BoxScore {
 const baseLeg = {
   market: Market.TOTAL,
   side: Side.OVER,
+  teamSide: null as TeamSide | null,
   lineAtPick: null as number | null,
   playerName: null as string | null,
   propType: null as string | null,
@@ -79,6 +80,41 @@ describe("resolveLeg -- TOTAL", () => {
     expect(resolveLeg({ ...baseLeg, side: Side.OVER, lineAtPick: 40 }, final(20, 20), "NFL")).toEqual({
       result: LegResult.PUSH,
     });
+  });
+});
+
+describe("resolveLeg -- TEAM_TOTAL", () => {
+  it("clinches OVER early once the picked team's own score alone exceeds the line, ignoring the other team's score", () => {
+    const leg = { ...baseLeg, market: Market.TEAM_TOTAL, side: Side.OVER, teamSide: TeamSide.HOME, lineAtPick: 20.5 };
+    // Home has already crossed 20.5 on its own -- away's huge score is irrelevant to this leg.
+    const result = resolveLeg(leg, box({ homeScore: 24, awayScore: 40, status: { state: "in", completed: false, detail: "Q3" } }), "NFL");
+    expect(result).toEqual({ result: LegResult.WIN });
+  });
+
+  it("reads the away team's score, not home's, when teamSide is AWAY", () => {
+    const leg = { ...baseLeg, market: Market.TEAM_TOTAL, side: Side.OVER, teamSide: TeamSide.AWAY, lineAtPick: 20.5 };
+    // Away hasn't crossed the line even though home (the other team) has -- must stay pending.
+    const result = resolveLeg(leg, box({ homeScore: 24, awayScore: 10, status: { state: "in", completed: false, detail: "Q3" } }), "NFL");
+    expect(result).toEqual({ result: undefined, reason: "pending" });
+  });
+
+  it("stays pending pre-final when under the line, resolves OVER/UNDER/PUSH correctly once final", () => {
+    const leg = { ...baseLeg, market: Market.TEAM_TOTAL, side: Side.UNDER, teamSide: TeamSide.HOME, lineAtPick: 24 };
+    expect(
+      resolveLeg(leg, box({ homeScore: 10, awayScore: 30, status: { state: "in", completed: false, detail: "Q2" } }), "NFL"),
+    ).toEqual({ result: undefined, reason: "pending" });
+
+    const final = (home: number, away: number) =>
+      box({ homeScore: home, awayScore: away, status: { state: "post", completed: true, detail: "Final" } });
+    expect(resolveLeg({ ...leg, side: Side.UNDER }, final(20, 30), "NFL")).toEqual({ result: LegResult.WIN });
+    expect(resolveLeg({ ...leg, side: Side.OVER }, final(20, 30), "NFL")).toEqual({ result: LegResult.LOSS });
+    expect(resolveLeg({ ...leg, side: Side.OVER }, final(24, 30), "NFL")).toEqual({ result: LegResult.PUSH });
+  });
+
+  it("stays pending when teamSide is missing (shouldn't happen in practice, but never crashes)", () => {
+    const leg = { ...baseLeg, market: Market.TEAM_TOTAL, side: Side.OVER, teamSide: null, lineAtPick: 20.5 };
+    const result = resolveLeg(leg, box({ homeScore: 30, awayScore: 30, status: { state: "post", completed: true, detail: "Final" } }), "NFL");
+    expect(result).toEqual({ result: undefined, reason: "pending" });
   });
 });
 
