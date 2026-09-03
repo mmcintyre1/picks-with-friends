@@ -58,10 +58,13 @@ const tierButtonClass = `${oddsCellClass} ${oddsCellMinWidth}`;
 
 const ouColumnsClass = `grid ${nameGridColsOU} items-center gap-2`;
 
-// Matches the "L10" convention PocketProps' own screenshots used -- last 10 real games, or
-// fewer if the player doesn't have 10 yet (a rookie's first month, e.g.), never padded out
-// with anything that isn't a real logged game.
-const HIT_RATE_GAMES = 10;
+// PocketProps' own screenshots use a "L10" window -- dropped to 8 here after a real mobile
+// overflow bug: the O/U table's Over/Under buttons are only ever half of a shared column
+// (unlike a ladder tile, which gets the whole row), and ten dots' worth of fixed content
+// width didn't fit inside that half-column at any phone width tested. Eight still reads as
+// a real recent-form window, or fewer still if the player doesn't have 8 games yet -- never
+// padded out with anything that isn't a real logged game.
+const HIT_RATE_GAMES = 8;
 
 // A single-outcome market's real numeric line is always reported as 0 by every vendor this
 // app pulls from (confirmed real for both ParlayAPI and SportsGameOdds' Anytime TD rows) --
