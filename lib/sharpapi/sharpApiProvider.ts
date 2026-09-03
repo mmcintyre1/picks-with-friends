@@ -1,8 +1,11 @@
+import { getOrSetCached } from "@/lib/research/durableCache";
+
 import { SharpApiProviderError } from "./types";
 import type { SharpApiProvider, SharpApiResponse, SharpApiRow } from "./types";
 
 const BASE_URL = "https://api.sharpapi.io/api/v1/odds";
 const DEFAULT_TTL_SECONDS = 90; // anchored below to the live data_delay_seconds once known
+const CACHE_STORE = "sharpapi";
 
 // Confirmed real page sizes: schedule discovery (market=moneyline) surfaced 14 distinct
 // games on a single 50-row page -- 4 pages has real headroom for a full week's slate.
@@ -13,14 +16,6 @@ const DEFAULT_TTL_SECONDS = 90; // anchored below to the live data_delay_seconds
 // handling below for what happens if that's still not enough on a busier slate.
 const SCHEDULE_MAX_PAGES = 4;
 const EVENT_MAX_PAGES = 20;
-
-const scheduleCache = new Map<string, { expires: number; data: SharpApiRow[] }>();
-const eventCache = new Map<string, { expires: number; data: SharpApiRow[] }>();
-
-export function __resetSharpApiCacheForTests() {
-  scheduleCache.clear();
-  eventCache.clear();
-}
 
 async function fetchPage(url: string, apiKey: string): Promise<SharpApiResponse> {
   const res = await fetch(url, { headers: { "X-API-Key": apiKey } });
@@ -80,32 +75,27 @@ function requireApiKey(): string {
 export function createSharpApiProvider(): SharpApiProvider {
   return {
     async listNflSchedule(): Promise<SharpApiRow[]> {
-      const apiKey = requireApiKey();
-      const cacheKey = "schedule";
-      const cached = scheduleCache.get(cacheKey);
-      if (cached && cached.expires > Date.now()) return cached.data;
-
-      const { rows, ttlSeconds } = await fetchAllPages(
-        `${BASE_URL}?league=nfl&market=moneyline&sportsbook=draftkings,fanduel`,
-        apiKey,
-        SCHEDULE_MAX_PAGES,
-      );
-      scheduleCache.set(cacheKey, { expires: Date.now() + ttlSeconds * 1000, data: rows });
-      return rows;
+      return getOrSetCached(CACHE_STORE, "schedule", async () => {
+        const apiKey = requireApiKey();
+        const { rows, ttlSeconds } = await fetchAllPages(
+          `${BASE_URL}?league=nfl&market=moneyline&sportsbook=draftkings,fanduel`,
+          apiKey,
+          SCHEDULE_MAX_PAGES,
+        );
+        return { data: rows, ttlSeconds };
+      });
     },
 
     async getNflEventOdds(eventId: string): Promise<SharpApiRow[]> {
-      const apiKey = requireApiKey();
-      const cached = eventCache.get(eventId);
-      if (cached && cached.expires > Date.now()) return cached.data;
-
-      const { rows, ttlSeconds } = await fetchAllPages(
-        `${BASE_URL}?league=nfl&event_id=${encodeURIComponent(eventId)}&sportsbook=draftkings,fanduel`,
-        apiKey,
-        EVENT_MAX_PAGES,
-      );
-      eventCache.set(eventId, { expires: Date.now() + ttlSeconds * 1000, data: rows });
-      return rows;
+      return getOrSetCached(CACHE_STORE, `event:${eventId}`, async () => {
+        const apiKey = requireApiKey();
+        const { rows, ttlSeconds } = await fetchAllPages(
+          `${BASE_URL}?league=nfl&event_id=${encodeURIComponent(eventId)}&sportsbook=draftkings,fanduel`,
+          apiKey,
+          EVENT_MAX_PAGES,
+        );
+        return { data: rows, ttlSeconds };
+      });
     },
   };
 }

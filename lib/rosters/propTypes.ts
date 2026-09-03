@@ -28,6 +28,12 @@ const NFL_PROP_TYPES: Record<string, string[]> = {
   FB: ["Rushing Yards", "Receptions", "Receiving Yards", "Anytime TD"],
   WR: ["Receptions", "Receiving Yards", "Longest Reception", "Rush + Rec Yards", "Anytime TD"],
   TE: ["Receptions", "Receiving Yards", "Longest Reception", "Anytime TD"],
+  // ESPN's real roster abbreviation for a kicker is "PK" (Place Kicker), confirmed via a
+  // live roster fetch during the SportsGameOdds Kicking-category research work -- "K" was
+  // never actually returned, so this position was silently unreachable (always falling
+  // back to UNMAPPED_POSITION_PROP_TYPES) since this table was first written. Kept
+  // alongside "PK" rather than replaced, in case another league/season ever does use it.
+  PK: ["Kicking Points", "Field Goals Made", "Longest Field Goal", "Extra Points Made"],
   K: ["Kicking Points", "Field Goals Made", "Longest Field Goal", "Extra Points Made"],
   DE: ["Sacks", "Total Tackles", "Tackles For Loss", "QB Hits"],
   DT: ["Sacks", "Total Tackles", "Tackles For Loss", "QB Hits"],

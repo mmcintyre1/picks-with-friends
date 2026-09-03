@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { IconButton } from "@/components/ui/IconButton";
 import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -14,7 +15,7 @@ import { legSummary } from "@/lib/legSummary";
 import { getRostersForGame, type GameRosterPlayer } from "@/lib/rosters/actions";
 import { findTeamIdByName, isRosterLeague, LEAGUE_TEAMS, PICKABLE_LEAGUES, teamLogoUrl } from "@/lib/rosters/leagues";
 import { isYesNoPropType, propTypesForPosition } from "@/lib/rosters/propTypes";
-import type { PropPick, TeamBetPick } from "@/lib/sharpapi/types";
+import type { PropPick, TeamBetPick } from "@/lib/research/types";
 import { useIsIOS } from "@/lib/useIsIOS";
 
 import { pickLeg } from "../actions";
@@ -397,11 +398,25 @@ export function PickLegForm({
           which category tab was active) would be lost every time a pick is made, forcing a
           full re-browse-from-scratch for a second leg on the same game. Keyed on `sport` so
           switching leagues still starts fresh, which is the one case that really should
-          reset browsing. */}
+          reset browsing.
+
+          NFL's ESPN schedule list lives here too (as a fallback under the priced board),
+          not inside "manual" -- it used to be nested in manual mode, which quietly made
+          "Type it manually" a third, unlabeled way to browse games rather than actually
+          manual entry, and meant there was no way back to the priced board once you'd
+          picked a game from it (the breadcrumb's "back" only clears the matchup, never the
+          entry mode). Keeping both game sources on this one screen means "back" always
+          lands you somewhere you can still see real odds, and "manual" goes back to meaning
+          what it says everywhere else in the app: type it yourself. */}
       {canBrowseSchedule && entryMode === "browse" && (
         <div className={hasMatchup ? "hidden" : ""}>
           {effectiveLeague === "NFL" ? (
-            <ResearchBrowser key={sport} onSelectTeamBet={onSelectResearchTeamBet} onSelectProp={onSelectResearchProp} />
+            <div className="flex flex-col gap-3">
+              <ResearchBrowser key={sport} onSelectTeamBet={onSelectResearchTeamBet} onSelectProp={onSelectResearchProp} />
+              <CollapsibleSection title="Don't see your game? Browse the full schedule">
+                <ScheduleBrowser key={`${sport}-fallback`} league="NFL" onSelectGame={onSelectScheduleGame} />
+              </CollapsibleSection>
+            </div>
           ) : (
             <ScheduleBrowser key={sport} league={effectiveLeague} onSelectGame={onSelectScheduleGame} />
           )}

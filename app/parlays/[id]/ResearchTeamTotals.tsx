@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { teamLogoUrl } from "@/lib/rosters/leagues";
 import { bookLabel, mainTeamTotalLines, mapGameLinesSelectionToPick } from "@/lib/sharpapi/categorize";
-import type { ResearchCategory, ResearchSelection, TeamBetPick } from "@/lib/sharpapi/types";
+import type { ResearchCategory, ResearchSelection, TeamBetPick } from "@/lib/research/types";
 
 import { bookTagClass, columnHeaderClass, oddsCellClass, priceClass } from "./researchOddsStyles";
 import { TeamLabel } from "./TeamMarketGrid";

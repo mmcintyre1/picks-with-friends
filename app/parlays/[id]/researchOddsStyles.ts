@@ -13,7 +13,7 @@ export const oddsCellClass =
 // Phase 2.15 fixed; the other three files each host just one flexible column (a TierPager
 // or an O/U pair), where a floor is safe and is what keeps a tier from getting squeezed
 // illegibly thin.
-export const oddsCellMinWidth = "min-w-[4.5rem] sm:min-w-[6rem]";
+export const oddsCellMinWidth = "min-w-[4rem] sm:min-w-[6rem]";
 
 // whitespace-nowrap guards the book tag against ever wrapping onto a second line under a
 // squeezed button -- harmless today (only "DK"/"FD" exist, both 2 chars) but the free-tier
@@ -32,8 +32,19 @@ export const columnHeaderClass = "truncate text-center text-[10px] font-medium u
 // visibly empty space next to it well before any tier button was at risk of being
 // squeezed -- confirmed by measuring the rendered name box at 112px wide from 375px all
 // the way to 900px viewport width. The cap now actually grows past the narrow-phone
-// breakpoints where there's real room to give it, while staying at the original
-// overflow-safe 7rem floor below `sm:`.
-export const nameGridCols = "grid-cols-[minmax(4.5rem,7rem)_1fr] sm:grid-cols-[minmax(4.5rem,11rem)_1fr] lg:grid-cols-[minmax(4.5rem,16rem)_1fr]";
+// breakpoints where there's real room to give it.
+//
+// The base (below `sm:`) max was then tightened from 7rem to 5.5rem after a second real
+// bug: at 320px (a genuinely real, still-common phone width, not covered by the 360-390px
+// range this app's overflow work had verified until now), a `minmax(4.5rem, 7rem)` track
+// grows toward its 7rem ceiling regardless of how little room TierPager's own chevrons/
+// tiles have left, and unlike the name column, those have real fixed pixel minimums that
+// don't shrink -- confirmed via a real click failure ("element ... intercepts pointer
+// events") where a tier tile's box was overlapping the chevron button's box. Names can
+// safely give up some of that base-case ceiling now that they wrap instead of truncating
+// (Phase 2.18's second follow-up) -- a name that doesn't fit in 5.5rem just wraps to an
+// extra line instead of squeezing TierPager, whereas TierPager's tap targets have nowhere
+// left to shrink to.
+export const nameGridCols = "grid-cols-[minmax(4rem,4.5rem)_1fr] sm:grid-cols-[minmax(4.5rem,11rem)_1fr] lg:grid-cols-[minmax(4.5rem,16rem)_1fr]";
 export const nameGridColsOU =
-  "grid-cols-[minmax(4.5rem,7rem)_1fr_1fr] sm:grid-cols-[minmax(4.5rem,11rem)_1fr_1fr] lg:grid-cols-[minmax(4.5rem,16rem)_1fr_1fr]";
+  "grid-cols-[minmax(4rem,4.5rem)_1fr_1fr] sm:grid-cols-[minmax(4.5rem,11rem)_1fr_1fr] lg:grid-cols-[minmax(4.5rem,16rem)_1fr_1fr]";

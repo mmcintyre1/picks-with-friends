@@ -1,15 +1,22 @@
-import { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
+import { Side, TeamSide } from "@/app/generated/prisma/enums";
+import type { ResearchCategoryKey, ResearchGame, ResearchGameSummary, ResearchSelection } from "@/lib/research/types";
+import type { CategorizedSelection } from "@/lib/research/marketUtils";
+import { buildResearchGameFromSelections } from "@/lib/research/marketUtils";
 
-import type {
-  ResearchCategory,
-  ResearchCategoryKey,
-  ResearchGame,
-  ResearchGameSummary,
-  ResearchMarketGroup,
-  ResearchSelection,
-  SharpApiRow,
-  TeamBetPick,
-} from "./types";
+import type { SharpApiRow } from "./types";
+
+// Re-exported so every existing consumer of these shared, vendor-agnostic utilities (all
+// four Research* UI components) keeps importing them from this same module -- the functions
+// themselves now live in lib/research/marketUtils.ts so lib/sportsgameodds/categorize.ts can
+// reuse them too, without every UI import path needing to change.
+export {
+  altLinesForMarket,
+  altTeamTotalLines,
+  bookLabel,
+  mainTeamTotalLines,
+  mapGameLinesSelectionToPick,
+  propTypeLabel,
+} from "@/lib/research/marketUtils";
 
 // Confirmed by real fetches during Phase 2.14 implementation (the four quarter/half
 // prefixes below were confirmed on a second real pull, deeper into the season, that
@@ -68,28 +75,6 @@ export function categorizeBaseMarket(base: string, row: SharpApiRow): ResearchCa
   return "uncategorized";
 }
 
-// Display labels for the confirmed player-prop market_types, matching
-// lib/rosters/propTypes.ts's NFL strings exactly so a research-sourced pick's propType text
-// is indistinguishable from one entered manually.
-const PROP_TYPE_LABELS: Record<string, string> = {
-  player_passing_yards: "Passing Yards",
-  player_passing_touchdowns: "Passing TDs",
-  player_receiving_yards: "Receiving Yards",
-  player_receptions: "Receptions",
-  player_rushing_yards: "Rushing Yards",
-  // "Total TDs", not "Touchdowns" -- this is a real Over/Under-count market (e.g. "Over 1.5
-  // TDs"), a genuinely different bet from the single-outcome "did they score at all"
-  // markets (1st/Last TD Scorer) sitting right next to it in the same TD Scorers category.
-  // The plain "Touchdowns" label read as if it might be the same kind of bet as those.
-  player_touchdowns: "Total TDs",
-  first_touchdown_scorer: "1st TD Scorer",
-  last_touchdown_scorer: "Last TD Scorer",
-};
-
-export function propTypeLabel(base: string): string | null {
-  return PROP_TYPE_LABELS[base] ?? null;
-}
-
 // selection_type values confirmed on real full-game/segment team markets and player-prop
 // markets. "other" is ambiguous across markets (winning_margin's range bets and
 // player_touchdowns' exact-count outrights both use it too) so it's only ever accepted for
@@ -134,23 +119,11 @@ function toSelection(row: SharpApiRow): ResearchSelection | null {
   };
 }
 
-// Short display labels for the two books this app currently queries (SharpAPI's free tier
-// caps a single request at 2 books -- see sharpApiProvider.ts). Falls back to the raw
-// sportsbook string, capitalized, for anything else so a future book addition doesn't need
-// a matching label added here to just work.
-const BOOK_LABELS: Record<string, string> = {
-  draftkings: "DK",
-  fanduel: "FD",
-};
-
-export function bookLabel(sportsbook: string): string {
-  return BOOK_LABELS[sportsbook] ?? sportsbook.charAt(0).toUpperCase() + sportsbook.slice(1);
-}
-
 // Folds SharpAPI's flat row list into one tree per real game: event -> category -> market
-// group -> selections. Futures/season-long markets (SharpAPI reports them as a fake
-// "event" with an empty away_team, e.g. "NFL Specials") are dropped entirely here -- there's
-// no real game to attach a pick to.
+// group -> selections (the actual tree-building now lives in the shared
+// buildResearchGameFromSelections, reused by every provider). Futures/season-long markets
+// (SharpAPI reports them as a fake "event" with an empty away_team, e.g. "NFL Specials") are
+// dropped entirely here -- there's no real game to attach a pick to.
 export function groupRowsByGame(rows: SharpApiRow[]): ResearchGame[] {
   const gameRows = rows.filter((r) => r.home_team && r.away_team);
 
@@ -165,42 +138,22 @@ export function groupRowsByGame(rows: SharpApiRow[]): ResearchGame[] {
   for (const [externalId, eventRows] of byEvent) {
     const first = eventRows[0];
 
-    // category -> "marketType|segment" -> group
-    const categoryMap = new Map<ResearchCategoryKey, Map<string, ResearchMarketGroup>>();
-
+    const items: CategorizedSelection[] = [];
     for (const row of eventRows) {
       const selection = toSelection(row);
       if (!selection) continue;
-
       const { base, segment } = stripSegmentPrefix(row.market_type);
-      const categoryKey = categorizeBaseMarket(base, row);
-
-      const groups = categoryMap.get(categoryKey) ?? new Map<string, ResearchMarketGroup>();
-      categoryMap.set(categoryKey, groups);
-
-      const groupKey = `${base}|${segment ?? ""}`;
-      const group = groups.get(groupKey) ?? { marketType: base, segment, selections: [] };
-      group.selections.push(selection);
-      groups.set(groupKey, group);
+      items.push({ selection, marketType: base, segment, categoryKey: categorizeBaseMarket(base, row) });
     }
 
-    const categories: ResearchCategory[] = [...categoryMap.entries()].map(([key, groups]) => ({
-      key,
-      marketGroups: [...groups.values()],
-    }));
-
-    // An event whose every row had an unrecognized selection_type (e.g. winning_margin's
-    // "other") ends up with zero categories -- skip it rather than surfacing a game with
-    // nothing pickable on it.
-    if (categories.length === 0) continue;
-
-    games.push({
-      externalId,
-      homeTeam: first.home_team,
-      awayTeam: first.away_team,
-      commenceTime: first.event_start_time,
-      categories,
-    });
+    const game = buildResearchGameFromSelections(
+      { externalId, homeTeam: first.home_team, awayTeam: first.away_team, commenceTime: first.event_start_time },
+      items,
+    );
+    // A game whose every row had an unrecognized selection_type (e.g. winning_margin's
+    // "other") builds no categories -- skip it rather than surfacing a game with nothing
+    // pickable on it.
+    if (game) games.push(game);
   }
 
   return games.sort((a, b) => a.commenceTime.localeCompare(b.commenceTime));
@@ -222,34 +175,9 @@ export function summarizeSchedule(rows: SharpApiRow[]): ResearchGameSummary[] {
       homeTeam: row.home_team,
       awayTeam: row.away_team,
       commenceTime: row.event_start_time,
+      source: "sharpapi" as const,
     }))
     .sort((a, b) => a.commenceTime.localeCompare(b.commenceTime));
-}
-
-// Alternate (non-main) lines for a market_type + segment -- point_spread/total_points only,
-// since those are the two Game Lines markets with a clean Market/Side mapping (team_total's
-// compound selection_type has none, see the comment on GAME_LINES_BASE above). Grouped by
-// side because a single side can carry several alternate lines (confirmed real: up to a few
-// per side on a segment spread).
-export function altLinesForMarket(
-  category: ResearchCategory,
-  marketType: "point_spread" | "total_points",
-  segment: string | null,
-): { side: Side; selections: ResearchSelection[] }[] {
-  const group = category.marketGroups.find((g) => g.marketType === marketType && g.segment === segment);
-  if (!group) return [];
-
-  const bySide = new Map<Side, ResearchSelection[]>();
-  for (const selection of group.selections) {
-    if (selection.isMainLine) continue;
-    const list = bySide.get(selection.side) ?? [];
-    list.push(selection);
-    bySide.set(selection.side, list);
-  }
-
-  return [...bySide.entries()]
-    .map(([side, selections]) => ({ side, selections: selections.sort((a, b) => (a.line ?? 0) - (b.line ?? 0)) }))
-    .filter((g) => g.selections.length > 0);
 }
 
 // Builds the full categorized ResearchGame for one specific event's rows (already scoped to
@@ -257,85 +185,4 @@ export function altLinesForMarket(
 // around groupRowsByGame's per-event logic rather than a duplicate implementation.
 export function buildResearchGame(rows: SharpApiRow[]): ResearchGame | null {
   return groupRowsByGame(rows)[0] ?? null;
-}
-
-// Maps one Game Lines selection (moneyline/point_spread/total_points, full game only -- no
-// segment) into the shape PickLegForm's slip expects. Returns null for anything this
-// function doesn't recognize (a segment market, or a market_type outside the confirmed
-// three) rather than guessing -- ResearchNumberedGrid only ever calls this with rows already
-// known to be full-game Game Lines, so null here would indicate a real bug, not an
-// expected case.
-export function mapGameLinesSelectionToPick(
-  game: { homeTeam: string; awayTeam: string; externalId: string },
-  marketType: string,
-  selection: ResearchSelection,
-): TeamBetPick | null {
-  const market =
-    marketType === "moneyline"
-      ? Market.MONEYLINE
-      : marketType === "point_spread"
-        ? Market.SPREAD
-        : marketType === "total_points"
-          ? Market.TOTAL
-          : marketType === "team_total"
-            ? Market.TEAM_TOTAL
-            : null;
-  if (!market) return null;
-
-  return {
-    homeTeam: game.homeTeam,
-    awayTeam: game.awayTeam,
-    market,
-    side: selection.side,
-    line: selection.line,
-    price: selection.priceAmerican,
-    externalId: game.externalId,
-    teamSide: selection.teamSide ?? undefined,
-  };
-}
-
-// Main-line team_total selections only, one entry per team -- feeds ResearchTeamTotals'
-// display directly (no grouping logic needed in that component). Returns [] if this game
-// has no team_total group for the given segment (most segments outside full-game/halves).
-export function mainTeamTotalLines(
-  category: ResearchCategory,
-  segment: string | null,
-): { teamSide: TeamSide; overSelection: ResearchSelection | undefined; underSelection: ResearchSelection | undefined }[] {
-  const group = category.marketGroups.find((g) => g.marketType === "team_total" && g.segment === segment);
-  if (!group) return [];
-
-  const teamSides = [TeamSide.AWAY, TeamSide.HOME] as const;
-  return teamSides.map((teamSide) => ({
-    teamSide,
-    overSelection:
-      group.selections.find((s) => s.teamSide === teamSide && s.side === Side.OVER && s.isMainLine) ??
-      group.selections.find((s) => s.teamSide === teamSide && s.side === Side.OVER),
-    underSelection:
-      group.selections.find((s) => s.teamSide === teamSide && s.side === Side.UNDER && s.isMainLine) ??
-      group.selections.find((s) => s.teamSide === teamSide && s.side === Side.UNDER),
-  }));
-}
-
-// Alternate (non-main) team_total lines, grouped by (teamSide, side) -- team_total genuinely
-// has up to 4 independent alt-line groups (each team's Over and Under can each carry several
-// alternate lines), unlike altLinesForMarket's 2-group (side-only) shape above.
-export function altTeamTotalLines(
-  category: ResearchCategory,
-  segment: string | null,
-): { teamSide: TeamSide; side: Side; selections: ResearchSelection[] }[] {
-  const group = category.marketGroups.find((g) => g.marketType === "team_total" && g.segment === segment);
-  if (!group) return [];
-
-  const byKey = new Map<string, { teamSide: TeamSide; side: Side; selections: ResearchSelection[] }>();
-  for (const selection of group.selections) {
-    if (selection.isMainLine || !selection.teamSide) continue;
-    const key = `${selection.teamSide}|${selection.side}`;
-    const existing = byKey.get(key) ?? { teamSide: selection.teamSide, side: selection.side, selections: [] };
-    existing.selections.push(selection);
-    byKey.set(key, existing);
-  }
-
-  return [...byKey.values()]
-    .map((g) => ({ ...g, selections: g.selections.sort((a, b) => (a.line ?? 0) - (b.line ?? 0)) }))
-    .filter((g) => g.selections.length > 0);
 }

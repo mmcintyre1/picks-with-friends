@@ -34,6 +34,12 @@ const NFL: Record<string, PropStatMapping> = {
     { group: "rushing", key: "rushingYards" },
     { group: "receiving", key: "receivingYards" },
   ],
+  // Confirmed real via SportsGameOdds (a QB's own combined passing+rushing yards market,
+  // no SharpAPI equivalent) -- same multi-entry-sum convention as "Rush + Rec Yards" above.
+  "Pass + Rush Yards": [
+    { group: "passing", key: "passingYards" },
+    { group: "rushing", key: "rushingYards" },
+  ],
   "Kicking Points": [{ group: "kicking", key: "totalKickingPoints" }],
   "Field Goals Made": [{ group: "kicking", key: "fieldGoalsMade/fieldGoalAttempts", extract: "numerator" }],
   "Longest Field Goal": [{ group: "kicking", key: "longFieldGoalMade" }],
@@ -45,6 +51,20 @@ const NFL: Record<string, PropStatMapping> = {
   "Passes Defended": [{ group: "defensive", key: "passesDefended" }],
   Interceptions: [{ group: "interceptions", key: "interceptions" }],
   "Anytime TD": [
+    { group: "rushing", key: "rushingTouchdowns" },
+    { group: "receiving", key: "receivingTouchdowns" },
+    { group: "defensive", key: "defensiveTouchdowns" },
+    { group: "interceptions", key: "interceptionTouchdowns" },
+    { group: "kickReturns", key: "kickReturnTouchdowns" },
+    { group: "puntReturns", key: "puntReturnTouchdowns" },
+  ],
+  // Same real stat as "Anytime TD" above (a player's total touchdown count, from any way of
+  // scoring) -- kept as its own canonical propType rather than reusing that string because
+  // the two are genuinely different BETS on the same number: "Anytime TD" asks yes/no did
+  // it happen at all, "Total TDs" asks over/under a specific count. The display-label
+  // disambiguation between these (and 1st/Last TD Scorer) was deliberate -- see
+  // lib/research/marketUtils.ts's PROP_TYPE_LABELS comment.
+  "Total TDs": [
     { group: "rushing", key: "rushingTouchdowns" },
     { group: "receiving", key: "receivingTouchdowns" },
     { group: "defensive", key: "defensiveTouchdowns" },

@@ -3,8 +3,8 @@
 import { useState } from "react";
 
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { RESEARCH_CATEGORY_LABELS } from "@/lib/sharpapi/types";
-import type { PropPick, ResearchGame, TeamBetPick } from "@/lib/sharpapi/types";
+import { RESEARCH_CATEGORY_LABELS, RESEARCH_CATEGORY_ORDER } from "@/lib/research/types";
+import type { PropPick, ResearchGame, TeamBetPick } from "@/lib/research/types";
 
 import { ResearchAltLines } from "./ResearchAltLines";
 import { ResearchNumberedGrid } from "./ResearchNumberedGrid";
@@ -51,7 +51,11 @@ export function ResearchGameDetail({
   onSelectProp: (pick: PropPick) => void;
 }) {
   const gameLines = game.categories.find((c) => c.key === "game_lines");
-  const propCategories = game.categories.filter((c) => c.key !== "game_lines" && c.key !== "uncategorized");
+  // Sorted to a fixed DK-like order rather than left in whatever order the provider's raw
+  // data happened to build ResearchGame.categories in -- see RESEARCH_CATEGORY_ORDER's comment.
+  const propCategories = game.categories
+    .filter((c) => c.key !== "game_lines" && c.key !== "uncategorized")
+    .sort((a, b) => RESEARCH_CATEGORY_ORDER.indexOf(a.key) - RESEARCH_CATEGORY_ORDER.indexOf(b.key));
 
   const allSegments = [...new Set((gameLines?.marketGroups ?? []).map((g) => g.segment).filter((s): s is string => s !== null))];
 

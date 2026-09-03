@@ -11,6 +11,7 @@ import { resolveLeg } from "@/lib/evaluate/resolveLeg";
 import type { BoxScore } from "@/lib/evaluate/types";
 import { LEAGUE_ESPN_PATHS } from "@/lib/rosters/leagues";
 import { getScheduleProvider } from "@/lib/schedule";
+import { teamNamesMatch } from "@/lib/teamNamesMatch";
 import { LegResult, Market, ParlayStatus, Side, TeamSide } from "@/app/generated/prisma/enums";
 
 export type ActionResult = { error: string } | undefined;
@@ -379,12 +380,6 @@ const EVALUATE_COOLDOWN_MS = 20_000;
 // when they're happening or shortly after, not days later.
 const ESPN_MATCH_WINDOW_DAYS_BACK = 3;
 const ESPN_MATCH_WINDOW_DAYS_FORWARD = 1;
-
-function teamNamesMatch(a: string, b: string): boolean {
-  const x = a.trim().toLowerCase();
-  const y = b.trim().toLowerCase();
-  return x === y || x.includes(y) || y.includes(x);
-}
 
 // Resolves and caches a Game's ESPN event id by searching the free schedule endpoint
 // (lib/schedule/, already used by ScheduleBrowser) for a matching matchup. Deliberately

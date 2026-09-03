@@ -1,8 +1,10 @@
 "use server";
 
 import { buildResearchGame, summarizeSchedule } from "./categorize";
+import type { ResearchGame, ResearchGameSummary } from "@/lib/research/types";
+
 import { getSharpApiProvider } from "./index";
-import { SharpApiProviderError, type ResearchGame, type ResearchGameSummary } from "./types";
+import { SharpApiProviderError } from "./types";
 
 function describeError(error: unknown): string {
   if (error instanceof SharpApiProviderError) {

@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { TierPager } from "@/components/ui/TierPager";
 import { altLinesForMarket, altTeamTotalLines, bookLabel, mapGameLinesSelectionToPick } from "@/lib/sharpapi/categorize";
-import type { ResearchCategory, TeamBetPick } from "@/lib/sharpapi/types";
+import type { ResearchCategory, TeamBetPick } from "@/lib/research/types";
 
 import { bookTagClass, nameGridCols, oddsCellClass, oddsCellMinWidth, priceClass } from "./researchOddsStyles";
 

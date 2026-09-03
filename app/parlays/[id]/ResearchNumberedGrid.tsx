@@ -4,7 +4,7 @@ import { Side } from "@/app/generated/prisma/enums";
 import { Card } from "@/components/ui/Card";
 import { teamLogoUrl } from "@/lib/rosters/leagues";
 import { bookLabel, mapGameLinesSelectionToPick } from "@/lib/sharpapi/categorize";
-import type { ResearchCategory, ResearchSelection, TeamBetPick } from "@/lib/sharpapi/types";
+import type { ResearchCategory, ResearchSelection, TeamBetPick } from "@/lib/research/types";
 
 import { bookTagClass, columnHeaderClass, oddsCellClass, priceClass } from "./researchOddsStyles";
 import { TeamLabel } from "./TeamMarketGrid";

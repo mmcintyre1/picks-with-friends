@@ -8,7 +8,7 @@ import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { TierPager } from "@/components/ui/TierPager";
 import { getRostersForGame } from "@/lib/rosters/actions";
 import { teamLogoUrl } from "@/lib/rosters/leagues";
-import type { ResearchCategory, ResearchSelection, PropPick } from "@/lib/sharpapi/types";
+import type { ResearchCategory, ResearchSelection, PropPick } from "@/lib/research/types";
 import { bookLabel, propTypeLabel } from "@/lib/sharpapi/categorize";
 
 import { bookTagClass, nameGridCols, nameGridColsOU, oddsCellClass, oddsCellMinWidth, priceClass } from "./researchOddsStyles";

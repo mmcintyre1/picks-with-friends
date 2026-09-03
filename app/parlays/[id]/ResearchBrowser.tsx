@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatGameTime } from "@/lib/formatGameTime";
-import { getNflGameOdds, getNflSchedule } from "@/lib/sharpapi/actions";
-import type { PropPick, ResearchGame, ResearchGameSummary, TeamBetPick } from "@/lib/sharpapi/types";
+import { getNflGameOdds, getNflSchedule } from "@/lib/research/actions";
+import type { PropPick, ResearchGame, ResearchGameSummary, TeamBetPick } from "@/lib/research/types";
 
 import { ResearchGameDetail } from "./ResearchGameDetail";
 
@@ -32,14 +32,16 @@ function groupByDay(games: ResearchGameSummary[]): { label: string; games: Resea
 
 type OddsState = "loading" | ResearchGame | string; // string = error message
 
-// DraftKings-style research browser for NFL, backed by SharpAPI -- see the plan file's
-// Phase 2.14 section. Two real, separate SharpAPI entry points, not one broad fetch: a
-// cheap schedule list (real games only, no odds attached) renders immediately, and a
-// specific game's full board (Game Lines + every prop category, one unified tab bar -- see
-// ResearchGameDetail) is only fetched once that game is expanded, the same "browse free,
-// spend on what you click" shape ScheduleBrowser/the old LiveOddsBrowser already used.
-// Deliberately NOT a live-odds *entry point* on its own: every tap still lands in
-// PickLegForm's normal editable slip for a final review before confirming.
+// DraftKings-style research browser for NFL, backed by lib/research/actions.ts's
+// multi-provider layer (SportsGameOdds primary, SharpAPI automatic fallback -- see the plan
+// file's Phase 2.19 section; Phase 2.14 originally built this against SharpAPI alone). Two
+// real, separate entry points, not one broad fetch: a cheap schedule list (real games only,
+// no odds attached) renders immediately, and a specific game's full board (Game Lines +
+// every prop category, one unified tab bar -- see ResearchGameDetail) is only fetched once
+// that game is expanded, the same "browse free, spend on what you click" shape
+// ScheduleBrowser/the old LiveOddsBrowser already used. Deliberately NOT a live-odds *entry
+// point* on its own: every tap still lands in PickLegForm's normal editable slip for a final
+// review before confirming.
 export function ResearchBrowser({
   onSelectTeamBet,
   onSelectProp,
@@ -64,16 +66,16 @@ export function ResearchBrowser({
     };
   }, []);
 
-  async function toggleExpanded(externalId: string) {
-    if (expandedId === externalId) {
+  async function toggleExpanded(game: ResearchGameSummary) {
+    if (expandedId === game.externalId) {
       setExpandedId(null);
       return;
     }
-    setExpandedId(externalId);
-    if (oddsById[externalId]) return;
-    setOddsById((prev) => ({ ...prev, [externalId]: "loading" }));
-    const result = await getNflGameOdds(externalId);
-    setOddsById((prev) => ({ ...prev, [externalId]: "error" in result ? result.error : result.game }));
+    setExpandedId(game.externalId);
+    if (oddsById[game.externalId]) return;
+    setOddsById((prev) => ({ ...prev, [game.externalId]: "loading" }));
+    const result = await getNflGameOdds(game.externalId, game.source);
+    setOddsById((prev) => ({ ...prev, [game.externalId]: "error" in result ? result.error : result.game }));
   }
 
   if (error) {
@@ -118,7 +120,7 @@ export function ResearchBrowser({
                     variant="secondary"
                     size="md"
                     className="self-start"
-                    onClick={() => toggleExpanded(game.externalId)}
+                    onClick={() => toggleExpanded(game)}
                   >
                     {expanded ? "Hide odds" : "Show odds"}
                   </Button>

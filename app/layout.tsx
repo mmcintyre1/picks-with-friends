@@ -38,7 +38,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0a0e16",
+  themeColor: "#0a0e1a", // matches --color-page in app/globals.css exactly
   colorScheme: "dark",
 };
 

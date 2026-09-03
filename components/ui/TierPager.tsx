@@ -17,11 +17,15 @@ const navButtonClass =
 // to reset scroll position on data change.
 export function TierPager<T>({
   items,
-  // 2, not 3: a real 360px-viewport check found 3 tiers (each with a 4rem min-width floor)
-  // plus both chevron buttons genuinely didn't fit next to a name column at that width, even
-  // after the name column was already capped by the grid fix in ResearchPropTable/
-  // ResearchAltLines -- this is the CSS-only fix's fallback the plan anticipated.
-  pageSize = 2,
+  // 1, not 2: real bounding-box measurement (not a screenshot guess) found each tile's own
+  // `min-w-[4rem]` (a hard CSS floor, not a hint flex-shrink can go below) exceeds its
+  // flex-allocated half whenever two sit side by side next to both chevrons -- confirmed
+  // real, measurable overlap at *both* 320px (34px) and, more surprisingly, at 375px too
+  // (~7px) once the name column's own width and the tile floor had each grown since this
+  // was first tuned. A single tile's floor always has room next to two chevrons, at any
+  // width this app supports -- this is the version of that fix that's actually correct at
+  // every breakpoint instead of two tiles that merely usually fit.
+  pageSize = 1,
   keyFor,
   renderItem,
 }: {
@@ -52,9 +56,17 @@ export function TierPager<T>({
       >
         <ChevronLeftIcon className="h-5 w-5" />
       </button>
-      <div className="flex min-w-0 flex-1 gap-1.5">
+      {/* No min-w-0 on these item wrappers -- each rendered tile has its own real
+          min-w-[4rem] floor (see researchOddsStyles.ts), and letting the wrapper's
+          own min-width default to `auto` (matching its child's real minimum) is what
+          keeps the flex algorithm honest about how much space this row actually
+          needs, instead of the wrapper claiming it can shrink smaller than the
+          button inside it actually can -- that mismatch was rendering as the tile
+          and the next chevron visually overlapping, confirmed via real
+          getBoundingClientRect measurement, not just a screenshot guess. */}
+      <div className="flex flex-1 gap-1.5">
         {visible.map((item) => (
-          <div key={keyFor(item)} className="min-w-0 flex-1">
+          <div key={keyFor(item)} className="flex-1">
             {renderItem(item)}
           </div>
         ))}
