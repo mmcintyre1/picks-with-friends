@@ -150,6 +150,15 @@ function slipFromInitial(initial?: Initial): Slip {
   };
 }
 
+// A research-sourced pick (from ResearchBrowser/ResearchGameDetail's priced grids/tables)
+// already carries a complete real market/side/line/price -- unlike a bare ScheduleBrowser
+// matchup or manual entry, there's nothing left to fill in. Routing these through the same
+// full-page editable slip as manual entry read as "I tapped a price and got sent to a whole
+// different screen" -- confirmed real user friction, not just a guess -- so these go through
+// a lightweight confirm Modal instead (see pendingResearchPick below), staying on the
+// browse screen the whole time.
+type PendingResearchPick = { kind: "team"; pick: TeamBetPick } | { kind: "prop"; pick: PropPick };
+
 const isSlipEmpty = (slip: Slip) =>
   !slip.homeTeam.trim() && !slip.awayTeam.trim() && !slip.price.trim() && !slip.externalId;
 
@@ -179,6 +188,10 @@ export function PickLegForm({
   // Set only when a Team bet/Player prop switch would discard real bet details -- gates the
   // confirmation Modal below rather than switching immediately.
   const [pendingKindSwitch, setPendingKindSwitch] = useState<"team" | "prop" | null>(null);
+  // A tapped research-sourced pick, awaiting the confirm Modal's Yes/Cancel -- deliberately
+  // separate from `slip`, so tapping a price never touches `hasMatchup`/`showSlip` at all
+  // and the browse view (whichever game/tab/scroll position it was in) never moves.
+  const [pendingResearchPick, setPendingResearchPick] = useState<PendingResearchPick | null>(null);
   // iOS's numeric/decimal keyboards have no minus key, breaking negative odds/spread entry
   // -- falls back to a plain keyboard there specifically, not for every platform.
   const isIOS = useIsIOS();
@@ -269,36 +282,43 @@ export function PickLegForm({
     setSlip((prev) => ({ ...prev, homeTeam: game.homeTeam, awayTeam: game.awayTeam, externalId: game.externalId }));
   }
 
-  // Research (SharpAPI/NFL) picks carry a real market/side/line/price, unlike
-  // ScheduleBrowser's bare matchup -- these replace the whole slip object (like setKind
-  // does) rather than merging into whatever was there before, then still land in the same
-  // editable slip UI below for a final review before confirming.
+  // Research (ParlayAPI/SportsGameOdds/SharpAPI) picks carry a real market/side/line/price
+  // already -- these open the confirm Modal (see pendingResearchPick above) rather than
+  // touching `slip`/`hasMatchup` at all, so the browse view never moves.
   function onSelectResearchTeamBet(pick: TeamBetPick) {
-    setSlip({
-      kind: "team",
-      homeTeam: pick.homeTeam,
-      awayTeam: pick.awayTeam,
-      market: pick.market,
-      side: pick.side,
-      teamSide: pick.teamSide ?? null,
-      line: pick.line?.toString() ?? "",
-      price: pick.price.toString(),
-      externalId: pick.externalId,
-    });
+    setPendingResearchPick({ kind: "team", pick });
   }
 
   function onSelectResearchProp(pick: PropPick) {
-    setSlip({
-      kind: "prop",
-      homeTeam: pick.homeTeam,
-      awayTeam: pick.awayTeam,
-      propShape: pick.market === Market.PLAYER_PROP_YESNO ? "yesNo" : "overUnder",
-      playerName: pick.playerName,
-      propType: pick.propType,
-      side: pick.side,
-      line: pick.line?.toString() ?? "",
-      price: pick.price.toString(),
-      externalId: pick.externalId,
+    setPendingResearchPick({ kind: "prop", pick });
+  }
+
+  // Confirms a research-sourced pick directly from the pending pick's own real data --
+  // bypasses `slip` entirely, the same server action `onSubmit` below calls, just fed from
+  // a different source.
+  function confirmResearchPick() {
+    if (!pendingResearchPick) return;
+    const { kind, pick } = pendingResearchPick;
+    setError(null);
+    startTransition(async () => {
+      const result = await pickLeg(parlayId, {
+        homeTeam: pick.homeTeam,
+        awayTeam: pick.awayTeam,
+        league: effectiveLeague,
+        market: pick.market,
+        side: pick.side,
+        teamSide: kind === "team" ? (pick.teamSide ?? null) : null,
+        line: pick.line?.toString() ?? "",
+        price: pick.price.toString(),
+        playerName: kind === "prop" ? pick.playerName : "",
+        propType: kind === "prop" ? pick.propType : "",
+        externalId: pick.externalId,
+      });
+      if (result?.error) setError(result.error);
+      else {
+        setPendingResearchPick(null);
+        onDone?.();
+      }
     });
   }
 
@@ -741,6 +761,44 @@ export function PickLegForm({
             Switch
           </Button>
         </div>
+      </Modal>
+
+      <Modal open={pendingResearchPick !== null} onClose={() => setPendingResearchPick(null)} title="Confirm pick">
+        {pendingResearchPick && (
+          <>
+            <p className="text-sm text-muted">
+              {pendingResearchPick.pick.awayTeam} @ {pendingResearchPick.pick.homeTeam}
+            </p>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <span className="text-base font-medium">
+                {legSummary(
+                  {
+                    market: pendingResearchPick.pick.market,
+                    side: pendingResearchPick.pick.side,
+                    lineAtPick: pendingResearchPick.pick.line,
+                    teamSide: pendingResearchPick.kind === "team" ? (pendingResearchPick.pick.teamSide ?? null) : null,
+                    playerName: pendingResearchPick.kind === "prop" ? pendingResearchPick.pick.playerName : null,
+                    propType: pendingResearchPick.kind === "prop" ? pendingResearchPick.pick.propType : null,
+                  },
+                  { homeTeam: pendingResearchPick.pick.homeTeam, awayTeam: pendingResearchPick.pick.awayTeam },
+                )}
+              </span>
+              <span className="font-display text-base tracking-wide text-accent tabular-nums">
+                {pendingResearchPick.pick.price > 0 ? "+" : ""}
+                {pendingResearchPick.pick.price}
+              </span>
+            </div>
+            {error && <p className="mt-2 text-xs text-loss">{error}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setPendingResearchPick(null)} disabled={pending}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={confirmResearchPick} disabled={pending}>
+                {pending ? "Saving…" : "Confirm pick"}
+              </Button>
+            </div>
+          </>
+        )}
       </Modal>
     </div>
   );
