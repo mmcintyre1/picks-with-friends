@@ -46,5 +46,16 @@ export const columnHeaderClass = "truncate text-center text-[10px] font-medium u
 // extra line instead of squeezing TierPager, whereas TierPager's tap targets have nowhere
 // left to shrink to.
 export const nameGridCols = "grid-cols-[minmax(4rem,4.5rem)_1fr] sm:grid-cols-[minmax(4.5rem,11rem)_1fr] lg:grid-cols-[minmax(4.5rem,16rem)_1fr]";
+
+// A real base-breakpoint ceiling of 5rem, not 4.5rem like nameGridCols above -- deliberately
+// different, not a copy-paste drift. nameGridColsOU's two price columns are plain
+// oddsCellClass buttons (min-w-[4rem] each, no TierPager/chevrons), unlike nameGridCols'
+// single TierPager column, so there's real headroom to confirm: at the real measured row
+// widths this app actually renders at (230px/285px/300px for 320/375/390px viewports), each
+// button still clears its own 4rem floor with 3-30px to spare even after giving the name
+// column the extra 0.5rem -- verified via live getBoundingClientRect() measurement, not
+// assumed, the same discipline every other number in this file was tuned with. Long real
+// player names (e.g. "Rhamondre Stevenson") were reading as visually "buried" at 4.5rem --
+// a real, reported readability issue, not just cosmetic preference.
 export const nameGridColsOU =
-  "grid-cols-[minmax(4rem,4.5rem)_1fr_1fr] sm:grid-cols-[minmax(4.5rem,11rem)_1fr_1fr] lg:grid-cols-[minmax(4.5rem,16rem)_1fr_1fr]";
+  "grid-cols-[minmax(4rem,5rem)_1fr_1fr] sm:grid-cols-[minmax(4.5rem,11rem)_1fr_1fr] lg:grid-cols-[minmax(4.5rem,16rem)_1fr_1fr]";
