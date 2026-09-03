@@ -146,4 +146,10 @@ describe("normalizePlayerName", () => {
     expect(normalizePlayerName("AJ Barner")).toBe(normalizePlayerName("A.J. Barner"));
     expect(normalizePlayerName("Jaxon Smith-Njigba")).toBe(normalizePlayerName("Jaxon Smith Njigba"));
   });
+
+  it("strips a trailing generational suffix so a vendor's unsuffixed name still matches ESPN's suffixed one", () => {
+    expect(normalizePlayerName("Byron Murphy")).toBe(normalizePlayerName("Byron Murphy II"));
+    expect(normalizePlayerName("Kenneth Walker")).toBe(normalizePlayerName("Kenneth Walker III"));
+    expect(normalizePlayerName("Odell Beckham")).toBe(normalizePlayerName("Odell Beckham Jr."));
+  });
 });

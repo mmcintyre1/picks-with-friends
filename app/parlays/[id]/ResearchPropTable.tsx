@@ -9,7 +9,7 @@ import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { HitRateDots } from "@/components/ui/HitRateDots";
 import { TierPager } from "@/components/ui/TierPager";
 import { getPlayerPropLogs } from "@/lib/playerstats/actions";
-import { average, filterByOpponent, hitRate, isHit, type HitRate } from "@/lib/playerstats/gamelogStats";
+import { average, filterByOpponent, hitRate, isHit, normalizePlayerName, type HitRate } from "@/lib/playerstats/gamelogStats";
 import type { GameLogEntry, PlayerLogs } from "@/lib/playerstats/types";
 import { getRostersForGame } from "@/lib/rosters/actions";
 import { teamAbbreviation, teamLogoUrl } from "@/lib/rosters/leagues";
@@ -312,13 +312,19 @@ export function ResearchPropTable({
   // prop rows themselves carry no team field (only team_total rows do). Reuses the same
   // roster action PlayerPropPicker already fetches from for manual entry, so this costs no
   // new network surface, just a second consumer of an already-cached (6h) roster fetch.
+  // Keyed by normalizePlayerName, not the raw roster name -- a research vendor's own player
+  // string routinely omits a suffix ESPN's roster carries ("Byron Murphy" vs "Byron Murphy
+  // II", confirmed real), and this lookup used to be the one place in the app that still did
+  // a raw exact-string match instead of going through the same normalization
+  // getPlayerPropLogs already relies on -- unifying it here closes that real, confirmed gap
+  // rather than leaving two subtly different name-matching rules for what's the same job.
   const [teamByPlayer, setTeamByPlayer] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
     getRostersForGame(league, homeTeam, awayTeam).then((result) => {
       if (cancelled || "error" in result) return;
-      setTeamByPlayer(new Map(result.players.map((p) => [p.name, p.team])));
+      setTeamByPlayer(new Map(result.players.map((p) => [normalizePlayerName(p.name), p.team])));
     });
     return () => {
       cancelled = true;
@@ -390,7 +396,7 @@ export function ResearchPropTable({
             <CollapsibleSection key={group.marketType} title={label}>
               {[...byPlayer.entries()].map(([playerName, selections]) => (
                 <Card key={playerName} elevated className={`grid ${nameGridCols} items-center gap-2 p-2`}>
-                  <PlayerNameCell playerName={playerName} team={teamByPlayer.get(playerName) ?? null} league={league} />
+                  <PlayerNameCell playerName={playerName} team={teamByPlayer.get(normalizePlayerName(playerName)) ?? null} league={league} />
                   <div className="flex flex-wrap gap-1.5">
                     {selections.map((selection) => (
                       <button
@@ -438,7 +444,7 @@ export function ResearchPropTable({
               <CollapsibleSection title={label}>
                 {ladderRows.map(({ playerName, tiers }) => (
                   <Card key={playerName} elevated className={`grid ${nameGridCols} items-center gap-2 p-2`}>
-                    <PlayerNameCell playerName={playerName} team={teamByPlayer.get(playerName) ?? null} league={league} />
+                    <PlayerNameCell playerName={playerName} team={teamByPlayer.get(normalizePlayerName(playerName)) ?? null} league={league} />
                     <TierPager
                       items={tiers}
                       keyFor={(s) => s.selectionId}
@@ -471,7 +477,7 @@ export function ResearchPropTable({
                   <PropOuRow
                     key={playerName}
                     playerName={playerName}
-                    team={teamByPlayer.get(playerName) ?? null}
+                    team={teamByPlayer.get(normalizePlayerName(playerName)) ?? null}
                     league={league}
                     homeTeam={homeTeam}
                     awayTeam={awayTeam}

@@ -511,7 +511,7 @@ const ROWS: SharpApiRow[] = [
   },
   // Player props -- Rushing, again with multiple real players, both sides each.
   ...[
-    { player: "Kenneth Walker III", line: 62.5, over: -108, under: -112 },
+    { player: "George Holani", line: 62.5, over: -108, under: -112 },
     { player: "TreVeyon Henderson", line: 48.5, over: -110, under: -110 },
     { player: "Rhamondre Stevenson", line: 30.5, over: -110, under: -110 },
   ].flatMap(({ player, line, over, under }, i): SharpApiRow[] => {

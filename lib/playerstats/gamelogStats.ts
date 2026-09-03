@@ -138,10 +138,23 @@ export function average(entries: GameLogEntry[]): number | null {
   return Math.round((entries.reduce((sum, e) => sum + e.value, 0) / entries.length) * 10) / 10;
 }
 
+// Strips a trailing generational suffix (Jr/Sr/II/III/IV/V) before the rest of
+// normalization -- a real, confirmed mismatch class: ESPN's roster reports "Byron Murphy
+// II" while a research vendor's own player field just says "Byron Murphy" for the exact
+// same real player (verified live), and a research prop referencing a since-traded player
+// under their old team can look like this same class of bug but genuinely isn't one (no
+// suffix stripping fixes a player who's no longer on that roster at all -- that's a stale
+// fixture/vendor-data problem, not a name-formatting one).
+const SUFFIX_PATTERN = /\s+(jr|sr|ii|iii|iv|v)\.?$/i;
+
 // Normalizes a player name for matching a prop's own player string against a roster's
 // displayName -- real mismatches are routine here ("AJ Barner" vs "A.J. Barner", already a
 // confirmed real case in this app's own logo lookups), and a missed match just means no hit
 // rate shown, so a little normalization is strictly better than exact-match-or-nothing.
 export function normalizePlayerName(name: string): string {
-  return name.toLowerCase().replace(/[.'\-\s]/g, "");
+  return name
+    .trim()
+    .replace(SUFFIX_PATTERN, "")
+    .toLowerCase()
+    .replace(/[.'\-\s]/g, "");
 }

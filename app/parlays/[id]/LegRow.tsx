@@ -20,6 +20,14 @@ function resultTintClass(result?: LegResult): string {
 
 const teamLineTextClass = "text-xs text-subtle sm:text-sm";
 
+// TeamLabel's own default icon size (18px) reused everywhere else this app shows a team
+// logo -- this row used to override it down to a flat 16px at every breakpoint, smaller
+// than that default rather than just matching it, and on a real mobile screen a small
+// sports crest at that size read as "almost not even there" (real, reported complaint).
+// Every pick on the whole app funnels through this one row, so this is the single highest-
+// traffic team-logo spot in the app -- worth its own real size, not the smallest one.
+const teamLogoSize = "h-5 w-5 sm:h-6 sm:w-6";
+
 // Plain presentational row -- no hooks, so it renders identically whether it's used from
 // a server component (LOCKED/RESOLVED) or a client component (OPEN, where "actions" needs
 // interactive edit/cancel icons for your own row). Only ever rendered for a member who
@@ -89,7 +97,7 @@ export function LegRow({
                   name={awayTeam}
                   logo={teamLogoUrl(effectiveLeague, awayTeam)}
                   league={effectiveLeague}
-                  size="h-4 w-4"
+                  size={teamLogoSize}
                   textClassName={teamLineTextClass}
                 />
                 <span className={`${teamLineTextClass} shrink-0`}>@</span>
@@ -97,7 +105,7 @@ export function LegRow({
                   name={homeTeam}
                   logo={teamLogoUrl(effectiveLeague, homeTeam)}
                   league={effectiveLeague}
-                  size="h-4 w-4"
+                  size={teamLogoSize}
                   textClassName={teamLineTextClass}
                 />
               </span>
