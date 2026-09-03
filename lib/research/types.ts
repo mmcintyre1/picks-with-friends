@@ -11,7 +11,7 @@ import type { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
 // that issued it), not surfaced in the UI. A friend picking a leg doesn't need to know
 // which backend vendor served it, the same way per-selection book attribution (not
 // per-provider) is already how sportsbook identity is shown.
-export type ResearchProviderSource = "sharpapi" | "sportsgameodds";
+export type ResearchProviderSource = "sharpapi" | "sportsgameodds" | "parlayapi";
 
 export type ResearchGameSummary = {
   externalId: string;

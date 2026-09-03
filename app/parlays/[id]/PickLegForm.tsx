@@ -407,12 +407,30 @@ export function PickLegForm({
           picked a game from it (the breadcrumb's "back" only clears the matchup, never the
           entry mode). Keeping both game sources on this one screen means "back" always
           lands you somewhere you can still see real odds, and "manual" goes back to meaning
-          what it says everywhere else in the app: type it yourself. */}
+          what it says everywhere else in the app: type it yourself.
+
+          Two separate fallback affordances below, deliberately not conflated: the game
+          itself is the rare miss (most NFL games this app cares about do have real odds
+          posted), so that one's tucked in a collapsed section; a *specific bet* not being
+          offered by the vendor is the far more common gap, so that hint stays a plain,
+          always-visible line pointing straight at Type it manually rather than at another
+          browsing list. */}
       {canBrowseSchedule && entryMode === "browse" && (
         <div className={hasMatchup ? "hidden" : ""}>
           {effectiveLeague === "NFL" ? (
             <div className="flex flex-col gap-3">
               <ResearchBrowser key={sport} onSelectTeamBet={onSelectResearchTeamBet} onSelectProp={onSelectResearchProp} />
+              <p className="px-1 text-xs text-muted">
+                Don&apos;t see your bet?{" "}
+                <button
+                  type="button"
+                  onClick={() => setEntryMode("manual")}
+                  className="text-foreground underline decoration-dotted underline-offset-2 hover:text-accent"
+                >
+                  Enter it manually
+                </button>
+                .
+              </p>
               <CollapsibleSection title="Don't see your game? Browse the full schedule">
                 <ScheduleBrowser key={`${sport}-fallback`} league="NFL" onSelectGame={onSelectScheduleGame} />
               </CollapsibleSection>

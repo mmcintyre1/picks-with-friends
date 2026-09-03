@@ -1,5 +1,8 @@
 "use server";
 
+import { getParlayApiProvider } from "@/lib/parlayapi";
+import { buildResearchGame as buildParlayApiGame, summarizeSchedule as summarizeParlayApiSchedule } from "@/lib/parlayapi/categorize";
+import { ParlayApiProviderError } from "@/lib/parlayapi/types";
 import { getSharpApiProvider } from "@/lib/sharpapi";
 import { buildResearchGame as buildSharpApiGame, summarizeSchedule as summarizeSharpApiSchedule } from "@/lib/sharpapi/categorize";
 import { SharpApiProviderError } from "@/lib/sharpapi/types";
@@ -10,16 +13,14 @@ import { teamNamesMatch } from "@/lib/teamNamesMatch";
 
 import type { ResearchGame, ResearchGameSummary, ResearchProviderSource } from "./types";
 
-// SportsGameOdds first -- confirmed via a real, apples-to-apples comparison this session
-// (same live game, same book) to carry meaningfully broader real coverage than SharpAPI
-// (8 distinct DK player-prop market types vs 4, 22 players vs 12, plus Anytime TD and
-// Rush + Rec Yards -- both confirmed completely absent from SharpAPI's entire catalog).
-// SharpAPI is the automatic fallback, not a manually-flipped default.
-const PROVIDER_ORDER: ResearchProviderSource[] = ["sportsgameodds", "sharpapi"];
-
-function otherProvider(source: ResearchProviderSource): ResearchProviderSource {
-  return source === "sportsgameodds" ? "sharpapi" : "sportsgameodds";
-}
+// ParlayAPI first -- confirmed via a real, apples-to-apples pull against the exact same live
+// game (Patriots @ Seahawks) to carry meaningfully broader real coverage than either existing
+// provider: 386 real DK/FD-priced selections for this one event alone (vs. SharpAPI's ~400
+// rows across its whole catalog for the same game, and SportsGameOdds' narrower per-statID
+// coverage before its own real fix), including real milestone-ladder tiers neither other
+// vendor exposes. SportsGameOdds and SharpAPI stay as automatic fallbacks, in that order,
+// not manually-flipped defaults.
+const PROVIDER_ORDER: ResearchProviderSource[] = ["parlayapi", "sportsgameodds", "sharpapi"];
 
 // rate_limited/upstream_error mean "this provider is temporarily unavailable, try the next
 // one." missing_key deliberately does NOT fall back -- it means this provider was
@@ -27,14 +28,14 @@ function otherProvider(source: ResearchProviderSource): ResearchProviderSource {
 // misconfiguration that should surface directly rather than being silently masked by a
 // fallback that happens to work.
 function isFallbackWorthy(error: unknown): boolean {
-  if (error instanceof SharpApiProviderError || error instanceof SportsGameOddsProviderError) {
+  if (error instanceof SharpApiProviderError || error instanceof SportsGameOddsProviderError || error instanceof ParlayApiProviderError) {
     return error.kind === "rate_limited" || error.kind === "upstream_error";
   }
   return false;
 }
 
 function describeError(error: unknown): string {
-  if (error instanceof SharpApiProviderError || error instanceof SportsGameOddsProviderError) {
+  if (error instanceof SharpApiProviderError || error instanceof SportsGameOddsProviderError || error instanceof ParlayApiProviderError) {
     if (error.kind === "missing_key") return "Live odds research isn't configured yet.";
     if (error.kind === "rate_limited") return "Research is busy right now -- try again in a bit.";
   }
@@ -42,6 +43,10 @@ function describeError(error: unknown): string {
 }
 
 async function fetchSchedule(source: ResearchProviderSource): Promise<ResearchGameSummary[]> {
+  if (source === "parlayapi") {
+    const events = await getParlayApiProvider().listNflSchedule();
+    return summarizeParlayApiSchedule(events);
+  }
   if (source === "sportsgameodds") {
     const events = await getSportsGameOddsProvider().listNflSchedule();
     return summarizeSgoSchedule(events);
@@ -51,6 +56,10 @@ async function fetchSchedule(source: ResearchProviderSource): Promise<ResearchGa
 }
 
 async function fetchEventOdds(source: ResearchProviderSource, eventId: string): Promise<ResearchGame | null> {
+  if (source === "parlayapi") {
+    const data = await getParlayApiProvider().getNflEventOdds(eventId);
+    return buildParlayApiGame(eventId, data);
+  }
   if (source === "sportsgameodds") {
     const event = await getSportsGameOddsProvider().getNflEventOdds(eventId);
     return event ? buildSgoGame(event) : null;
@@ -59,8 +68,8 @@ async function fetchEventOdds(source: ResearchProviderSource, eventId: string): 
   return buildSharpApiGame(rows);
 }
 
-// Cheap schedule discovery -- tries the primary provider, falls back to the secondary on a
-// real failure (not a missing configuration). ResearchBrowser calls this once to list real
+// Cheap schedule discovery -- tries providers in PROVIDER_ORDER, falling back to the next on
+// a real failure (not a missing configuration). ResearchBrowser calls this once to list real
 // games, with no odds attached yet; odds for a specific game are only fetched once the user
 // drills in (getNflGameOdds below).
 export async function getNflSchedule(): Promise<{ games: ResearchGameSummary[] } | { error: string }> {
@@ -76,11 +85,11 @@ export async function getNflSchedule(): Promise<{ games: ResearchGameSummary[] }
   return { error: describeError(lastError) };
 }
 
-// Re-resolves the same real-world matchup on the other provider by team-name matching,
-// reusing the exact pattern app/parlays/actions.ts's ESPN event-id resolution already uses
+// Re-resolves the same real-world matchup on another provider by team-name matching, reusing
+// the exact pattern app/parlays/actions.ts's ESPN event-id resolution already uses
 // (lib/teamNamesMatch.ts) -- event ids are vendor-specific, so a specific game's odds call
 // failing on its original provider needs this to find the same real game elsewhere rather
-// than retrying a meaningless id on the other provider.
+// than retrying a meaningless id on another provider.
 async function resolveOnOtherProvider(source: ResearchProviderSource, homeTeam: string, awayTeam: string) {
   const schedule = await fetchSchedule(source);
   const match = schedule.find((g) => teamNamesMatch(g.homeTeam, homeTeam) && teamNamesMatch(g.awayTeam, awayTeam));
@@ -89,16 +98,17 @@ async function resolveOnOtherProvider(source: ResearchProviderSource, homeTeam: 
 
 // Full odds+props for one specific game, sourced from whichever provider ResearchBrowser
 // tagged it with when the schedule was fetched. If that specific call fails with a
-// fallback-worthy error, re-resolves the same matchup on the other provider instead of
-// just failing -- this is the per-game failover the multi-provider architecture exists for.
+// fallback-worthy error, tries every other provider (in PROVIDER_ORDER, excluding the one
+// that just failed) before giving up -- this is the per-game failover the multi-provider
+// architecture exists for, generalized to N providers rather than a single binary flip.
 export async function getNflGameOdds(
   eventId: string,
   source: ResearchProviderSource,
 ): Promise<{ game: ResearchGame } | { error: string }> {
   try {
     const game = await fetchEventOdds(source, eventId);
-    // A real event with genuinely no odds posted yet isn't a provider failure -- the other
-    // provider almost certainly doesn't have it posted either, so don't bother falling back.
+    // A real event with genuinely no odds posted yet isn't a provider failure -- other
+    // providers almost certainly don't have it posted either, so don't bother falling back.
     return game ? { game } : { error: "No odds posted for this game yet." };
   } catch (error) {
     if (!isFallbackWorthy(error)) return { error: describeError(error) };
@@ -109,8 +119,12 @@ export async function getNflGameOdds(
       const originalSchedule = await fetchSchedule(source);
       const original = originalSchedule.find((g) => g.externalId === eventId);
       if (!original) return { error: describeError(error) };
-      const fallbackGame = await resolveOnOtherProvider(otherProvider(source), original.homeTeam, original.awayTeam);
-      return fallbackGame ? { game: fallbackGame } : { error: describeError(error) };
+      for (const fallbackSource of PROVIDER_ORDER) {
+        if (fallbackSource === source) continue;
+        const fallbackGame = await resolveOnOtherProvider(fallbackSource, original.homeTeam, original.awayTeam);
+        if (fallbackGame) return { game: fallbackGame };
+      }
+      return { error: describeError(error) };
     } catch {
       return { error: describeError(error) };
     }
