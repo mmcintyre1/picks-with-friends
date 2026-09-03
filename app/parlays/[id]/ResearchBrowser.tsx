@@ -33,15 +33,16 @@ function groupByDay(games: ResearchGameSummary[]): { label: string; games: Resea
 type OddsState = "loading" | ResearchGame | string; // string = error message
 
 // DraftKings-style research browser for NFL, backed by lib/research/actions.ts's
-// multi-provider layer (SportsGameOdds primary, SharpAPI automatic fallback -- see the plan
-// file's Phase 2.19 section; Phase 2.14 originally built this against SharpAPI alone). Two
-// real, separate entry points, not one broad fetch: a cheap schedule list (real games only,
-// no odds attached) renders immediately, and a specific game's full board (Game Lines +
-// every prop category, one unified tab bar -- see ResearchGameDetail) is only fetched once
-// that game is expanded, the same "browse free, spend on what you click" shape
-// ScheduleBrowser/the old LiveOddsBrowser already used. Deliberately NOT a live-odds *entry
-// point* on its own: every tap still lands in PickLegForm's normal editable slip for a final
-// review before confirming.
+// multi-provider layer -- ParlayAPI is the schedule's basis, and a specific game's odds are
+// FEDERATED across ParlayAPI/SportsGameOdds/SharpAPI (merged, not just failed-over to) once
+// expanded, see the plan file's Phase 2.20/2.21 sections; Phase 2.14 originally built this
+// against SharpAPI alone. Two real, separate entry points, not one broad fetch: a cheap
+// schedule list (real games only, no odds attached) renders immediately, and a specific
+// game's full board (Game Lines + every prop category, one unified tab bar -- see
+// ResearchGameDetail) is only fetched once that game is expanded, the same "browse free,
+// spend on what you click" shape ScheduleBrowser/the old LiveOddsBrowser already used.
+// Deliberately NOT a live-odds *entry point* on its own: every tap still lands in
+// PickLegForm's normal editable slip for a final review before confirming.
 export function ResearchBrowser({
   onSelectTeamBet,
   onSelectProp,
@@ -74,7 +75,7 @@ export function ResearchBrowser({
     setExpandedId(game.externalId);
     if (oddsById[game.externalId]) return;
     setOddsById((prev) => ({ ...prev, [game.externalId]: "loading" }));
-    const result = await getNflGameOdds(game.externalId, game.source);
+    const result = await getNflGameOdds(game.externalId, game.source, game.homeTeam, game.awayTeam);
     setOddsById((prev) => ({ ...prev, [game.externalId]: "error" in result ? result.error : result.game }));
   }
 

@@ -16,7 +16,7 @@ export function __resetRosterCacheForTests() {
   memoryCache.clear();
 }
 
-type RawPlayer = { displayName: string; position?: { abbreviation?: string } };
+type RawPlayer = { id?: string; displayName: string; position?: { abbreviation?: string } };
 // NFL/MLB/NHL group players under position categories (`{ items: [...] }`); NBA's roster
 // endpoint returns a flat array of players directly, no grouping at all. Both are handled
 // by treating an entry either as a group (if it has `.items`) or as a player itself.
@@ -24,7 +24,7 @@ type RawRosterGroup = RawPlayer & { items?: RawPlayer[] };
 type RawRosterResponse = { athletes: RawRosterGroup[] };
 
 function toPlayer(raw: RawPlayer): RosterPlayer {
-  return { name: raw.displayName, position: raw.position?.abbreviation ?? "" };
+  return { name: raw.displayName, position: raw.position?.abbreviation ?? "", athleteId: raw.id ?? "" };
 }
 
 // ESPN's free, no-key, undocumented site API -- see lib/rosters/leagues.ts for the

@@ -3,6 +3,7 @@
 import { getParlayApiProvider } from "@/lib/parlayapi";
 import { buildResearchGame as buildParlayApiGame, summarizeSchedule as summarizeParlayApiSchedule } from "@/lib/parlayapi/categorize";
 import { ParlayApiProviderError } from "@/lib/parlayapi/types";
+import { mergeResearchGames } from "@/lib/research/marketUtils";
 import { getSharpApiProvider } from "@/lib/sharpapi";
 import { buildResearchGame as buildSharpApiGame, summarizeSchedule as summarizeSharpApiSchedule } from "@/lib/sharpapi/categorize";
 import { SharpApiProviderError } from "@/lib/sharpapi/types";
@@ -18,21 +19,9 @@ import type { ResearchGame, ResearchGameSummary, ResearchProviderSource } from "
 // provider: 386 real DK/FD-priced selections for this one event alone (vs. SharpAPI's ~400
 // rows across its whole catalog for the same game, and SportsGameOdds' narrower per-statID
 // coverage before its own real fix), including real milestone-ladder tiers neither other
-// vendor exposes. SportsGameOdds and SharpAPI stay as automatic fallbacks, in that order,
-// not manually-flipped defaults.
+// vendor exposes. This is now the basis for federation (below), not just a fallback order --
+// ParlayAPI's own real game/team identity is what every other provider gets matched against.
 const PROVIDER_ORDER: ResearchProviderSource[] = ["parlayapi", "sportsgameodds", "sharpapi"];
-
-// rate_limited/upstream_error mean "this provider is temporarily unavailable, try the next
-// one." missing_key deliberately does NOT fall back -- it means this provider was
-// explicitly configured to use its real vendor but the key is missing, a real
-// misconfiguration that should surface directly rather than being silently masked by a
-// fallback that happens to work.
-function isFallbackWorthy(error: unknown): boolean {
-  if (error instanceof SharpApiProviderError || error instanceof SportsGameOddsProviderError || error instanceof ParlayApiProviderError) {
-    return error.kind === "rate_limited" || error.kind === "upstream_error";
-  }
-  return false;
-}
 
 function describeError(error: unknown): string {
   if (error instanceof SharpApiProviderError || error instanceof SportsGameOddsProviderError || error instanceof ParlayApiProviderError) {
@@ -68,10 +57,24 @@ async function fetchEventOdds(source: ResearchProviderSource, eventId: string): 
   return buildSharpApiGame(rows);
 }
 
+// rate_limited/upstream_error mean "this provider is temporarily unavailable, try the next
+// one" for schedule discovery below. missing_key deliberately does NOT fall back there -- a
+// real misconfiguration that should surface directly rather than being silently masked by a
+// fallback that happens to work. (Federated game-odds fetching below treats every failure
+// kind the same way -- see getNflGameOdds' own comment for why that's the right call there.)
+function isFallbackWorthy(error: unknown): boolean {
+  if (error instanceof SharpApiProviderError || error instanceof SportsGameOddsProviderError || error instanceof ParlayApiProviderError) {
+    return error.kind === "rate_limited" || error.kind === "upstream_error";
+  }
+  return false;
+}
+
 // Cheap schedule discovery -- tries providers in PROVIDER_ORDER, falling back to the next on
 // a real failure (not a missing configuration). ResearchBrowser calls this once to list real
 // games, with no odds attached yet; odds for a specific game are only fetched once the user
-// drills in (getNflGameOdds below).
+// drills in (getNflGameOdds below). Not federated (merged) itself -- the real value of
+// federation is more MARKETS per game, and NFL schedules are already nearly identical across
+// vendors, so there's little to gain merging game *lists* the way there is merging odds.
 export async function getNflSchedule(): Promise<{ games: ResearchGameSummary[] } | { error: string }> {
   let lastError: unknown;
   for (const source of PROVIDER_ORDER) {
@@ -85,48 +88,49 @@ export async function getNflSchedule(): Promise<{ games: ResearchGameSummary[] }
   return { error: describeError(lastError) };
 }
 
-// Re-resolves the same real-world matchup on another provider by team-name matching, reusing
-// the exact pattern app/parlays/actions.ts's ESPN event-id resolution already uses
-// (lib/teamNamesMatch.ts) -- event ids are vendor-specific, so a specific game's odds call
-// failing on its original provider needs this to find the same real game elsewhere rather
-// than retrying a meaningless id on another provider.
-async function resolveOnOtherProvider(source: ResearchProviderSource, homeTeam: string, awayTeam: string) {
+// Resolves the same real-world matchup on a given provider by team-name matching, reusing the
+// exact pattern app/parlays/actions.ts's ESPN event-id resolution already uses
+// (lib/teamNamesMatch.ts) -- event ids are vendor-specific, so finding the same real game on
+// a provider other than the one ResearchBrowser tagged it with means searching by team name,
+// not by id.
+async function resolveOnProvider(source: ResearchProviderSource, homeTeam: string, awayTeam: string) {
   const schedule = await fetchSchedule(source);
   const match = schedule.find((g) => teamNamesMatch(g.homeTeam, homeTeam) && teamNamesMatch(g.awayTeam, awayTeam));
   return match ? fetchEventOdds(source, match.externalId) : null;
 }
 
-// Full odds+props for one specific game, sourced from whichever provider ResearchBrowser
-// tagged it with when the schedule was fetched. If that specific call fails with a
-// fallback-worthy error, tries every other provider (in PROVIDER_ORDER, excluding the one
-// that just failed) before giving up -- this is the per-game failover the multi-provider
-// architecture exists for, generalized to N providers rather than a single binary flip.
+// Federated odds+props for one specific game: fetches the tagged provider directly by its own
+// eventId, AND every other configured provider by resolving the same real matchup via team
+// names, in parallel -- then merges every provider that actually returned something into one
+// ResearchGame (see mergeResearchGames' own dedupe logic for how the same real book/bet
+// reported by two vendors collapses to one entry instead of showing twice). This is genuinely
+// "fetch everyone, keep what works," not the old single-provider-with-fallback design: any one
+// provider being down, misconfigured, or simply not covering this game is not a failure here,
+// it's just one fewer contributor to the merge. The whole call only fails if literally every
+// provider came back empty or errored.
 export async function getNflGameOdds(
   eventId: string,
   source: ResearchProviderSource,
+  homeTeam: string,
+  awayTeam: string,
 ): Promise<{ game: ResearchGame } | { error: string }> {
-  try {
-    const game = await fetchEventOdds(source, eventId);
-    // A real event with genuinely no odds posted yet isn't a provider failure -- other
-    // providers almost certainly don't have it posted either, so don't bother falling back.
-    return game ? { game } : { error: "No odds posted for this game yet." };
-  } catch (error) {
-    if (!isFallbackWorthy(error)) return { error: describeError(error) };
-    try {
-      // Need this game's real team names to re-resolve elsewhere -- re-fetch this
-      // provider's own (cached, cheap) schedule rather than threading homeTeam/awayTeam
-      // through every call site just for this rare fallback path.
-      const originalSchedule = await fetchSchedule(source);
-      const original = originalSchedule.find((g) => g.externalId === eventId);
-      if (!original) return { error: describeError(error) };
-      for (const fallbackSource of PROVIDER_ORDER) {
-        if (fallbackSource === source) continue;
-        const fallbackGame = await resolveOnOtherProvider(fallbackSource, original.homeTeam, original.awayTeam);
-        if (fallbackGame) return { game: fallbackGame };
-      }
-      return { error: describeError(error) };
-    } catch {
-      return { error: describeError(error) };
-    }
-  }
+  const results = await Promise.allSettled(
+    PROVIDER_ORDER.map((candidate) =>
+      candidate === source ? fetchEventOdds(candidate, eventId) : resolveOnProvider(candidate, homeTeam, awayTeam),
+    ),
+  );
+
+  const games = results
+    .filter((r): r is PromiseFulfilledResult<ResearchGame | null> => r.status === "fulfilled")
+    .map((r) => r.value)
+    .filter((g): g is ResearchGame => g !== null);
+
+  if (games.length > 0) return { game: mergeResearchGames(games) };
+
+  // Nothing to merge -- report the tagged (primary) provider's own failure if it had one,
+  // since that's the most actionable one for whoever's looking at this; a real event with
+  // genuinely no odds posted anywhere yet isn't a provider failure at all.
+  const primaryResult = results[PROVIDER_ORDER.indexOf(source)];
+  if (primaryResult.status === "rejected") return { error: describeError(primaryResult.reason) };
+  return { error: "No odds posted for this game yet." };
 }

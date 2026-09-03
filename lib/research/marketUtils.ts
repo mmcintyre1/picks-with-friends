@@ -9,6 +9,53 @@ import type {
   TeamBetPick,
 } from "./types";
 
+// Combines several providers' already-built ResearchGames for the SAME real-world game into
+// one -- the federation this whole shared-vocabulary architecture was built to make cheap.
+// `games[0]` (by convention, PROVIDER_ORDER's own priority order -- see
+// lib/research/actions.ts) supplies the matchup identity (externalId/teams/commenceTime);
+// every other game's categories/marketGroups/selections are folded in underneath it.
+//
+// Deduplication matters here: two providers reporting the SAME real book's SAME real bet
+// (e.g. both ParlayAPI and SportsGameOdds happen to carry DraftKings' current Passing Yards
+// line for the same QB) must not render as two identical-looking buttons. The dedupe key
+// deliberately includes `line` -- a market's own alt-line/milestone tiers legitimately share
+// every other field (book/side/isMainLine/player) while differing only in line, so dropping
+// `line` from the key would wrongly collapse a real tiered ladder down to one tier.
+function selectionDedupeKey(selection: ResearchSelection): string {
+  return [selection.sportsbook, selection.side, selection.isMainLine, selection.playerName ?? "", selection.teamSide ?? "", selection.line ?? ""].join("|");
+}
+
+export function mergeResearchGames(games: ResearchGame[]): ResearchGame {
+  const base = games[0];
+  const categoryGroups = new Map<ResearchCategoryKey, Map<string, ResearchMarketGroup>>();
+  const seen = new Set<string>();
+
+  for (const game of games) {
+    for (const category of game.categories) {
+      const groups = categoryGroups.get(category.key) ?? new Map<string, ResearchMarketGroup>();
+      categoryGroups.set(category.key, groups);
+      for (const group of category.marketGroups) {
+        const groupKey = `${group.marketType}|${group.segment ?? ""}`;
+        const existing = groups.get(groupKey) ?? { marketType: group.marketType, segment: group.segment, selections: [] };
+        groups.set(groupKey, existing);
+        for (const selection of group.selections) {
+          const dedupeKey = `${category.key}|${groupKey}|${selectionDedupeKey(selection)}`;
+          if (seen.has(dedupeKey)) continue;
+          seen.add(dedupeKey);
+          existing.selections.push(selection);
+        }
+      }
+    }
+  }
+
+  const categories: ResearchCategory[] = [...categoryGroups.entries()].map(([key, groups]) => ({
+    key,
+    marketGroups: [...groups.values()],
+  }));
+
+  return { ...base, categories };
+}
+
 // Pure, vendor-agnostic utilities shared by every research provider's own categorize.ts
 // (lib/sharpapi/categorize.ts, lib/sportsgameodds/categorize.ts, and any future provider).
 // None of these touch a vendor's raw response shape -- they only ever read/write the shared

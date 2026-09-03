@@ -37,11 +37,11 @@ describe("createEspnProvider", () => {
         athletes: [
           {
             position: "offense",
-            items: [{ displayName: "Patrick Mahomes", position: { abbreviation: "QB" } }],
+            items: [{ id: "3139477", displayName: "Patrick Mahomes", position: { abbreviation: "QB" } }],
           },
           {
             position: "practiceSquad",
-            items: [{ displayName: "Some Bench Guy", position: { abbreviation: "WR" } }],
+            items: [{ id: "9999999", displayName: "Some Bench Guy", position: { abbreviation: "WR" } }],
           },
         ],
       }),
@@ -50,8 +50,8 @@ describe("createEspnProvider", () => {
     const players = await provider.getRoster("football/nfl", "12");
 
     expect(players).toEqual([
-      { name: "Patrick Mahomes", position: "QB" },
-      { name: "Some Bench Guy", position: "WR" },
+      { name: "Patrick Mahomes", position: "QB", athleteId: "3139477" },
+      { name: "Some Bench Guy", position: "WR", athleteId: "9999999" },
     ]);
   });
 
@@ -59,8 +59,8 @@ describe("createEspnProvider", () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         athletes: [
-          { displayName: "Jayson Tatum", position: { abbreviation: "F" } },
-          { displayName: "Derrick White", position: { abbreviation: "G" } },
+          { id: "4065648", displayName: "Jayson Tatum", position: { abbreviation: "F" } },
+          { id: "3078576", displayName: "Derrick White", position: { abbreviation: "G" } },
         ],
       }),
     );
@@ -68,9 +68,17 @@ describe("createEspnProvider", () => {
     const players = await provider.getRoster("basketball/nba", "2");
 
     expect(players).toEqual([
-      { name: "Jayson Tatum", position: "F" },
-      { name: "Derrick White", position: "G" },
+      { name: "Jayson Tatum", position: "F", athleteId: "4065648" },
+      { name: "Derrick White", position: "G", athleteId: "3078576" },
     ]);
+  });
+
+  it("defaults athleteId to an empty string when the raw athlete has no id", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ athletes: [{ displayName: "No Id Guy", position: { abbreviation: "WR" } }] }));
+    const provider = createEspnProvider();
+    const players = await provider.getRoster("football/nfl", "12");
+
+    expect(players).toEqual([{ name: "No Id Guy", position: "WR", athleteId: "" }]);
   });
 
   it("serves an identical request from cache instead of fetching again", async () => {

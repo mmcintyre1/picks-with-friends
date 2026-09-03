@@ -6,28 +6,28 @@ import type { RosterPlayer, RosterProvider } from "./types";
 // ids collide across leagues (e.g. NFL team "12" and NBA team "12" are unrelated teams).
 const ROSTERS: Record<string, RosterPlayer[]> = {
   "football/nfl:12": [
-    { name: "Patrick Mahomes", position: "QB" },
-    { name: "Travis Kelce", position: "TE" },
-    { name: "Isiah Pacheco", position: "RB" },
-    { name: "Xavier Worthy", position: "WR" },
+    { name: "Patrick Mahomes", position: "QB", athleteId: "3139477" },
+    { name: "Travis Kelce", position: "TE", athleteId: "15847" },
+    { name: "Isiah Pacheco", position: "RB", athleteId: "4361529" },
+    { name: "Xavier Worthy", position: "WR", athleteId: "4432773" },
   ],
   "football/nfl:7": [
-    { name: "Bo Nix", position: "QB" },
-    { name: "Courtland Sutton", position: "WR" },
-    { name: "Javonte Williams", position: "RB" },
+    { name: "Bo Nix", position: "QB", athleteId: "4426338" },
+    { name: "Courtland Sutton", position: "WR", athleteId: "3128429" },
+    { name: "Javonte Williams", position: "RB", athleteId: "4241457" },
   ],
   "basketball/nba:2": [
-    { name: "Jayson Tatum", position: "F" },
-    { name: "Jaylen Brown", position: "F" },
-    { name: "Derrick White", position: "G" },
+    { name: "Jayson Tatum", position: "F", athleteId: "4065648" },
+    { name: "Jaylen Brown", position: "F", athleteId: "3917376" },
+    { name: "Derrick White", position: "G", athleteId: "3078576" },
   ],
   "baseball/mlb:15": [
-    { name: "Spencer Strider", position: "SP" },
-    { name: "Ronald Acuna Jr.", position: "OF" },
+    { name: "Spencer Strider", position: "SP", athleteId: "41287" },
+    { name: "Ronald Acuna Jr.", position: "OF", athleteId: "36185" },
   ],
   "hockey/nhl:1": [
-    { name: "David Pastrnak", position: "RW" },
-    { name: "Jeremy Swayman", position: "G" },
+    { name: "David Pastrnak", position: "RW", athleteId: "3114772" },
+    { name: "Jeremy Swayman", position: "G", athleteId: "4233855" },
   ],
 };
 

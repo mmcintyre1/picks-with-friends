@@ -1,4 +1,8 @@
-export type RosterPlayer = { name: string; position: string };
+// athleteId is ESPN's own athlete id, carried through purely so lib/playerstats/ can look up
+// a player's real game log (that endpoint is keyed by athlete id, and a prop selection only
+// ever carries a player *name*). Empty string when a provider doesn't supply one -- callers
+// treat that the same as "no game log available" rather than guessing.
+export type RosterPlayer = { name: string; position: string; athleteId: string };
 
 export interface RosterProvider {
   // sportPath is the ESPN site-API sport segment, e.g. "football/nfl" -- see
