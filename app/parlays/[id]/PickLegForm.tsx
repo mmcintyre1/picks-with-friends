@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { IconButton } from "@/components/ui/IconButton";
 import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -200,7 +199,36 @@ export function PickLegForm({
   const effectiveLeague = sport === "other" ? "" : sport;
   const canBrowseSchedule = sport !== "other";
 
-  const [entryMode, setEntryMode] = useState<"browse" | "manual">(canBrowseSchedule ? "browse" : "manual");
+  // Three real, equal workflows, not one primary path with two things bolted underneath it
+  // -- confirmed real user confusion with the earlier nested design, where the ESPN
+  // schedule lived inside a "Don't see your game?" fallback under Browse odds (implying it
+  // was a lesser, rarely-needed backup) and "Type it manually" lived off in a separate
+  // top-level toggle with its own "Don't see your bet?" pointer from inside Browse odds --
+  // two different framings for what are really just two more first-class ways to find a
+  // matchup. "odds" (priced research) only exists for NFL; every other roster-backed
+  // league only ever had the ESPN schedule as its "browse" option anyway, so this is a
+  // real reduction to 2 tabs there, not a hidden 3rd.
+  type EntryMode = "odds" | "schedule" | "manual";
+  const entryModeOptions: { value: EntryMode; label: string }[] =
+    effectiveLeague === "NFL"
+      ? [
+          { value: "odds", label: "Browse odds" },
+          { value: "schedule", label: "Browse schedule" },
+          { value: "manual", label: "Type it manually" },
+        ]
+      : [
+          { value: "schedule", label: "Browse schedule" },
+          { value: "manual", label: "Type it manually" },
+        ];
+  const [entryModePreference, setEntryModePreference] = useState<EntryMode>(canBrowseSchedule ? "odds" : "manual");
+  // Clamped to whatever's actually valid for the current sport, rather than reset via an
+  // effect -- switching from NFL (odds/schedule/manual) to NBA (schedule/manual only) just
+  // falls back to this list's first entry instead of leaving a stale "odds" selection that
+  // would render nothing.
+  const entryMode: EntryMode = entryModeOptions.some((o) => o.value === entryModePreference)
+    ? entryModePreference
+    : entryModeOptions[0].value;
+  const setEntryMode = setEntryModePreference;
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [players, setPlayers] = useState<GameRosterPlayer[] | null>(null);
@@ -399,66 +427,39 @@ export function PickLegForm({
         <Card className="flex flex-wrap items-center gap-2 p-2">
           <SegmentedControl size="sm" name="Sport" value={sport} onChange={setSport} options={SPORT_OPTIONS} />
           {canBrowseSchedule && (
-            <SegmentedControl
-              size="sm"
-              name="Entry mode"
-              value={entryMode}
-              onChange={setEntryMode}
-              options={[
-                { value: "browse", label: effectiveLeague === "NFL" ? "Browse odds" : "Browse schedule" },
-                { value: "manual", label: "Type it manually" },
-              ]}
-            />
+            <SegmentedControl size="sm" name="Entry mode" value={entryMode} onChange={setEntryMode} options={entryModeOptions} />
           )}
         </Card>
       )}
 
-      {/* Stays mounted (just hidden) once a matchup is picked, rather than unmounting --
-          otherwise ResearchBrowser/ScheduleBrowser's own state (which game was expanded,
-          which category tab was active) would be lost every time a pick is made, forcing a
-          full re-browse-from-scratch for a second leg on the same game. Keyed on `sport` so
-          switching leagues still starts fresh, which is the one case that really should
-          reset browsing.
+      {/* Every workflow stays mounted (just hidden) once a matchup is picked or another tab
+          is chosen, rather than unmounting -- otherwise ResearchBrowser/ScheduleBrowser's
+          own state (which game was expanded, which category tab was active) would be lost
+          every time a pick is made or you switch tabs and back, forcing a full
+          re-browse-from-scratch. Keyed on `sport` so switching leagues still starts fresh,
+          which is the one case that really should reset browsing.
 
-          NFL's ESPN schedule list lives here too (as a fallback under the priced board),
-          not inside "manual" -- it used to be nested in manual mode, which quietly made
-          "Type it manually" a third, unlabeled way to browse games rather than actually
-          manual entry, and meant there was no way back to the priced board once you'd
-          picked a game from it (the breadcrumb's "back" only clears the matchup, never the
-          entry mode). Keeping both game sources on this one screen means "back" always
-          lands you somewhere you can still see real odds, and "manual" goes back to meaning
-          what it says everywhere else in the app: type it yourself.
-
-          Two separate fallback affordances below, deliberately not conflated: the game
-          itself is the rare miss (most NFL games this app cares about do have real odds
-          posted), so that one's tucked in a collapsed section; a *specific bet* not being
-          offered by the vendor is the far more common gap, so that hint stays a plain,
-          always-visible line pointing straight at Type it manually rather than at another
-          browsing list. */}
-      {canBrowseSchedule && entryMode === "browse" && (
-        <div className={hasMatchup ? "hidden" : ""}>
-          {effectiveLeague === "NFL" ? (
-            <div className="flex flex-col gap-3">
+          Three real, equal peers, not one primary path with two things bolted underneath it
+          -- Browse odds (NFL only, priced), Browse schedule (ESPN's free game list, every
+          roster-backed league), and Type it manually all render as their own tab now,
+          selected the same way the Sport tabs are, rather than nesting the schedule inside
+          a "Don't see your game?" fallback under Browse odds (which read as "this is a
+          lesser backup," not a real workflow) or pointing at manual entry from inside Browse
+          odds via a "Don't see your bet?" link. "Back" (the breadcrumb) still doesn't touch
+          which tab you're on -- now that these are deliberate top-level choices instead of
+          an implicit fallback, returning to whichever one you were actually using is the
+          right behavior, not a gap to route around. */}
+      {canBrowseSchedule && (
+        <>
+          {effectiveLeague === "NFL" && (
+            <div className={hasMatchup || entryMode !== "odds" ? "hidden" : ""}>
               <ResearchBrowser key={sport} onSelectTeamBet={onSelectResearchTeamBet} onSelectProp={onSelectResearchProp} />
-              <p className="px-1 text-xs text-muted">
-                Don&apos;t see your bet?{" "}
-                <button
-                  type="button"
-                  onClick={() => setEntryMode("manual")}
-                  className="text-foreground underline decoration-dotted underline-offset-2 hover:text-accent"
-                >
-                  Enter it manually
-                </button>
-                .
-              </p>
-              <CollapsibleSection title="Don't see your game? Browse the full schedule">
-                <ScheduleBrowser key={`${sport}-fallback`} league="NFL" onSelectGame={onSelectScheduleGame} />
-              </CollapsibleSection>
             </div>
-          ) : (
-            <ScheduleBrowser key={sport} league={effectiveLeague} onSelectGame={onSelectScheduleGame} />
           )}
-        </div>
+          <div className={hasMatchup || entryMode !== "schedule" ? "hidden" : ""}>
+            <ScheduleBrowser key={sport} league={effectiveLeague} onSelectGame={onSelectScheduleGame} />
+          </div>
+        </>
       )}
 
       {showSlip && (
