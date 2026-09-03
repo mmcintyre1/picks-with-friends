@@ -9,8 +9,9 @@ import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { HitRateDots } from "@/components/ui/HitRateDots";
 import { TierPager } from "@/components/ui/TierPager";
 import { getPlayerPropLogs } from "@/lib/playerstats/actions";
-import { average, filterByOpponent, hitRate, isHit, normalizePlayerName, type HitRate } from "@/lib/playerstats/gamelogStats";
+import { average, filterByOpponent, isHit, normalizePlayerName } from "@/lib/playerstats/gamelogStats";
 import type { GameLogEntry, PlayerLogs } from "@/lib/playerstats/types";
+import { computeHitRate, HIT_RATE_GAMES } from "@/lib/research/playerBoard";
 import { getRostersForGame } from "@/lib/rosters/actions";
 import { teamAbbreviation, teamLogoUrl } from "@/lib/rosters/leagues";
 import type { ResearchCategory, ResearchSelection, PropPick } from "@/lib/research/types";
@@ -58,39 +59,10 @@ const tierButtonClass = `${oddsCellClass} ${oddsCellMinWidth}`;
 
 const ouColumnsClass = `grid ${nameGridColsOU} items-center gap-2`;
 
-// PocketProps' own screenshots use a "L10" window -- dropped to 8 here after a real mobile
-// overflow bug: the O/U table's Over/Under buttons are only ever half of a shared column
-// (unlike a ladder tile, which gets the whole row), and ten dots' worth of fixed content
-// width didn't fit inside that half-column at any phone width tested. Eight still reads as
-// a real recent-form window, or fewer still if the player doesn't have 8 games yet -- never
-// padded out with anything that isn't a real logged game.
-const HIT_RATE_GAMES = 8;
-
-// A single-outcome market's real numeric line is always reported as 0 by every vendor this
-// app pulls from (confirmed real for both ParlayAPI and SportsGameOdds' Anytime TD rows) --
-// but "0" isn't the real betting threshold, it's a placeholder for "did this happen at all,"
-// i.e. at least one occurrence. Feeding a real 0 into the hit-rate math would make every
-// non-negative stat "hit" 100% of the time, which is meaningless. categorize.ts already
-// drops that placeholder (selection.line is null for these), so null is treated as "1" here
-// -- the real intent of a yes/no counting stat -- rather than re-deriving it from the raw 0.
-function effectiveLine(selection: ResearchSelection): number {
-  return selection.line ?? 1;
-}
-
-function computeHitRate(
-  logsByPlayer: Map<string, PlayerLogs>,
-  playerName: string,
-  propType: string,
-  selection: ResearchSelection,
-): HitRate | null {
-  const entries = logsByPlayer.get(playerName)?.logs.find((l) => l.propType === propType)?.entries;
-  if (!entries) return null;
-  return hitRate(entries, effectiveLine(selection), selection.side, HIT_RATE_GAMES);
-}
-
 // Thin wrapper so every call site can just render this inline instead of repeating the
 // null-check dance around computeHitRate -- renders nothing when there's no real history.
-function PropHitRateDots({
+// Exported for reuse by app/research/PlayerBoard.tsx's player-first view.
+export function PropHitRateDots({
   logsByPlayer,
   playerName,
   propType,
@@ -116,7 +88,7 @@ function PropHitRateDots({
 // vertical room, since each row's own height is free to grow. No `truncate`/`whitespace-
 // nowrap` here at all: a name that fits stays on one line on its own: only one that doesn't
 // wraps, at any viewport width.
-function PlayerNameCell({ playerName, team, league }: { playerName: string; team: string | null; league: string }) {
+export function PlayerNameCell({ playerName, team, league }: { playerName: string; team: string | null; league: string }) {
   return (
     <span className="flex min-w-0 items-start gap-1.5">
       <span className="mt-0.5">
@@ -185,7 +157,7 @@ function HistorySection({ title, entries, line, side }: { title: string; entries
 // ever one real matchup in view here), reproducing the reference screenshot's own layout.
 // `opponentAbbr` is null when the player's own team couldn't be resolved (a roster-name
 // mismatch) -- the Last-N section still renders on its own rather than losing everything.
-function PlayerHistoryPanel({
+export function PlayerHistoryPanel({
   entries,
   line,
   side,
@@ -378,13 +350,21 @@ export function ResearchPropTable({
     <div className="flex flex-col gap-3">
       {groups.map((group) => {
         const label = propTypeLabel(group.marketType) ?? group.marketType;
-        const byPlayer = new Map<string, ResearchSelection[]>();
+        // Keyed by normalizePlayerName, not the raw vendor string -- federating three
+        // providers means the same real player can appear under two different spellings
+        // within one game's data (confirmed real: "A.J. Barner" vs "AJ Barner", "DeMario
+        // Douglas" vs "Demario Douglas"), which rendered as two separate rows for the same
+        // real person before this fix. displayName keeps whichever spelling was seen first,
+        // purely for rendering -- every lookup keeps using the normalized key.
+        const byPlayerRaw = new Map<string, { displayName: string; selections: ResearchSelection[] }>();
         for (const selection of group.selections) {
           if (!selection.playerName) continue;
-          const list = byPlayer.get(selection.playerName) ?? [];
-          list.push(selection);
-          byPlayer.set(selection.playerName, list);
+          const key = normalizePlayerName(selection.playerName);
+          const existing = byPlayerRaw.get(key);
+          if (existing) existing.selections.push(selection);
+          else byPlayerRaw.set(key, { displayName: selection.playerName, selections: [selection] });
         }
+        const byPlayer = new Map([...byPlayerRaw.values()].map(({ displayName, selections }) => [displayName, selections] as const));
 
         const hasOverUnderShape = group.selections.some((s) => s.side === Side.OVER || s.side === Side.UNDER);
 

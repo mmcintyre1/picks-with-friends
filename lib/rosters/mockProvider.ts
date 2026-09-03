@@ -6,28 +6,28 @@ import type { RosterPlayer, RosterProvider } from "./types";
 // ids collide across leagues (e.g. NFL team "12" and NBA team "12" are unrelated teams).
 const ROSTERS: Record<string, RosterPlayer[]> = {
   "football/nfl:12": [
-    { name: "Patrick Mahomes", position: "QB", athleteId: "3139477" },
-    { name: "Travis Kelce", position: "TE", athleteId: "15847" },
-    { name: "Isiah Pacheco", position: "RB", athleteId: "4361529" },
-    { name: "Xavier Worthy", position: "WR", athleteId: "4432773" },
+    { name: "Patrick Mahomes", position: "QB", athleteId: "3139477", jersey: "15" },
+    { name: "Travis Kelce", position: "TE", athleteId: "15847", jersey: "87" },
+    { name: "Isiah Pacheco", position: "RB", athleteId: "4361529", jersey: "10" },
+    { name: "Xavier Worthy", position: "WR", athleteId: "4432773", jersey: "1" },
   ],
   "football/nfl:7": [
-    { name: "Bo Nix", position: "QB", athleteId: "4426338" },
-    { name: "Courtland Sutton", position: "WR", athleteId: "3128429" },
-    { name: "Javonte Williams", position: "RB", athleteId: "4241457" },
+    { name: "Bo Nix", position: "QB", athleteId: "4426338", jersey: "10" },
+    { name: "Courtland Sutton", position: "WR", athleteId: "3128429", jersey: "14" },
+    { name: "Javonte Williams", position: "RB", athleteId: "4241457", jersey: "33" },
   ],
   "basketball/nba:2": [
-    { name: "Jayson Tatum", position: "F", athleteId: "4065648" },
-    { name: "Jaylen Brown", position: "F", athleteId: "3917376" },
-    { name: "Derrick White", position: "G", athleteId: "3078576" },
+    { name: "Jayson Tatum", position: "F", athleteId: "4065648", jersey: "0" },
+    { name: "Jaylen Brown", position: "F", athleteId: "3917376", jersey: "7" },
+    { name: "Derrick White", position: "G", athleteId: "3078576", jersey: "9" },
   ],
   "baseball/mlb:15": [
-    { name: "Spencer Strider", position: "SP", athleteId: "41287" },
-    { name: "Ronald Acuna Jr.", position: "OF", athleteId: "36185" },
+    { name: "Spencer Strider", position: "SP", athleteId: "41287", jersey: "99" },
+    { name: "Ronald Acuna Jr.", position: "OF", athleteId: "36185", jersey: "13" },
   ],
   "hockey/nhl:1": [
-    { name: "David Pastrnak", position: "RW", athleteId: "3114772" },
-    { name: "Jeremy Swayman", position: "G", athleteId: "4233855" },
+    { name: "David Pastrnak", position: "RW", athleteId: "3114772", jersey: "88" },
+    { name: "Jeremy Swayman", position: "G", athleteId: "4233855", jersey: "1" },
   ],
 };
 

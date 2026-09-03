@@ -10,8 +10,7 @@ import { getBoxScoreProvider } from "@/lib/evaluate";
 import { resolveLeg } from "@/lib/evaluate/resolveLeg";
 import type { BoxScore } from "@/lib/evaluate/types";
 import { LEAGUE_ESPN_PATHS } from "@/lib/rosters/leagues";
-import { getScheduleProvider } from "@/lib/schedule";
-import { teamNamesMatch } from "@/lib/teamNamesMatch";
+import { matchEspnEvent } from "@/lib/schedule/matchEspnEvent";
 import { LegResult, Market, ParlayStatus, Side, TeamSide } from "@/app/generated/prisma/enums";
 
 export type ActionResult = { error: string } | undefined;
@@ -373,19 +372,14 @@ export async function gradeParlay(
 // a parlay can span several distinct games and the box-score fetch cache (per-game) alone
 // wouldn't stop a burst of clicks from fanning out across all of them.
 const EVALUATE_COOLDOWN_MS = 20_000;
-// How far back/forward to search ESPN's free schedule endpoint when resolving a game's
-// espnEventId. Game.commenceTime isn't the real kickoff time for manually-typed picks
-// (findOrCreateGame stamps it at pick time, not looked up), so this searches a window
-// around *now* instead -- reasonable for a friend-group app that evaluates games around
-// when they're happening or shortly after, not days later.
-const ESPN_MATCH_WINDOW_DAYS_BACK = 3;
-const ESPN_MATCH_WINDOW_DAYS_FORWARD = 1;
-
-// Resolves and caches a Game's ESPN event id by searching the free schedule endpoint
-// (lib/schedule/, already used by ScheduleBrowser) for a matching matchup. Deliberately
-// not reusing Game.externalId -- that field is ambiguous between two different providers'
-// id namespaces (see schema.prisma's comment on it). Backfill-only-if-null, same
-// discipline findOrCreateGame already uses for externalId/league.
+// Resolves and caches a Game's ESPN event id via lib/schedule/matchEspnEvent.ts's shared
+// matcher, searched around *now* -- reasonable for a friend-group app that evaluates games
+// around when they're happening or shortly after, not days later (lib/trends/ is the other
+// real caller of that shared matcher, and searches around a game's own commenceTime
+// instead, since research browsing can happen days before kickoff). Deliberately not
+// reusing Game.externalId -- that field is ambiguous between two different providers' id
+// namespaces (see schema.prisma's comment on it). Backfill-only-if-null, same discipline
+// findOrCreateGame already uses for externalId/league.
 async function resolveEspnEventId(game: {
   id: string;
   espnEventId: string | null;
@@ -394,22 +388,12 @@ async function resolveEspnEventId(game: {
   awayTeam: string;
 }): Promise<string | null> {
   if (game.espnEventId) return game.espnEventId;
-  if (!game.league || !(game.league in LEAGUE_ESPN_PATHS)) return null;
 
-  const now = Date.now();
-  const commenceFrom = new Date(now - ESPN_MATCH_WINDOW_DAYS_BACK * 24 * 60 * 60 * 1000);
-  const commenceTo = new Date(now + ESPN_MATCH_WINDOW_DAYS_FORWARD * 24 * 60 * 60 * 1000);
+  const matched = await matchEspnEvent(game.league, game.homeTeam, game.awayTeam, new Date());
+  if (!matched) return null;
 
-  const scheduled = await getScheduleProvider().listUpcomingGames(game.league, { commenceFrom, commenceTo });
-  const match = scheduled.find(
-    (g) =>
-      (teamNamesMatch(g.homeTeam, game.homeTeam) && teamNamesMatch(g.awayTeam, game.awayTeam)) ||
-      (teamNamesMatch(g.homeTeam, game.awayTeam) && teamNamesMatch(g.awayTeam, game.homeTeam)),
-  );
-  if (!match) return null;
-
-  await prisma.game.update({ where: { id: game.id }, data: { espnEventId: match.id } });
-  return match.id;
+  await prisma.game.update({ where: { id: game.id }, data: { espnEventId: matched } });
+  return matched;
 }
 
 export type EvaluateOutcome = {

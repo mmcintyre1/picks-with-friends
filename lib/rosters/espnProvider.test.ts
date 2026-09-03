@@ -37,11 +37,11 @@ describe("createEspnProvider", () => {
         athletes: [
           {
             position: "offense",
-            items: [{ id: "3139477", displayName: "Patrick Mahomes", position: { abbreviation: "QB" } }],
+            items: [{ id: "3139477", displayName: "Patrick Mahomes", position: { abbreviation: "QB" }, jersey: "15" }],
           },
           {
             position: "practiceSquad",
-            items: [{ id: "9999999", displayName: "Some Bench Guy", position: { abbreviation: "WR" } }],
+            items: [{ id: "9999999", displayName: "Some Bench Guy", position: { abbreviation: "WR" }, jersey: "89" }],
           },
         ],
       }),
@@ -50,8 +50,8 @@ describe("createEspnProvider", () => {
     const players = await provider.getRoster("football/nfl", "12");
 
     expect(players).toEqual([
-      { name: "Patrick Mahomes", position: "QB", athleteId: "3139477" },
-      { name: "Some Bench Guy", position: "WR", athleteId: "9999999" },
+      { name: "Patrick Mahomes", position: "QB", athleteId: "3139477", jersey: "15" },
+      { name: "Some Bench Guy", position: "WR", athleteId: "9999999", jersey: "89" },
     ]);
   });
 
@@ -59,8 +59,8 @@ describe("createEspnProvider", () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         athletes: [
-          { id: "4065648", displayName: "Jayson Tatum", position: { abbreviation: "F" } },
-          { id: "3078576", displayName: "Derrick White", position: { abbreviation: "G" } },
+          { id: "4065648", displayName: "Jayson Tatum", position: { abbreviation: "F" }, jersey: "0" },
+          { id: "3078576", displayName: "Derrick White", position: { abbreviation: "G" }, jersey: "9" },
         ],
       }),
     );
@@ -68,17 +68,17 @@ describe("createEspnProvider", () => {
     const players = await provider.getRoster("basketball/nba", "2");
 
     expect(players).toEqual([
-      { name: "Jayson Tatum", position: "F", athleteId: "4065648" },
-      { name: "Derrick White", position: "G", athleteId: "3078576" },
+      { name: "Jayson Tatum", position: "F", athleteId: "4065648", jersey: "0" },
+      { name: "Derrick White", position: "G", athleteId: "3078576", jersey: "9" },
     ]);
   });
 
-  it("defaults athleteId to an empty string when the raw athlete has no id", async () => {
+  it("defaults athleteId and jersey to an empty string when the raw athlete has neither", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ athletes: [{ displayName: "No Id Guy", position: { abbreviation: "WR" } }] }));
     const provider = createEspnProvider();
     const players = await provider.getRoster("football/nfl", "12");
 
-    expect(players).toEqual([{ name: "No Id Guy", position: "WR", athleteId: "" }]);
+    expect(players).toEqual([{ name: "No Id Guy", position: "WR", athleteId: "", jersey: "" }]);
   });
 
   it("serves an identical request from cache instead of fetching again", async () => {

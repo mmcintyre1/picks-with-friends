@@ -4,6 +4,7 @@ import { getParlayApiProvider } from "@/lib/parlayapi";
 import { buildResearchGame as buildParlayApiGame, summarizeSchedule as summarizeParlayApiSchedule } from "@/lib/parlayapi/categorize";
 import { ParlayApiProviderError } from "@/lib/parlayapi/types";
 import { mergeResearchGames } from "@/lib/research/marketUtils";
+import { recordLineSnapshot } from "@/lib/trends/record";
 import { getSharpApiProvider } from "@/lib/sharpapi";
 import { buildResearchGame as buildSharpApiGame, summarizeSchedule as summarizeSharpApiSchedule } from "@/lib/sharpapi/categorize";
 import { SharpApiProviderError } from "@/lib/sharpapi/types";
@@ -125,7 +126,14 @@ export async function getNflGameOdds(
     .map((r) => r.value)
     .filter((g): g is ResearchGame => g !== null);
 
-  if (games.length > 0) return { game: mergeResearchGames(games) };
+  if (games.length > 0) {
+    const merged = mergeResearchGames(games);
+    // Fire-and-forget: every real game-detail view (the pick flow and the /research page
+    // alike) feeds the free trend database (lib/trends/) this way, but a snapshot failing
+    // to record must never fail or slow down the odds response it's riding along with.
+    recordLineSnapshot("NFL", merged).catch(() => {});
+    return { game: merged };
+  }
 
   // Nothing to merge -- report the tagged (primary) provider's own failure if it had one,
   // since that's the most actionable one for whoever's looking at this; a real event with

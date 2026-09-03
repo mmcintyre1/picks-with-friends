@@ -2,7 +2,10 @@
 // a player's real game log (that endpoint is keyed by athlete id, and a prop selection only
 // ever carries a player *name*). Empty string when a provider doesn't supply one -- callers
 // treat that the same as "no game log available" rather than guessing.
-export type RosterPlayer = { name: string; position: string; athleteId: string };
+// jersey is ESPN's own real `jersey` field (confirmed real, e.g. "38"), same empty-string
+// convention -- purely cosmetic (app/research's PocketProps-style player header), never used
+// for any matching/lookup.
+export type RosterPlayer = { name: string; position: string; athleteId: string; jersey: string };
 
 export interface RosterProvider {
   // sportPath is the ESPN site-API sport segment, e.g. "football/nfl" -- see

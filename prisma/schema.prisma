@@ -263,6 +263,38 @@ model Leg {
   @@unique([parlayId, userId])
 }
 
+// A free, app-owned record of a real game's own main spread/total line plus its real final
+// score, used to compute team ATS/O-U trends without paying for a vendor's historical-odds
+// endpoint (SportsGameOdds/SharpAPI wall that behind Enterprise; ParlayAPI's free/cheap
+// tiers only retain 48h/7d of history -- nowhere near a season). Deliberately not an
+// extension of Game: Game is scoped per-Window (a fresh row per parlay that references a
+// matchup), so the same real-world game can have several Game rows or none at all if nobody
+// ever picks a leg on it -- this needs one stable row per real game regardless of picks.
+model TrackedGame {
+  id           String    @id @default(cuid())
+  league       String // "NFL" only for now, matching lib/research/'s current scope
+  homeTeam     String
+  awayTeam     String
+  commenceTime DateTime
+  // The real main-line spread (home team's own number) and total, captured -- and kept
+  // updated -- every time this app's research layer fetches this game's odds, up until
+  // commenceTime passes, then frozen. The last real view before kickoff is a free proxy
+  // for the true closing line: never exactly the same, but the best available for free.
+  spreadHome   Float?
+  total        Float?
+  // Resolved lazily against ESPN's free schedule (same pattern as Game.espnEventId), only
+  // once a trend read actually needs this game's real final score.
+  espnEventId  String?
+  homeScore    Int?
+  awayScore    Int?
+  completedAt  DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([league, homeTeam, awayTeam, commenceTime])
+  @@index([league, homeTeam])
+  @@index([league, awayTeam])
+}
+
 // Seam for future in-app banners / web push -- not consumed by push in v1.
 model EventLog {
   id        String   @id @default(cuid())
