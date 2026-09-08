@@ -36,11 +36,18 @@ const teamLogoSize = "h-5 w-5 sm:h-6 sm:w-6";
 // Deliberately three fixed lines (name+badge / bet+odds / game+time) instead of one big
 // flex-wrap line -- the old layout let the game time wrap onto its own line or not
 // depending on how long the bet description happened to be, so two picks could look
-// structurally different from each other for no reason other than text length. Each line
-// truncates its own pieces with an ellipsis instead of wrapping, so the row height never
-// changes and nothing ever reflows unpredictably. Text sizes step up at `sm:` so desktop's
-// extra width goes toward bigger, easier-to-read text rather than sitting empty next to a
-// single short line.
+// structurally different from each other for no reason other than text length. The
+// name/matchup lines truncate their own pieces with an ellipsis (rarely triggered --
+// TeamLabel already abbreviates on mobile); the bet-summary line deliberately does NOT --
+// a real, reported bug found via live mobile measurement: a player-prop summary like
+// "Rhamondre Stevenson (Rushing Yards) Over 62.5" genuinely doesn't fit a real phone's
+// ~140-200px column next to the odds price, and truncating it silently drops the side and
+// line number -- the exact numbers this row exists to show. Wrapping instead (same
+// "information over fixed height" call already made for player names in
+// ResearchPropTable.tsx/ResearchAltLines.tsx) means the row's height isn't perfectly fixed
+// for a long prop bet, but nothing real ever goes missing. Text sizes step up at `sm:` so
+// desktop's extra width goes toward bigger, easier-to-read text rather than sitting empty
+// next to a single short line.
 export function LegRow({
   name,
   flair,
@@ -81,8 +88,8 @@ export function LegRow({
           <PlayerName name={name} flair={flair} className="text-base font-medium sm:text-lg" />
           {resultEmoji && <span className="text-sm sm:text-base">{resultEmoji}</span>}
         </div>
-        <div className="mt-0.5 flex items-baseline justify-between gap-3">
-          <span className="min-w-0 truncate text-sm text-foreground sm:text-base">{summary}</span>
+        <div className="mt-0.5 flex items-start justify-between gap-3">
+          <span className="min-w-0 text-sm text-foreground sm:text-base">{summary}</span>
           {odds && (
             <span className="shrink-0 font-display text-sm tracking-wide text-accent tabular-nums sm:text-base">
               {odds}
