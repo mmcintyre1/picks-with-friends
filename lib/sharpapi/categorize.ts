@@ -1,7 +1,7 @@
 import { Side, TeamSide } from "@/app/generated/prisma/enums";
 import type { ResearchCategoryKey, ResearchGame, ResearchGameSummary, ResearchSelection } from "@/lib/research/types";
 import type { CategorizedSelection } from "@/lib/research/marketUtils";
-import { buildResearchGameFromSelections } from "@/lib/research/marketUtils";
+import { buildResearchGameFromSelections, compareCommenceTime } from "@/lib/research/marketUtils";
 
 import type { SharpApiRow } from "./types";
 
@@ -156,7 +156,7 @@ export function groupRowsByGame(rows: SharpApiRow[]): ResearchGame[] {
     if (game) games.push(game);
   }
 
-  return games.sort((a, b) => a.commenceTime.localeCompare(b.commenceTime));
+  return games.sort(compareCommenceTime);
 }
 
 // Turns the cheap moneyline-filtered schedule rows into a plain list of real games, one
@@ -177,7 +177,7 @@ export function summarizeSchedule(rows: SharpApiRow[]): ResearchGameSummary[] {
       commenceTime: row.event_start_time,
       source: "sharpapi" as const,
     }))
-    .sort((a, b) => a.commenceTime.localeCompare(b.commenceTime));
+    .sort(compareCommenceTime);
 }
 
 // Builds the full categorized ResearchGame for one specific event's rows (already scoped to

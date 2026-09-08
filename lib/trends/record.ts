@@ -30,6 +30,11 @@ function extractMainLines(game: ResearchGame): { spreadHome: number | null; tota
 // for real historical odds. Never throws -- a snapshot failing to record should never fail
 // the odds response it's riding along with; callers swallow whatever this rejects with.
 export async function recordLineSnapshot(league: string, game: ResearchGame): Promise<void> {
+  // A real game whose kickoff time isn't confirmed yet (see ResearchGame.commenceTime's own
+  // comment) can't be tracked -- the freeze-after-kickoff rule and the trend's own natural
+  // key both need a real commence time, and a real one will show up once the vendor
+  // confirms it (a later view then records the snapshot normally).
+  if (game.commenceTime === null) return;
   const commenceTime = new Date(game.commenceTime);
   const { spreadHome, total } = extractMainLines(game);
 

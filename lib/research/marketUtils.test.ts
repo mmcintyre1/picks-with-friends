@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { Side } from "@/app/generated/prisma/enums";
 
-import { mergeResearchGames } from "./marketUtils";
+import { compareCommenceTime, mergeResearchGames } from "./marketUtils";
 import type { ResearchGame, ResearchSelection } from "./types";
 
 function selection(overrides: Partial<ResearchSelection> & Pick<ResearchSelection, "selectionId" | "side" | "priceAmerican">): ResearchSelection {
@@ -85,5 +85,35 @@ describe("mergeResearchGames", () => {
     const merged = mergeResearchGames([a, b]);
     expect(merged.categories.find((c) => c.key === "passing")).toBeDefined();
     expect(merged.categories.find((c) => c.key === "kicking")).toBeDefined();
+  });
+
+  it("prefers a non-null commenceTime from a secondary provider when the primary's own kickoff time isn't confirmed yet", () => {
+    const a: ResearchGame = { ...game("id-1", []), commenceTime: null };
+    const b: ResearchGame = { ...game("id-2", []), commenceTime: "2026-09-14T17:00:00Z" };
+    const merged = mergeResearchGames([a, b]);
+    expect(merged.commenceTime).toBe("2026-09-14T17:00:00Z");
+  });
+
+  it("stays null when every provider reports an unconfirmed kickoff time", () => {
+    const a: ResearchGame = { ...game("id-1", []), commenceTime: null };
+    const b: ResearchGame = { ...game("id-2", []), commenceTime: null };
+    const merged = mergeResearchGames([a, b]);
+    expect(merged.commenceTime).toBeNull();
+  });
+});
+
+describe("compareCommenceTime", () => {
+  it("sorts ascending by real commence time", () => {
+    const items = [{ commenceTime: "2026-09-14T17:00:00Z" }, { commenceTime: "2026-09-11T00:15:00Z" }];
+    expect(items.sort(compareCommenceTime).map((i) => i.commenceTime)).toEqual(["2026-09-11T00:15:00Z", "2026-09-14T17:00:00Z"]);
+  });
+
+  it("places a real game with an unconfirmed (null) kickoff time last, not crashing", () => {
+    const items = [{ commenceTime: null }, { commenceTime: "2026-09-11T00:15:00Z" }];
+    expect(items.sort(compareCommenceTime).map((i) => i.commenceTime)).toEqual(["2026-09-11T00:15:00Z", null]);
+  });
+
+  it("treats two null-kickoff games as equal", () => {
+    expect(compareCommenceTime({ commenceTime: null }, { commenceTime: null })).toBe(0);
   });
 });

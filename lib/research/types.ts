@@ -17,7 +17,11 @@ export type ResearchGameSummary = {
   externalId: string;
   homeTeam: string;
   awayTeam: string;
-  commenceTime: string;
+  // Null for a real, confirmed game whose kickoff time simply hasn't been finalized yet --
+  // confirmed real via ParlayAPI's own `commence_time_reported: false` flag on a genuine
+  // upcoming NFL matchup (real teams, real event id), not a malformed/placeholder row. A
+  // real game with an unknown time is still worth showing (as "Time TBD"), never dropped.
+  commenceTime: string | null;
   source: ResearchProviderSource;
 };
 
@@ -93,7 +97,8 @@ export type ResearchGame = {
   externalId: string; // the supplying provider's own event id
   homeTeam: string;
   awayTeam: string;
-  commenceTime: string;
+  // Same "real game, unconfirmed kickoff" case as ResearchGameSummary.commenceTime above.
+  commenceTime: string | null;
   categories: ResearchCategory[];
 };
 

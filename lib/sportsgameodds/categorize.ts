@@ -1,6 +1,6 @@
 import { Side } from "@/app/generated/prisma/enums";
 import type { CategorizedSelection } from "@/lib/research/marketUtils";
-import { buildResearchGameFromSelections } from "@/lib/research/marketUtils";
+import { buildResearchGameFromSelections, compareCommenceTime } from "@/lib/research/marketUtils";
 import type { ResearchCategoryKey, ResearchGame, ResearchGameSummary, ResearchSelection } from "@/lib/research/types";
 
 import type { SportsGameOddsEvent, SportsGameOddsOdd } from "./types";
@@ -220,5 +220,5 @@ export function summarizeSchedule(events: SportsGameOddsEvent[]): ResearchGameSu
       commenceTime: event.status.startsAt,
       source: "sportsgameodds" as const,
     }))
-    .sort((a, b) => a.commenceTime.localeCompare(b.commenceTime));
+    .sort(compareCommenceTime);
 }

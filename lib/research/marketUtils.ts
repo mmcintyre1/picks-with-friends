@@ -9,11 +9,26 @@ import type {
   TeamBetPick,
 } from "./types";
 
+// Sorts by commence time, ascending, with real games whose kickoff time simply isn't
+// confirmed yet (`commenceTime: null` -- confirmed real via ParlayAPI's own
+// `commence_time_reported: false` flag on genuine upcoming matchups) placed last rather
+// than crashing a naive `.localeCompare()` sort outright. Shared across every provider's own
+// categorize.ts (each builds its own schedule list) instead of four near-identical
+// null-handling comparators.
+export function compareCommenceTime(a: { commenceTime: string | null }, b: { commenceTime: string | null }): number {
+  if (a.commenceTime === null && b.commenceTime === null) return 0;
+  if (a.commenceTime === null) return 1;
+  if (b.commenceTime === null) return -1;
+  return a.commenceTime.localeCompare(b.commenceTime);
+}
+
 // Combines several providers' already-built ResearchGames for the SAME real-world game into
 // one -- the federation this whole shared-vocabulary architecture was built to make cheap.
 // `games[0]` (by convention, PROVIDER_ORDER's own priority order -- see
-// lib/research/actions.ts) supplies the matchup identity (externalId/teams/commenceTime);
-// every other game's categories/marketGroups/selections are folded in underneath it.
+// lib/research/actions.ts) supplies the matchup identity (externalId/teams); commenceTime
+// specifically prefers the first NON-NULL value across every merged game, since one
+// provider reporting an unconfirmed kickoff time doesn't mean every provider does.
+// Every other game's categories/marketGroups/selections are folded in underneath it.
 //
 // Deduplication matters here: two providers reporting the SAME real book's SAME real bet
 // (e.g. both ParlayAPI and SportsGameOdds happen to carry DraftKings' current Passing Yards
@@ -53,7 +68,8 @@ export function mergeResearchGames(games: ResearchGame[]): ResearchGame {
     marketGroups: [...groups.values()],
   }));
 
-  return { ...base, categories };
+  const commenceTime = games.find((g) => g.commenceTime !== null)?.commenceTime ?? null;
+  return { ...base, commenceTime, categories };
 }
 
 // Pure, vendor-agnostic utilities shared by every research provider's own categorize.ts
@@ -145,7 +161,7 @@ export type CategorizedSelection = {
 // its "no pickable categories means no real game" rule) exists exactly once regardless of
 // how many providers eventually feed it.
 export function buildResearchGameFromSelections(
-  game: { externalId: string; homeTeam: string; awayTeam: string; commenceTime: string },
+  game: { externalId: string; homeTeam: string; awayTeam: string; commenceTime: string | null },
   items: CategorizedSelection[],
 ): ResearchGame | null {
   const categoryMap = new Map<ResearchCategoryKey, Map<string, ResearchMarketGroup>>();

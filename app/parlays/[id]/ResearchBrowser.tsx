@@ -10,7 +10,12 @@ import type { PropPick, ResearchGame, ResearchGameSummary, TeamBetPick } from "@
 
 import { ResearchGameDetail } from "./ResearchGameDetail";
 
-function dayLabel(iso: string): string {
+// null for a real game whose kickoff time isn't confirmed yet (see ResearchGameSummary's own
+// comment) -- grouped under one real "Time TBD" bucket rather than crashing on `new
+// Date(null)`. The server already sorts these games last (compareCommenceTime), so this
+// bucket naturally lands at the end of groupByDay's own insertion-ordered output too.
+function dayLabel(iso: string | null): string {
+  if (iso === null) return "Time TBD";
   return new Date(iso).toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
@@ -113,7 +118,7 @@ export function ResearchBrowser({
                     <p className="min-w-0 flex-1 text-sm font-medium">
                       {game.awayTeam} <span className="text-subtle">@</span> {game.homeTeam}
                     </p>
-                    <span className="shrink-0 text-xs text-muted">{formatGameTime(game.commenceTime)}</span>
+                    <span className="shrink-0 text-xs text-muted">{game.commenceTime ? formatGameTime(game.commenceTime) : "Time TBD"}</span>
                   </div>
 
                   <Button

@@ -1,6 +1,6 @@
 import { Side } from "@/app/generated/prisma/enums";
 import type { CategorizedSelection } from "@/lib/research/marketUtils";
-import { buildResearchGameFromSelections } from "@/lib/research/marketUtils";
+import { buildResearchGameFromSelections, compareCommenceTime } from "@/lib/research/marketUtils";
 import type { ResearchCategoryKey, ResearchGame, ResearchGameSummary, ResearchSelection } from "@/lib/research/types";
 
 import type { ParlayApiEvent, ParlayApiEventData, ParlayApiGameOdds, ParlayApiProp } from "./types";
@@ -209,5 +209,5 @@ export function summarizeSchedule(events: ParlayApiEvent[]): ResearchGameSummary
       commenceTime: event.commence_time,
       source: "parlayapi" as const,
     }))
-    .sort((a, b) => a.commenceTime.localeCompare(b.commenceTime));
+    .sort(compareCommenceTime);
 }

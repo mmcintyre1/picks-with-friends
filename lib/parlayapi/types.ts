@@ -9,7 +9,11 @@ export type ParlayApiEvent = {
   canonical_event_id: string;
   sport_key: string;
   sport_title: string;
-  commence_time: string;
+  // Null for a real, upcoming game whose kickoff time simply hasn't been finalized yet --
+  // confirmed real via a live pull (16 of 38 real NFL events, each carrying
+  // `commence_time_reported: false` alongside real team names and a real event id -- not a
+  // malformed row).
+  commence_time: string | null;
   home_team: string;
   away_team: string;
 };
@@ -45,7 +49,11 @@ export type ParlayApiGameOdds = {
   id: string;
   sport_key: string;
   sport_title: string;
-  commence_time: string;
+  // Null for a real, upcoming game whose kickoff time simply hasn't been finalized yet --
+  // confirmed real via a live pull (16 of 38 real NFL events, each carrying
+  // `commence_time_reported: false` alongside real team names and a real event id -- not a
+  // malformed row).
+  commence_time: string | null;
   home_team: string;
   away_team: string;
   bookmakers: ParlayApiBookmaker[];
@@ -78,7 +86,11 @@ export type ParlayApiProp = {
   game_date: string;
   home_team: string;
   away_team: string;
-  commence_time: string;
+  // Null for a real, upcoming game whose kickoff time simply hasn't been finalized yet --
+  // confirmed real via a live pull (16 of 38 real NFL events, each carrying
+  // `commence_time_reported: false` alongside real team names and a real event id -- not a
+  // malformed row).
+  commence_time: string | null;
   bookmaker: string;
   bookmaker_title: string;
   player: string;
@@ -121,7 +133,7 @@ export type ParlayApiEventData = {
   // early before kickoff.
   homeTeam: string;
   awayTeam: string;
-  commenceTime: string;
+  commenceTime: string | null;
   odds: ParlayApiGameOdds | null;
   props: ParlayApiProp[];
 };
