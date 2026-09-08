@@ -82,6 +82,10 @@ export async function getNflSchedule(): Promise<{ games: ResearchGameSummary[] }
     try {
       return { games: await fetchSchedule(source) };
     } catch (error) {
+      // Logged, not just turned into a generic user-facing string -- describeError()
+      // deliberately collapses every real failure into one of three short messages, which
+      // previously meant a genuine bug or a real vendor outage left zero trace anywhere.
+      console.error(`[research] getNflSchedule: ${source} failed`, error);
       lastError = error;
       if (!isFallbackWorthy(error)) return { error: describeError(error) };
     }
@@ -121,6 +125,13 @@ export async function getNflGameOdds(
     ),
   );
 
+  // Logged per-provider, not just the primary's -- a real federation failure (e.g. every
+  // provider erroring for a genuinely different reason) is invisible otherwise, since only
+  // one provider's error ever reaches the user-facing message below.
+  results.forEach((r, i) => {
+    if (r.status === "rejected") console.error(`[research] getNflGameOdds: ${PROVIDER_ORDER[i]} failed`, r.reason);
+  });
+
   const games = results
     .filter((r): r is PromiseFulfilledResult<ResearchGame | null> => r.status === "fulfilled")
     .map((r) => r.value)
@@ -131,7 +142,7 @@ export async function getNflGameOdds(
     // Fire-and-forget: every real game-detail view (the pick flow and the /research page
     // alike) feeds the free trend database (lib/trends/) this way, but a snapshot failing
     // to record must never fail or slow down the odds response it's riding along with.
-    recordLineSnapshot("NFL", merged).catch(() => {});
+    recordLineSnapshot("NFL", merged).catch((error) => console.error("[research] recordLineSnapshot failed", error));
     return { game: merged };
   }
 
