@@ -322,6 +322,17 @@ describe("buildResearchGame -- drops unrecognized shapes rather than guessing", 
     );
     expect(game).toBeNull();
   });
+
+  it("drops an odd with no byBookmaker at all instead of crashing -- confirmed real live: an odd SportsGameOdds tracks in its own catalog but no book in the free tier has priced yet", () => {
+    const game = buildResearchGame(
+      event([
+        odd({ oddID: "untracked", statID: "kicking_totalPoints", betTypeID: "ou", sideID: "over", byBookmaker: undefined }),
+        odd({ oddID: "ml-away", statID: "points", betTypeID: "ml", sideID: "away", byBookmaker: { draftkings: { odds: "+150", available: true, lastUpdatedAt: "" } } }),
+      ]),
+    )!;
+    expect(game).not.toBeNull();
+    expect(game.categories.find((c) => c.key === "game_lines")).toBeDefined();
+  });
 });
 
 describe("summarizeSchedule", () => {

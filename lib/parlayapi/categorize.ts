@@ -45,12 +45,35 @@ function toMarketType(baseKey: string): string | null {
       return "player_passing_touchdowns";
     case "player_interceptions":
       return "player_interceptions_thrown";
+    case "player_longest_completion":
+      return "player_longest_completion";
+    case "player_longest_rush":
+      return "player_longest_rush";
     case "player_anytime_touchdown_scorer":
       return "player_anytime_touchdown";
     case "player_first_touchdown_scorer":
       return "first_touchdown_scorer";
     case "player_last_touchdown_scorer":
       return "last_touchdown_scorer";
+    // Kicking -- confirmed real via a live pull (Andy Borregales, real DK/Caesars prices),
+    // and confirmed via lib/sportsgameodds/categorize.ts that these three exact canonical
+    // strings are already the established Kicking vocabulary from that vendor's own real
+    // integration -- reused verbatim (not reinvented) so a federated Kicking category folds
+    // both vendors' prices into one market group instead of two separate ones.
+    case "player_kicking_points":
+      return "player_kicking_points";
+    case "player_field_goals_made":
+      return "player_field_goals_made";
+    case "player_extra_points_made":
+      return "player_extra_points_made";
+    // Defense -- same reuse of SportsGameOdds' already-established canonical strings.
+    // ParlayAPI's own real market_key for the combined stat is "player_tackles" (no
+    // "total_" prefix, confirmed real), which is why this needs an explicit mapping rather
+    // than the identity fallthrough the Kicking cases above get away with.
+    case "player_tackles":
+      return "player_total_tackles";
+    case "player_tackles_assists":
+      return "player_assisted_tackles";
     default:
       // Deliberately unmapped, confirmed real but excluded for real reasons (not oversights):
       // player_total_touchdowns / player_moneyline / player_1st_half_* / player_1st_quarter_*
@@ -63,7 +86,14 @@ function toMarketType(baseKey: string): string | null {
       // teams_to_score_*, player_to_have_most_*, player_highest_scoring_quarter, and
       // player_halftime/fulltime_* are team-level exotics/superlatives with no Market/Side
       // fit, same category of drop as SharpAPI's winning_margin or SportsGameOdds'
-      // firstToScore/bothTeamsScored.
+      // firstToScore/bothTeamsScored. player_sacks (real, confirmed live) has no established
+      // canonical propType/label anywhere in this app yet -- genuinely new vocabulary, not
+      // just a missing case here, so left unmapped rather than inventing one on the spot.
+      // player_new_england_patriots_total_points/player_seattle_seahawks_total_points/
+      // player_total_points (real, confirmed live, despite the misleading "player_" prefix)
+      // look like real TEAM_TOTAL markets -- plausible future work, not wired here since it
+      // needs the same real per-team resolution ResearchTeamTotals.tsx's SportsGameOdds/
+      // SharpAPI path already does, which this file doesn't have yet.
       return null;
   }
 }
@@ -75,11 +105,17 @@ const PASSING_MARKETS = new Set([
   "player_completions",
   "player_interceptions_thrown",
   "player_pass_rush_yards",
+  "player_longest_completion",
 ]);
 const RECEIVING_MARKETS = new Set(["player_receiving_yards", "player_receptions", "player_longest_reception"]);
-const RUSHING_MARKETS = new Set(["player_rushing_yards", "player_rush_rec_yards", "player_rushing_attempts"]);
+const RUSHING_MARKETS = new Set(["player_rushing_yards", "player_rush_rec_yards", "player_rushing_attempts", "player_longest_rush"]);
 const TD_SCORER_MARKETS = new Set(["player_anytime_touchdown", "first_touchdown_scorer", "last_touchdown_scorer"]);
 const GAME_LINES_MARKETS = new Set(["moneyline", "point_spread", "total_points"]);
+// Same canonical strings lib/sportsgameodds/categorize.ts already established for these two
+// categories -- reused, not reinvented, so federation merges both vendors' real prices into
+// one Kicking/Defense category instead of two parallel, never-merging ones.
+const KICKING_MARKETS = new Set(["player_kicking_points", "player_field_goals_made", "player_extra_points_made"]);
+const DEFENSE_MARKETS = new Set(["player_total_tackles", "player_assisted_tackles"]);
 
 function categorizeMarketType(marketType: string): ResearchCategoryKey {
   if (GAME_LINES_MARKETS.has(marketType)) return "game_lines";
@@ -87,6 +123,8 @@ function categorizeMarketType(marketType: string): ResearchCategoryKey {
   if (PASSING_MARKETS.has(marketType)) return "passing";
   if (RECEIVING_MARKETS.has(marketType)) return "receiving";
   if (RUSHING_MARKETS.has(marketType)) return "rushing";
+  if (KICKING_MARKETS.has(marketType)) return "kicking";
+  if (DEFENSE_MARKETS.has(marketType)) return "defense";
   return "uncategorized";
 }
 

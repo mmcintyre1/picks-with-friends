@@ -146,7 +146,7 @@ function selectionsForOdd(
   if (!side) return [];
 
   const results: ResearchSelection[] = [];
-  for (const [sportsbook, entry] of Object.entries(odd.byBookmaker)) {
+  for (const [sportsbook, entry] of Object.entries(odd.byBookmaker ?? {})) {
     if (entry.available) {
       const price = parseAmerican(entry.odds);
       if (price !== null) {

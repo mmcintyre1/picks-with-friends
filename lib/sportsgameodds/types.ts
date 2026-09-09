@@ -36,7 +36,11 @@ export type SportsGameOddsOdd = {
   betTypeID: string; // "ou" | "ml" | "sp" | "yn" confirmed real
   sideID: string; // "over" | "under" | "home" | "away" | "yes" confirmed real
   playerID?: string; // present on player-prop odds only
-  byBookmaker: Record<string, SportsGameOddsBookmakerEntry>;
+  // Missing/null for a real, confirmed case: an odd SportsGameOdds tracks in its own catalog
+  // but that no book in our free-tier 2-book allotment has actually priced yet (confirmed
+  // real via a live crash on this exact field for a real current event) -- not every
+  // tracked odd has real pricing behind it.
+  byBookmaker?: Record<string, SportsGameOddsBookmakerEntry>;
 };
 
 export type SportsGameOddsTeam = {

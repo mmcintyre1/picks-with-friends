@@ -161,6 +161,64 @@ describe("buildResearchGame -- TD scorer markets", () => {
   });
 });
 
+describe("buildResearchGame -- Kicking and Defense", () => {
+  it("maps all three real Kicking market_keys to the kicking category, reusing SportsGameOdds' own canonical strings", () => {
+    const game = buildResearchGame(
+      "evt-1",
+      data(null, [
+        prop({ market_key: "player_kicking_points", player: "Andy Borregales", line: 6.5, over_price: -121, under_price: -108 }),
+        prop({ market_key: "player_field_goals_made", player: "Andy Borregales", line: 1.5, over_price: -116, under_price: -110 }),
+        prop({ market_key: "player_extra_points_made", player: "Andy Borregales", line: 1.5, over_price: -169, under_price: 132 }),
+      ]),
+    )!;
+    const kicking = game.categories.find((c) => c.key === "kicking")!;
+    expect(kicking).toBeDefined();
+    expect(kicking.marketGroups.map((g) => g.marketType).sort()).toEqual(
+      ["player_extra_points_made", "player_field_goals_made", "player_kicking_points"].sort(),
+    );
+  });
+
+  it("maps player_tackles (real base key, no total_ prefix) to player_total_tackles under defense", () => {
+    const game = buildResearchGame(
+      "evt-1",
+      data(null, [prop({ market_key: "player_tackles_milestones_5_or_more", player: "Robert Spillane", line: 5, over_price: 150, under_price: null })]),
+    )!;
+    const defense = game.categories.find((c) => c.key === "defense")!;
+    const group = defense.marketGroups.find((g) => g.marketType === "player_total_tackles")!;
+    expect(group).toBeDefined();
+  });
+
+  it("maps player_tackles_assists to player_assisted_tackles under defense", () => {
+    const game = buildResearchGame(
+      "evt-1",
+      data(null, [prop({ market_key: "player_tackles_assists", player: "Robert Spillane", line: 2.5, over_price: -110, under_price: -110 })]),
+    )!;
+    const defense = game.categories.find((c) => c.key === "defense")!;
+    const group = defense.marketGroups.find((g) => g.marketType === "player_assisted_tackles")!;
+    expect(group.selections).toHaveLength(2);
+  });
+
+  it("maps player_longest_completion under passing and player_longest_rush under rushing", () => {
+    const game = buildResearchGame(
+      "evt-1",
+      data(null, [
+        prop({ market_key: "player_longest_completion", player: "Drake Maye", line: 34.5, over_price: -110, under_price: -110 }),
+        prop({ market_key: "player_longest_rush", player: "Rhamondre Stevenson", line: 14.5, over_price: -115, under_price: -105 }),
+      ]),
+    )!;
+    expect(game.categories.find((c) => c.key === "passing")!.marketGroups.find((g) => g.marketType === "player_longest_completion")).toBeDefined();
+    expect(game.categories.find((c) => c.key === "rushing")!.marketGroups.find((g) => g.marketType === "player_longest_rush")).toBeDefined();
+  });
+
+  it("still drops player_sacks -- real, confirmed live, but no established canonical label yet", () => {
+    const game = buildResearchGame(
+      "evt-1",
+      data(null, [prop({ market_key: "player_sacks_milestones_1_or_more", player: "Robert Spillane", line: 1, over_price: 200, under_price: null })]),
+    );
+    expect(game).toBeNull();
+  });
+});
+
 describe("buildResearchGame -- deliberately dropped market shapes", () => {
   it("drops player_total_touchdowns (fake 'player' field is actually a matchup string)", () => {
     const game = buildResearchGame(
