@@ -70,17 +70,36 @@ function isFallbackWorthy(error: unknown): boolean {
   return false;
 }
 
+// Keeps a real game with an unconfirmed kickoff time (commenceTime: null -- see
+// ResearchGameSummary's own comment) rather than dropping it just because we can't judge
+// it, and drops a real game whose confirmed kickoff has already passed -- this app only
+// ever shows pregame lines (no live/in-play odds support at all), so a game past kickoff
+// has nothing meaningful left to browse here regardless of whether it's still actually in
+// progress or has fully finished; a vendor's own schedule feed doesn't reliably drop a game
+// from its list the moment it starts, confirmed real (a friend reported still seeing
+// already-started games in the browse list).
+function isUpcoming(game: ResearchGameSummary): boolean {
+  if (game.commenceTime === null) return true;
+  return new Date(game.commenceTime).getTime() > Date.now();
+}
+
 // Cheap schedule discovery -- tries providers in PROVIDER_ORDER, falling back to the next on
 // a real failure (not a missing configuration). ResearchBrowser calls this once to list real
 // games, with no odds attached yet; odds for a specific game are only fetched once the user
 // drills in (getNflGameOdds below). Not federated (merged) itself -- the real value of
 // federation is more MARKETS per game, and NFL schedules are already nearly identical across
 // vendors, so there's little to gain merging game *lists* the way there is merging odds.
+//
+// isUpcoming is applied here, not inside fetchSchedule() itself -- resolveOnProvider() below
+// also calls fetchSchedule() to re-find an already-open game on a second federated provider,
+// and that lookup must never be time-filtered: a game the user is actively viewing can kick
+// off while they're still looking at it, and federation should keep working for it, not
+// start silently dropping providers just because kickoff passed mid-view.
 export async function getNflSchedule(): Promise<{ games: ResearchGameSummary[] } | { error: string }> {
   let lastError: unknown;
   for (const source of PROVIDER_ORDER) {
     try {
-      return { games: await fetchSchedule(source) };
+      return { games: (await fetchSchedule(source)).filter(isUpcoming) };
     } catch (error) {
       // Logged, not just turned into a generic user-facing string -- describeError()
       // deliberately collapses every real failure into one of three short messages, which
