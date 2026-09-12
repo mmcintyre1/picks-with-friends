@@ -193,7 +193,7 @@ export default async function LeaderboardPage() {
                 <tr className="text-muted">
                   <th className="pt-2 pr-4 pl-3" />
                   <th
-                    colSpan={4}
+                    colSpan={5}
                     className="pt-2 pb-1 text-center text-[10px] font-medium uppercase tracking-wide text-subtle"
                   >
                     Record
@@ -213,10 +213,13 @@ export default async function LeaderboardPage() {
                 </tr>
                 <tr className="border-b border-border text-muted">
                   <th className="pb-2 pr-4 pl-3 text-left">Name</th>
-                  <th className="pb-2 pr-3 text-center" title="Money bag — clean wins">
+                  <th className="pb-2 pr-3 text-right" title="Real overall record -- includes lone wins/losses (the Bonus column badges), not just the 'clean' ones">
+                    W-L
+                  </th>
+                  <th className="pb-2 pr-3 text-center" title="Money bag — a clean win (not the lone winner in a losing parlay)">
                     💰
                   </th>
-                  <th className="pb-2 pr-3 text-center" title="Poo — losses">
+                  <th className="pb-2 pr-3 text-center" title="Poo — a clean loss (not the lone loser in a winning parlay)">
                     💩
                   </th>
                   <th className="pb-2 pr-3 text-center" title="Push — tied, stake back for free">
@@ -250,6 +253,9 @@ export default async function LeaderboardPage() {
                   <tr key={row.name} className={i % 2 === 1 ? "bg-white/[0.02]" : undefined}>
                     <td className="py-2 pr-4 pl-3 font-medium">
                       <PlayerName name={row.name} flair={row.flair} />
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums">
+                      {row.wins}-{row.losses}
                     </td>
                     <td className="py-2 pr-3 text-center text-win tabular-nums">{row.moneybag}</td>
                     <td className="py-2 pr-3 text-center text-loss tabular-nums">{row.poo}</td>

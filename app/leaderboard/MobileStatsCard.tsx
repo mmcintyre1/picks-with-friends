@@ -12,6 +12,13 @@ import { StreakPill } from "./streakPill";
 export type LeaderboardRow = {
   name: string;
   flair: string | null;
+  // The real overall tally -- every non-push leg is exactly one of the four badges below
+  // (a lone win/loss is still a real win/loss, just a differently-flavored one), so wins
+  // and losses here already equal moneybag+cross and poo+toilet respectively. Kept as its
+  // own real field (not recomputed from the badge counts in the UI) since it's what this
+  // card's own "at a glance" headline number needs to be.
+  wins: number;
+  losses: number;
   moneybag: number;
   poo: number;
   toilet: number;
@@ -41,7 +48,7 @@ export function MobileStatsCard({ row }: { row: LeaderboardRow }) {
         </span>
         <span className="flex items-center gap-2">
           <span className="text-xs tabular-nums text-muted">
-            {row.moneybag}-{row.poo}
+            {row.wins}-{row.losses}
           </span>
           {row.streak ? (
             <StreakPill count={row.streak.count} isWin={row.streak.result === LegResult.WIN} />
