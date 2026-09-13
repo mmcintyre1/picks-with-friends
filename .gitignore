@@ -50,3 +50,6 @@ skills-lock.json
 
 # scratch space for throwaway verification scripts/screenshots -- never real project source
 /tmp/
+
+# Local Netlify folder
+.netlify
