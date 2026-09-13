@@ -379,5 +379,8 @@ export function createMockParlayApiProvider(): ParlayApiProvider {
       if (eventId !== EVENT_ID) return null;
       return { homeTeam: HOME_TEAM, awayTeam: AWAY_TEAM, commenceTime: COMMENCE_TIME, odds: odds(), props: PROPS };
     },
+    async listNflGameLines(): Promise<ParlayApiGameOdds[]> {
+      return [odds()];
+    },
   };
 }

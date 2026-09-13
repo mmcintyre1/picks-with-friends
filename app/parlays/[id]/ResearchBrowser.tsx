@@ -5,10 +5,11 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatGameTime } from "@/lib/formatGameTime";
-import { getNflGameOdds, getNflSchedule } from "@/lib/research/actions";
+import { getNflGameOdds, getNflSchedule, getNflScheduleGameLines } from "@/lib/research/actions";
 import type { PropPick, ResearchGame, ResearchGameSummary, TeamBetPick } from "@/lib/research/types";
 
 import { ResearchGameDetail } from "./ResearchGameDetail";
+import { ResearchNumberedGrid } from "./ResearchNumberedGrid";
 
 // null for a real game whose kickoff time isn't confirmed yet (see ResearchGameSummary's own
 // comment) -- grouped under one real "Time TBD" bucket rather than crashing on `new
@@ -39,15 +40,19 @@ type OddsState = "loading" | ResearchGame | string; // string = error message
 
 // DraftKings-style research browser for NFL, backed by lib/research/actions.ts's
 // multi-provider layer -- ParlayAPI is the schedule's basis, and a specific game's odds are
-// FEDERATED across ParlayAPI/SportsGameOdds/SharpAPI (merged, not just failed-over to) once
-// expanded, see the plan file's Phase 2.20/2.21 sections; Phase 2.14 originally built this
-// against SharpAPI alone. Two real, separate entry points, not one broad fetch: a cheap
-// schedule list (real games only, no odds attached) renders immediately, and a specific
-// game's full board (Game Lines + every prop category, one unified tab bar -- see
-// ResearchGameDetail) is only fetched once that game is expanded, the same "browse free,
-// spend on what you click" shape ScheduleBrowser/the old LiveOddsBrowser already used.
-// Deliberately NOT a live-odds *entry point* on its own: every tap still lands in
-// PickLegForm's normal editable slip for a final review before confirming.
+// FEDERATED across ParlayAPI/SportsGameOdds/SharpAPI (merged, not just failed-over to); Phase
+// 2.14 originally built this against SharpAPI alone. Three real, separate fetches, not one
+// broad call: a cheap schedule list (real games, no odds -- getNflSchedule) renders
+// immediately; a whole-slate Game Lines board (Phase 2.23, getNflScheduleGameLines) is
+// fetched right behind it and rendered inline per game -- real usage feedback found gating
+// even Spread/Total/Moneyline behind a per-game tap made picking "a bunch of clicking" versus
+// DraftKings' own home screen, which shows Game Lines for every game up front; the fuller
+// per-game board (every prop category, one unified tab bar -- see ResearchGameDetail) stays
+// gated behind an explicit "More props" tap, the same "browse free, spend on what you click"
+// shape ScheduleBrowser/the old LiveOddsBrowser already used, since props/alt-lines are a
+// real per-provider federated fetch each provider bears its own cost for. Deliberately NOT a
+// live-odds *entry point* on its own: every tap still lands in PickLegForm's normal editable
+// slip for a final review before confirming.
 export function ResearchBrowser({
   onSelectTeamBet,
   onSelectProp,
@@ -59,13 +64,24 @@ export function ResearchBrowser({
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [oddsById, setOddsById] = useState<Record<string, OddsState>>({});
+  // Whole-slate Game Lines, fetched once right after the schedule resolves -- null while
+  // still loading (every card shows a "Loading lines…" placeholder), an empty object if the
+  // fetch came back with nothing usable (every card falls back to "More props" only, exactly
+  // today's behavior). Never blocks the schedule list itself from rendering.
+  const [gameLinesByGame, setGameLinesByGame] = useState<Record<string, ResearchGame> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     getNflSchedule().then((result) => {
       if (cancelled) return;
-      if ("error" in result) setError(result.error);
-      else setGames(result.games);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      setGames(result.games);
+      getNflScheduleGameLines(result.games).then((gameLines) => {
+        if (!cancelled) setGameLinesByGame(gameLines);
+      });
     });
     return () => {
       cancelled = true;
@@ -105,6 +121,7 @@ export function ResearchBrowser({
             {group.games.map((game) => {
               const expanded = expandedId === game.externalId;
               const odds = oddsById[game.externalId];
+              const gameLinesCategory = gameLinesByGame?.[game.externalId]?.categories.find((c) => c.key === "game_lines");
               return (
                 <Card key={game.externalId} className="flex flex-col gap-2 p-2.5">
                   <div className="flex items-start justify-between gap-2">
@@ -121,6 +138,26 @@ export function ResearchBrowser({
                     <span className="shrink-0 text-xs text-muted">{game.commenceTime ? formatGameTime(game.commenceTime) : "Time TBD"}</span>
                   </div>
 
+                  {/* Eager, DK-style Game Lines board -- fetched once for the whole slate
+                      (see getNflScheduleGameLines) rather than gated behind a per-game tap,
+                      since spread/total/moneyline is "the key" market for most parlay picks.
+                      Falls back to a plain note (never blocking "More props" below) once
+                      loading finishes with nothing usable for this specific game. */}
+                  {gameLinesByGame === null ? (
+                    <p className="text-xs text-muted">Loading lines…</p>
+                  ) : gameLinesCategory ? (
+                    <ResearchNumberedGrid
+                      league="NFL"
+                      homeTeam={game.homeTeam}
+                      awayTeam={game.awayTeam}
+                      externalId={game.externalId}
+                      category={gameLinesCategory}
+                      onSelectTeamBet={onSelectTeamBet}
+                    />
+                  ) : (
+                    <p className="text-xs text-subtle">No lines posted yet.</p>
+                  )}
+
                   <Button
                     type="button"
                     variant="secondary"
@@ -128,7 +165,7 @@ export function ResearchBrowser({
                     className="self-start"
                     onClick={() => toggleExpanded(game)}
                   >
-                    {expanded ? "Hide odds" : "Show odds"}
+                    {expanded ? "Hide props" : "More props"}
                   </Button>
 
                   {expanded && odds === "loading" && <p className="text-xs text-muted">Loading odds…</p>}

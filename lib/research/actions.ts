@@ -1,12 +1,20 @@
 "use server";
 
 import { getParlayApiProvider } from "@/lib/parlayapi";
-import { buildResearchGame as buildParlayApiGame, summarizeSchedule as summarizeParlayApiSchedule } from "@/lib/parlayapi/categorize";
+import {
+  buildGameLinesGames as buildParlayApiGameLinesGames,
+  buildResearchGame as buildParlayApiGame,
+  summarizeSchedule as summarizeParlayApiSchedule,
+} from "@/lib/parlayapi/categorize";
 import { ParlayApiProviderError } from "@/lib/parlayapi/types";
 import { mergeResearchGames } from "@/lib/research/marketUtils";
 import { recordLineSnapshot } from "@/lib/trends/record";
 import { getSharpApiProvider } from "@/lib/sharpapi";
-import { buildResearchGame as buildSharpApiGame, summarizeSchedule as summarizeSharpApiSchedule } from "@/lib/sharpapi/categorize";
+import {
+  buildResearchGame as buildSharpApiGame,
+  groupRowsByGame as buildSharpApiGameLinesGames,
+  summarizeSchedule as summarizeSharpApiSchedule,
+} from "@/lib/sharpapi/categorize";
 import { SharpApiProviderError } from "@/lib/sharpapi/types";
 import { getSportsGameOddsProvider } from "@/lib/sportsgameodds";
 import { buildResearchGame as buildSgoGame, summarizeSchedule as summarizeSgoSchedule } from "@/lib/sportsgameodds/categorize";
@@ -110,6 +118,46 @@ export async function getNflSchedule(): Promise<{ games: ResearchGameSummary[] }
     }
   }
   return { error: describeError(lastError) };
+}
+
+// Whole-slate Game Lines for the schedule browser's eager, DK-style board (see
+// ResearchBrowser.tsx) -- federates the same three providers getNflGameOdds does below, but
+// scoped to ONE bulk call per provider covering every game at once instead of one call per
+// game. SharpAPI's and SportsGameOdds' calls here are the exact same schedule fetch
+// getNflSchedule already makes (durable-cached, so calling it again here is normally a cache
+// hit, not a new network call) -- both already return real priced Game Lines rows/odds that
+// summarizeSchedule/summarizeSgoSchedule simply never read; only ParlayAPI needs a genuinely
+// new bulk call (listNflGameLines, no eventIds filter -- confirmed real: one 3-credit call
+// covers the whole slate). Matched onto the passed-in canonical `schedule` (already resolved
+// by getNflSchedule) by team name, the same teamNamesMatch pattern resolveOnProvider uses
+// below -- a real game with no match from any provider (nothing posted yet) simply has no key
+// in the result, not an error. Returns a plain object, not a Map, since server actions must
+// return serializable values.
+export async function getNflScheduleGameLines(schedule: ResearchGameSummary[]): Promise<Record<string, ResearchGame>> {
+  const results = await Promise.allSettled([
+    getParlayApiProvider().listNflGameLines().then(buildParlayApiGameLinesGames),
+    getSportsGameOddsProvider()
+      .listNflSchedule()
+      .then((events) => events.map(buildSgoGame).filter((g): g is ResearchGame => g !== null)),
+    getSharpApiProvider().listNflSchedule().then(buildSharpApiGameLinesGames),
+  ]);
+
+  results.forEach((r, i) => {
+    if (r.status === "rejected") console.error(`[research] getNflScheduleGameLines: provider ${PROVIDER_ORDER[i]} failed`, r.reason);
+  });
+
+  const perProviderGames = results
+    .filter((r): r is PromiseFulfilledResult<ResearchGame[]> => r.status === "fulfilled")
+    .map((r) => r.value);
+
+  const out: Record<string, ResearchGame> = {};
+  for (const summary of schedule) {
+    const matches = perProviderGames.flatMap((games) =>
+      games.filter((g) => teamNamesMatch(g.homeTeam, summary.homeTeam) && teamNamesMatch(g.awayTeam, summary.awayTeam)),
+    );
+    if (matches.length > 0) out[summary.externalId] = mergeResearchGames(matches);
+  }
+  return out;
 }
 
 // Resolves the same real-world matchup on a given provider by team-name matching, reusing the

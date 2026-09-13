@@ -141,4 +141,10 @@ export type ParlayApiEventData = {
 export interface ParlayApiProvider {
   listNflSchedule(): Promise<ParlayApiEvent[]>;
   getNflEventOdds(eventId: string): Promise<ParlayApiEventData | null>;
+  // Bulk Game Lines (moneyline/spread/total) for the WHOLE slate in one call -- confirmed
+  // real via a live pull (76 real games returned for one 3-credit call) -- the basis for the
+  // schedule browser's eager, DK-style Game Lines board (see lib/research/actions.ts's
+  // getNflScheduleGameLines). Deliberately separate from getNflEventOdds, which is scoped to
+  // one event and also fetches props.
+  listNflGameLines(): Promise<ParlayApiGameOdds[]>;
 }

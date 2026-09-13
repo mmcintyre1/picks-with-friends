@@ -226,6 +226,23 @@ function propSelections(props: ParlayApiProp[]): CategorizedSelection[] {
   return items;
 }
 
+// Whole-slate Game Lines, one ResearchGame per real game in a bulk listNflGameLines() call --
+// reuses gameLinesSelections()/buildResearchGameFromSelections() verbatim (no new
+// categorization rules), the same functions the single-event path above already relies on.
+// Feeds lib/research/actions.ts's getNflScheduleGameLines, the basis for the schedule
+// browser's eager, DK-style Game Lines board.
+export function buildGameLinesGames(rows: ParlayApiGameOdds[]): ResearchGame[] {
+  const games: ResearchGame[] = [];
+  for (const odds of rows) {
+    const game = buildResearchGameFromSelections(
+      { externalId: odds.id, homeTeam: odds.home_team, awayTeam: odds.away_team, commenceTime: odds.commence_time },
+      gameLinesSelections(odds),
+    );
+    if (game) games.push(game);
+  }
+  return games;
+}
+
 export function buildResearchGame(eventId: string, data: ParlayApiEventData | null): ResearchGame | null {
   if (!data) return null;
   const items: CategorizedSelection[] = [

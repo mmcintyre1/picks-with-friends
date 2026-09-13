@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { Side } from "@/app/generated/prisma/enums";
 
-import { buildResearchGame, summarizeSchedule } from "./categorize";
+import { buildGameLinesGames, buildResearchGame, summarizeSchedule } from "./categorize";
 import type { ParlayApiEvent, ParlayApiEventData, ParlayApiGameOdds, ParlayApiProp } from "./types";
 
 const HOME = "Seattle Seahawks";
@@ -258,5 +258,54 @@ describe("summarizeSchedule", () => {
     expect(summaries).toHaveLength(1);
     expect(summaries[0].source).toBe("parlayapi");
     expect(summaries[0].externalId).toBe("evt-1");
+  });
+});
+
+describe("buildGameLinesGames -- whole-slate bulk Game Lines (Phase 2.23)", () => {
+  it("builds one ResearchGame per real entry, reusing the same game_lines mapping as buildResearchGame", () => {
+    const games = buildGameLinesGames([
+      odds({
+        id: "evt-1",
+        bookmakers: [
+          {
+            key: "draftkings",
+            title: "DraftKings",
+            last_update: "",
+            markets: [{ key: "h2h", last_update: "", outcomes: [{ name: HOME, price: -150 }, { name: AWAY, price: 130 }] }],
+          },
+        ],
+      }),
+      odds({
+        id: "evt-2",
+        home_team: "Buffalo Bills",
+        away_team: "Miami Dolphins",
+        bookmakers: [
+          {
+            key: "fanduel",
+            title: "FanDuel",
+            last_update: "",
+            markets: [{ key: "totals", last_update: "", outcomes: [{ name: "Over", price: -110, point: 45.5 }, { name: "Under", price: -110, point: 45.5 }] }],
+          },
+        ],
+      }),
+    ]);
+
+    expect(games).toHaveLength(2);
+    expect(games[0].externalId).toBe("evt-1");
+    const moneyline = games[0].categories[0].marketGroups.find((g) => g.marketType === "moneyline");
+    expect(moneyline?.selections.find((s) => s.side === Side.HOME)?.priceAmerican).toBe(-150);
+
+    expect(games[1].externalId).toBe("evt-2");
+    const total = games[1].categories[0].marketGroups.find((g) => g.marketType === "total_points");
+    expect(total?.selections.find((s) => s.side === Side.OVER)?.line).toBe(45.5);
+  });
+
+  it("drops an entry with no bookmakers/outcomes at all (nothing pickable, matches buildResearchGameFromSelections' own null rule)", () => {
+    const games = buildGameLinesGames([odds({ bookmakers: [] })]);
+    expect(games).toEqual([]);
+  });
+
+  it("returns an empty array for an empty bulk response", () => {
+    expect(buildGameLinesGames([])).toEqual([]);
   });
 });

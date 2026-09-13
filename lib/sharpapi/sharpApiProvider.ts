@@ -7,14 +7,18 @@ const BASE_URL = "https://api.sharpapi.io/api/v1/odds";
 const DEFAULT_TTL_SECONDS = 90; // anchored below to the live data_delay_seconds once known
 const CACHE_STORE = "sharpapi";
 
-// Confirmed real page sizes: schedule discovery (market=moneyline) surfaced 14 distinct
-// games on a single 50-row page -- 4 pages has real headroom for a full week's slate.
+// Confirmed real page sizes: schedule discovery originally queried market=moneyline alone
+// (14 distinct games on a single 50-row page). Phase 2.23 widened the schedule query to also
+// carry point_spread/total_points (feeding the schedule browser's eager Game Lines board),
+// which a real capture confirmed needs 7 pages / 300 rows for 25 real games -- 8 pages gives
+// real headroom above that without being unbounded, mirroring EVENT_MAX_PAGES' own
+// confirmed-then-padded derivation below.
 // A single game's full board (every segment/prop, including alternate lines) is much
 // bigger than first assumed: one real event needed 9 pages (406 rows) once alternate
 // lines/segments/TD-scorer markets are all included, confirmed via a real deep pull. 20
 // gives real headroom above that without being unbounded -- see fetchAllPages' rate-limit
 // handling below for what happens if that's still not enough on a busier slate.
-const SCHEDULE_MAX_PAGES = 4;
+const SCHEDULE_MAX_PAGES = 8;
 const EVENT_MAX_PAGES = 20;
 
 async function fetchPage(url: string, apiKey: string): Promise<SharpApiResponse> {
@@ -74,11 +78,15 @@ function requireApiKey(): string {
 // games only, and a per-event fetch for one game's full board once the user drills into it.
 export function createSharpApiProvider(): SharpApiProvider {
   return {
+    // Widened from market=moneyline alone (Phase 2.23) to also carry point_spread/
+    // total_points -- the identical already-happening schedule call now doubles as the real
+    // source for the schedule browser's eager Game Lines board (groupRowsByGame, below,
+    // already folds any market types present into per-game categories with zero changes).
     async listNflSchedule(): Promise<SharpApiRow[]> {
       return getOrSetCached(CACHE_STORE, "schedule", async () => {
         const apiKey = requireApiKey();
         const { rows, ttlSeconds } = await fetchAllPages(
-          `${BASE_URL}?league=nfl&market=moneyline&sportsbook=draftkings,fanduel`,
+          `${BASE_URL}?league=nfl&market=moneyline,point_spread,total_points&sportsbook=draftkings,fanduel`,
           apiKey,
           SCHEDULE_MAX_PAGES,
         );

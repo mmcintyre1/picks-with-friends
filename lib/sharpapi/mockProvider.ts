@@ -691,8 +691,11 @@ const ROWS: SharpApiRow[] = [
 // full per-event fetch, rather than one dump of everything.
 export function createMockSharpApiProvider(): SharpApiProvider {
   return {
+    // Widened (Phase 2.23) to match the real schedule query's own market=moneyline,
+    // point_spread,total_points -- so mock-mode dev exercises the same Game Lines rows
+    // groupRowsByGame folds into the schedule browser's eager board.
     async listNflSchedule(): Promise<SharpApiRow[]> {
-      return ROWS.filter((r) => r.market_type === "moneyline");
+      return ROWS.filter((r) => r.market_type === "moneyline" || r.market_type === "point_spread" || r.market_type === "total_points");
     },
     async getNflEventOdds(eventId: string): Promise<SharpApiRow[]> {
       return ROWS.filter((r) => r.event_id === eventId);

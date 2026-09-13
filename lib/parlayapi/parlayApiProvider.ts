@@ -54,6 +54,18 @@ export function createParlayApiProvider(): ParlayApiProvider {
       });
     },
 
+    // Whole-slate Game Lines in one bulk call -- no eventIds filter, confirmed real (76 games
+    // for one 3-credit call). Cached separately from the per-event cache above under its own
+    // key so the two don't collide or evict each other.
+    async listNflGameLines(): Promise<ParlayApiGameOdds[]> {
+      return getOrSetCached(CACHE_STORE, "gamelines", async () => {
+        const data = await parlayApiFetch<ParlayApiGameOdds[]>(
+          `/sports/${SPORT_KEY}/odds?regions=us&markets=h2h,spreads,totals&oddsFormat=american&bookmakers=${BOOKMAKERS}`,
+        );
+        return { data, ttlSeconds: DEFAULT_TTL_SECONDS };
+      });
+    },
+
     async getNflEventOdds(eventId: string): Promise<ParlayApiEventData | null> {
       return getOrSetCached(CACHE_STORE, `event:${eventId}`, async () => {
         const [oddsList, props] = await Promise.all([
