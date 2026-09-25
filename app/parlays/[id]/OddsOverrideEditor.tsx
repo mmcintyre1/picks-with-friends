@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { useIsIOS } from "@/lib/useIsIOS";
+import { SignedNumberInput } from "@/components/ui/SignedNumberInput";
 
 import { setOddsOverride } from "../actions";
 
@@ -20,9 +20,6 @@ export function OddsOverrideEditor({
   const [value, setValue] = useState(oddsOverride?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  // iOS's numeric keyboard has no minus key, breaking negative-odds entry -- falls back
-  // to a plain keyboard there specifically, not for every platform.
-  const isIOS = useIsIOS();
 
   function save(next: string) {
     startTransition(async () => {
@@ -60,16 +57,16 @@ export function OddsOverrideEditor({
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
-      <input
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="e.g. -150"
-        autoComplete="off"
-        // American odds are routinely negative -- iOS's numeric keypad has no minus key,
-        // so iOS falls back to a plain keyboard; other platforms keep the numeric one.
-        inputMode={isIOS ? "text" : "numeric"}
-        className="w-24 rounded-md border border-border bg-card px-2 py-1 text-sm text-foreground"
-      />
+      <div className="flex items-stretch divide-x divide-border overflow-hidden rounded-md border border-border bg-card">
+        <SignedNumberInput
+          label="Combined odds"
+          value={value}
+          onChange={setValue}
+          placeholder="e.g. 150"
+          toggleClassName="flex w-9 shrink-0 items-center justify-center bg-transparent font-display text-lg leading-none text-accent hover:bg-white/[0.05] focus:outline-none"
+          inputClassName="w-24 bg-transparent px-2 py-1 text-sm text-foreground focus:outline-none"
+        />
+      </div>
       <Button type="button" size="sm" disabled={pending} onClick={() => save(value)}>
         {pending ? "Saving…" : "Save"}
       </Button>

@@ -20,7 +20,11 @@ export async function getScheduleGames(league: string): Promise<{ games: Schedul
   const commenceTo = new Date(commenceFrom.getTime() + UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
   try {
-    const games = await getScheduleProvider().listUpcomingGames(league, { commenceFrom, commenceTo });
+    const scheduled = await getScheduleProvider().listUpcomingGames(league, { commenceFrom, commenceTo });
+    // The provider returns whole days (it has to fetch them one at a time), including games
+    // that already kicked off earlier today -- nothing left to pick a pregame leg on there.
+    const now = Date.now();
+    const games = scheduled.filter((g) => new Date(g.commenceTime).getTime() > now);
     return { games };
   } catch (error) {
     return { error: describeError(error) };

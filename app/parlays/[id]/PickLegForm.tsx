@@ -9,13 +9,13 @@ import { Card } from "@/components/ui/Card";
 import { IconButton } from "@/components/ui/IconButton";
 import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { SignedNumberInput } from "@/components/ui/SignedNumberInput";
 import { RotateCcwIcon } from "@/components/ui/icons";
 import { legSummary } from "@/lib/legSummary";
 import { getRostersForGame, type GameRosterPlayer } from "@/lib/rosters/actions";
 import { findTeamIdByName, isRosterLeague, LEAGUE_TEAMS, PICKABLE_LEAGUES, teamLogoUrl } from "@/lib/rosters/leagues";
 import { isYesNoPropType, propTypesForPosition } from "@/lib/rosters/propTypes";
 import type { PropPick, TeamBetPick } from "@/lib/research/types";
-import { useIsIOS } from "@/lib/useIsIOS";
 
 import { pickLeg } from "../actions";
 import { PickBreadcrumb } from "./PickBreadcrumb";
@@ -169,6 +169,25 @@ const hasBetDetails = (slip: Slip) =>
     ? Boolean(slip.price.trim() || slip.line.trim())
     : Boolean(slip.playerName.trim() || slip.propType.trim() || slip.price.trim() || slip.line.trim());
 
+// Whether this slip's bet carries a numeric line at all (moneyline and yes/no props don't).
+const slipHasLine = (slip: Slip) => (slip.kind === "team" ? slip.market !== Market.MONEYLINE : slip.propShape === "overUnder");
+
+// Describes the bet WITHOUT its line/odds -- those are the editable fields next to it in the
+// inline edit card, so showing a stale number in the label would contradict what's typed.
+function betLabelWithoutLine(slip: Slip): string {
+  const overUnder = slip.side === Side.OVER ? "Over" : "Under";
+  if (slip.kind === "prop") {
+    const who = `${slip.playerName} (${slip.propType})`;
+    return slip.propShape === "yesNo" ? `${who} — ${slip.side === Side.YES ? "Yes" : "No"}` : `${who} ${overUnder}`;
+  }
+  const sideTeam = slip.side === Side.HOME ? slip.homeTeam : slip.awayTeam;
+  if (slip.market === Market.MONEYLINE) return `${sideTeam} ML`;
+  if (slip.market === Market.SPREAD) return `${sideTeam} spread`;
+  if (slip.market === Market.TOTAL) return `${overUnder} (game total)`;
+  const totalTeam = slip.teamSide === TeamSide.HOME ? slip.homeTeam : slip.awayTeam;
+  return `${totalTeam} team total ${overUnder}`;
+}
+
 export function PickLegForm({
   parlayId,
   initial,
@@ -191,9 +210,13 @@ export function PickLegForm({
   // separate from `slip`, so tapping a price never touches `hasMatchup`/`showSlip` at all
   // and the browse view (whichever game/tab/scroll position it was in) never moves.
   const [pendingResearchPick, setPendingResearchPick] = useState<PendingResearchPick | null>(null);
-  // iOS's numeric/decimal keyboards have no minus key, breaking negative odds/spread entry
-  // -- falls back to a plain keyboard there specifically, not for every platform.
-  const isIOS = useIsIOS();
+  // The odds shown in that confirm Modal, editable -- a book's real price often differs from
+  // what a vendor feed reported, and the modal used to be read-only.
+  const [researchPrice, setResearchPrice] = useState("");
+  // Editing an existing pick starts as a compact inline editor for just the line and odds
+  // (the common case: a line moved) -- "Change pick instead" leaves it for the full flow,
+  // starting over from picking a game.
+  const [inlineEdit, setInlineEdit] = useState(Boolean(initial));
 
   // The league this specific pick is actually for -- always the Sport selector's choice.
   const effectiveLeague = sport === "other" ? "" : sport;
@@ -314,11 +337,21 @@ export function PickLegForm({
   // already -- these open the confirm Modal (see pendingResearchPick above) rather than
   // touching `slip`/`hasMatchup` at all, so the browse view never moves.
   function onSelectResearchTeamBet(pick: TeamBetPick) {
+    setResearchPrice(pick.price.toString());
     setPendingResearchPick({ kind: "team", pick });
   }
 
   function onSelectResearchProp(pick: PropPick) {
+    setResearchPrice(pick.price.toString());
     setPendingResearchPick({ kind: "prop", pick });
+  }
+
+  // Leaves the inline line/odds editor for the full flow, from the top -- the leg itself is
+  // only replaced once a new pick is actually confirmed.
+  function startOver() {
+    setError(null);
+    setInlineEdit(false);
+    changeGame();
   }
 
   // Confirms a research-sourced pick directly from the pending pick's own real data --
@@ -337,7 +370,7 @@ export function PickLegForm({
         side: pick.side,
         teamSide: kind === "team" ? (pick.teamSide ?? null) : null,
         line: pick.line?.toString() ?? "",
-        price: pick.price.toString(),
+        price: researchPrice,
         playerName: kind === "prop" ? pick.playerName : "",
         propType: kind === "prop" ? pick.propType : "",
         externalId: pick.externalId,
@@ -397,20 +430,73 @@ export function PickLegForm({
 
   // Reused wherever price needs to stand alone (moneyline, yes/no props) vs. paired with a
   // line (spread/total, over/under props) -- one definition instead of four copies.
+  // American odds are routinely negative, and phone numeric keypads often have no minus
+  // key -- a +/- toggle next to a plain numpad input works the same on every device.
   const priceField = (
-    <input
+    <SignedNumberInput
+      label="Odds"
       value={slip.price}
-      onChange={(e) => setSlip({ ...slip, price: e.target.value })}
-      placeholder="Odds (e.g. -110)"
+      onChange={(price) => setSlip({ ...slip, price })}
+      placeholder="Odds (e.g. 110)"
+      defaultNegative
       required
-      autoComplete="off"
-      // American odds are routinely negative (favorites) -- iOS's numeric keypad has no
-      // minus key at all, so iOS falls back to a plain keyboard; other platforms keep the
-      // numeric one.
-      inputMode={isIOS ? "text" : "numeric"}
-      className={groupFieldClass}
+      inputClassName={groupFieldClass}
     />
   );
+
+  // Spread lines are signed (-3.5 for a favorite); every other line (totals, team totals,
+  // prop over/under) is always positive, so a plain decimal keypad is enough there.
+  const lineField =
+    slip.kind === "team" && slip.market === Market.SPREAD ? (
+      <SignedNumberInput
+        label="Line"
+        value={slip.line}
+        onChange={(line) => setSlip({ ...slip, line })}
+        placeholder="Line (e.g. 3.5)"
+        decimal
+        defaultNegative
+        inputClassName={groupFieldClass}
+      />
+    ) : (
+      <input
+        value={slip.line}
+        onChange={(e) => setSlip({ ...slip, line: e.target.value })}
+        placeholder="Line (e.g. 44.5)"
+        autoComplete="off"
+        inputMode="decimal"
+        className={groupFieldClass}
+      />
+    );
+
+  if (inlineEdit) {
+    return (
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        <Card className="flex flex-col gap-3 border-border-strong p-4 shadow-xl shadow-black/50">
+          <div className="flex items-center justify-center gap-2">
+            <TeamLabel name={slip.awayTeam} logo={awayLogo} league={effectiveLeague} />
+            <span className="shrink-0 text-xs text-subtle">@</span>
+            <TeamLabel name={slip.homeTeam} logo={homeLogo} league={effectiveLeague} />
+          </div>
+          <p className="text-center text-base font-medium">{betLabelWithoutLine(slip)}</p>
+          <div className={fieldListClass}>
+            <div className={fieldRowClass}>
+              {slipHasLine(slip) && lineField}
+              {priceField}
+            </div>
+          </div>
+          {error && <p className="text-xs text-loss">{error}</p>}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Update pick"}
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={startOver} disabled={pending}>
+              Change pick instead
+            </Button>
+          </div>
+        </Card>
+      </form>
+    );
+  }
 
   // The slip doesn't exist yet until there's actually a matchup to fill it in for --
   // browsing and typing a pick used to render simultaneously (a small sticky slip squeezed
@@ -572,64 +658,25 @@ export function PickLegForm({
               )}
 
               {slip.kind === "team" ? (
-                // A research pick already carries a real price -- re-showing the
-                // numberless TeamMarketGrid pre-selected to match read as "the same board
-                // rendered twice" directly under where the priced grid just was. A
-                // ScheduleBrowser bare-matchup pick (or manual entry) has no price yet, so
-                // it still needs the editable grid + inputs to set one.
-                entryMode !== "manual" && slip.price ? (
+                <>
+                  <TeamMarketGrid
+                    league={effectiveLeague}
+                    awayTeam={slip.awayTeam}
+                    homeTeam={slip.homeTeam}
+                    awayLogo={awayLogo}
+                    homeLogo={homeLogo}
+                    market={slip.market}
+                    side={slip.side}
+                    teamSide={slip.teamSide}
+                    onSelect={(market, side, teamSide) => setSlip({ ...slip, market, side, teamSide: teamSide ?? null })}
+                  />
                   <div className={fieldListClass}>
-                    <div className="flex items-center justify-between gap-2 px-3 py-3">
-                      <span className="text-sm font-medium">
-                        {legSummary(
-                          {
-                            market: slip.market,
-                            side: slip.side,
-                            teamSide: slip.teamSide,
-                            lineAtPick: slip.line ? Number(slip.line) : null,
-                          },
-                          { homeTeam: slip.homeTeam, awayTeam: slip.awayTeam },
-                        )}
-                      </span>
-                      <span className="font-display text-sm tracking-wide text-accent tabular-nums">
-                        {Number(slip.price) > 0 ? "+" : ""}
-                        {slip.price}
-                      </span>
+                    <div className={fieldRowClass}>
+                      {slip.market !== Market.MONEYLINE && lineField}
+                      {priceField}
                     </div>
                   </div>
-                ) : (
-                  <>
-                    <TeamMarketGrid
-                      league={effectiveLeague}
-                      awayTeam={slip.awayTeam}
-                      homeTeam={slip.homeTeam}
-                      awayLogo={awayLogo}
-                      homeLogo={homeLogo}
-                      market={slip.market}
-                      side={slip.side}
-                      teamSide={slip.teamSide}
-                      onSelect={(market, side, teamSide) => setSlip({ ...slip, market, side, teamSide: teamSide ?? null })}
-                    />
-                    <div className={fieldListClass}>
-                      <div className={fieldRowClass}>
-                        {slip.market !== Market.MONEYLINE && (
-                          <input
-                            value={slip.line}
-                            onChange={(e) => setSlip({ ...slip, line: e.target.value })}
-                            placeholder="Line (e.g. -3.5)"
-                            autoComplete="off"
-                            // Shared between SPREAD (routinely negative, e.g. -3.5 for a
-                            // favorite) and TOTAL (always positive) -- iOS's decimal keypad
-                            // has no minus key, so iOS falls back to a plain keyboard here.
-                            inputMode={isIOS ? "text" : "decimal"}
-                            className={groupFieldClass}
-                          />
-                        )}
-                        {priceField}
-                      </div>
-                    </div>
-                  </>
-                )
+                </>
               ) : (
                 <>
                   {rosterSupported ? (
@@ -704,14 +751,7 @@ export function PickLegForm({
                             <option value={Side.OVER}>Over</option>
                             <option value={Side.UNDER}>Under</option>
                           </select>
-                          <input
-                            value={slip.line}
-                            onChange={(e) => setSlip({ ...slip, line: e.target.value })}
-                            placeholder="Line (e.g. 250.5)"
-                            autoComplete="off"
-                            inputMode="decimal"
-                            className={groupFieldClass}
-                          />
+                          {lineField}
                         </div>
                         <div className={fieldRowClass}>{priceField}</div>
                       </>
@@ -784,10 +824,20 @@ export function PickLegForm({
                   { homeTeam: pendingResearchPick.pick.homeTeam, awayTeam: pendingResearchPick.pick.awayTeam },
                 )}
               </span>
-              <span className="font-display text-base tracking-wide text-accent tabular-nums">
-                {pendingResearchPick.pick.price > 0 ? "+" : ""}
-                {pendingResearchPick.pick.price}
-              </span>
+            </div>
+            {/* Editable -- a vendor's price is a starting point, and the book you're
+                actually betting at may show a different number. */}
+            <div className={`${fieldListClass} mt-3`}>
+              <div className={fieldRowClass}>
+                <SignedNumberInput
+                  label="Odds"
+                  value={researchPrice}
+                  onChange={setResearchPrice}
+                  placeholder="Odds"
+                  required
+                  inputClassName={groupFieldClass}
+                />
+              </div>
             </div>
             {error && <p className="mt-2 text-xs text-loss">{error}</p>}
             <div className="mt-4 flex justify-end gap-2">
