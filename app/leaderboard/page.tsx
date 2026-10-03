@@ -3,11 +3,13 @@ import Link from "next/link";
 import { Badge, LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
 import { PlayerName } from "@/components/PlayerName";
 import { Card } from "@/components/ui/Card";
+import { legSummary } from "@/lib/legSummary";
 import { computeCurrentStreak, computeLongestStreak, computeProfit, effectiveCombinedOdds } from "@/lib/grading/parlayStats";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 
 import { MobileStatsTables } from "./MobileStatsTables";
+import { PlayerHistory, type HistoryCell } from "./PlayerHistory";
 import { StreakPill } from "./streakPill";
 
 type Stats = {
@@ -21,6 +23,8 @@ type Stats = {
   // Chronological, pushes excluded -- a push is neither a win nor a loss, so it
   // shouldn't break or extend a streak. Feeds computeCurrentStreak at render time.
   resultsInOrder: LegResult[];
+  // Every graded leg, oldest first, pushes included -- feeds the per-player history grid.
+  history: HistoryCell[];
 };
 
 export default async function LeaderboardPage() {
@@ -62,7 +66,7 @@ export default async function LeaderboardPage() {
   // streak purposes (same reasoning as parlayRows' ordering above).
   const legs = await prisma.leg.findMany({
     where: { parlay: { groupId: group.id, status: ParlayStatus.RESOLVED, countsForRecord: true } },
-    include: { user: true },
+    include: { user: true, game: true, parlay: { include: { window: true } } },
     orderBy: { parlay: { resolvedAt: "asc" } },
   });
 
@@ -77,6 +81,7 @@ export default async function LeaderboardPage() {
       losses: 0,
       pushes: 0,
       resultsInOrder: [],
+      history: [],
     };
     if (leg.badge === Badge.TOILET) entry.toilet++;
     if (leg.badge === Badge.CROSS) entry.cross++;
@@ -84,6 +89,17 @@ export default async function LeaderboardPage() {
     if (leg.result === LegResult.LOSS) entry.losses++;
     if (leg.result === LegResult.PUSH) entry.pushes++;
     if (leg.result !== LegResult.PUSH) entry.resultsInOrder.push(leg.result);
+    const when = (leg.parlay.resolvedAt ?? leg.parlay.createdAt).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: "America/New_York",
+    });
+    entry.history.push({
+      parlayId: leg.parlayId,
+      badge: leg.badge,
+      result: leg.result,
+      title: `${when} · ${leg.parlay.title ?? leg.parlay.window.label ?? leg.parlay.window.league} · ${legSummary(leg, leg.game)}`,
+    });
     statsByUser.set(leg.userId, entry);
   }
 
@@ -270,6 +286,13 @@ export default async function LeaderboardPage() {
           </>
         )}
       </section>
+
+      {rows.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-medium uppercase tracking-wide text-muted">History</h2>
+          <PlayerHistory players={rows} />
+        </section>
+      )}
     </main>
   );
 }
