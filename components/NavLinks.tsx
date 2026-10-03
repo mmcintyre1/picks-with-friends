@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/research", label: "Research" },
   { href: "/admin", label: "Players" },
+  { href: "/apis", label: "APIs" },
 ];
 
 export function NavLinks() {
