@@ -34,7 +34,7 @@ describe("buildResearchGame -- game lines", () => {
     const game = buildResearchGame(
       event([
         odd({ oddID: "ml-away", statID: "points", betTypeID: "ml", sideID: "away", byBookmaker: { draftkings: { odds: "+150", available: true, lastUpdatedAt: "" } } }),
-        odd({ oddID: "sp-home", statID: "points", betTypeID: "sp", sideID: "home", byBookmaker: { draftkings: { odds: "-110", overUnder: "3.5", available: true, lastUpdatedAt: "" } } }),
+        odd({ oddID: "sp-home", statID: "points", betTypeID: "sp", sideID: "home", byBookmaker: { draftkings: { odds: "-110", spread: "-3.5", available: true, lastUpdatedAt: "" } } }),
       ]),
     )!;
     const gameLines = game.categories.find((c) => c.key === "game_lines")!;
@@ -44,7 +44,8 @@ describe("buildResearchGame -- game lines", () => {
     expect(ml.selections[0].priceAmerican).toBe(150);
     const sp = gameLines.marketGroups.find((g) => g.marketType === "point_spread")!;
     expect(sp.selections[0].side).toBe(Side.HOME);
-    expect(sp.selections[0].line).toBe(3.5);
+    // Real spread odds carry the line in `spread` (signed), not `overUnder`.
+    expect(sp.selections[0].line).toBe(-3.5);
   });
 
   it("maps points/ou to total_points", () => {

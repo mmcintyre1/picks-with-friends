@@ -46,10 +46,10 @@ const ODDS: SportsGameOddsOdd[] = [
     byBookmaker: {
       draftkings: {
         odds: "-115",
-        overUnder: "3.5",
+        spread: "+3.5",
         available: true,
         lastUpdatedAt: "2026-09-02T00:00:00Z",
-        altLines: [{ odds: "-220", overUnder: "7", available: true, lastUpdatedAt: "2026-09-02T00:00:00Z" }],
+        altLines: [{ odds: "-220", spread: "+7", available: true, lastUpdatedAt: "2026-09-02T00:00:00Z" }],
       },
     },
   }),
@@ -61,10 +61,10 @@ const ODDS: SportsGameOddsOdd[] = [
     byBookmaker: {
       draftkings: {
         odds: "-105",
-        overUnder: "3.5",
+        spread: "-3.5",
         available: true,
         lastUpdatedAt: "2026-09-02T00:00:00Z",
-        altLines: [{ odds: "+175", overUnder: "7", available: true, lastUpdatedAt: "2026-09-02T00:00:00Z" }],
+        altLines: [{ odds: "+175", spread: "-7", available: true, lastUpdatedAt: "2026-09-02T00:00:00Z" }],
       },
     },
   }),

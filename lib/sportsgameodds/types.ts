@@ -6,6 +6,7 @@
 export type SportsGameOddsAltLine = {
   odds: string; // American odds as a signed string, e.g. "-113", "+125"
   overUnder?: string; // numeric line as a string, present on ou-shaped odds only
+  spread?: string; // signed line as a string ("-4.5"), present on sp-shaped odds only
   available: boolean; // false means historically offered, not currently live -- must filter
   lastUpdatedAt: string;
 };
@@ -13,6 +14,8 @@ export type SportsGameOddsAltLine = {
 export type SportsGameOddsBookmakerEntry = {
   odds: string;
   overUnder?: string;
+  // Confirmed real: spread (sp) odds carry their line here, NOT in overUnder.
+  spread?: string;
   available: boolean;
   lastUpdatedAt: string;
   deeplink?: string;

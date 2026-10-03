@@ -127,9 +127,12 @@ function parseAmerican(odds: string | undefined): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
-function parseLine(overUnder: string | undefined): number | null {
-  if (overUnder === undefined) return null;
-  const n = Number(overUnder);
+// Spread (sp) odds carry their line in `spread`; over/under odds in `overUnder` -- reading only
+// overUnder silently dropped every SportsGameOdds spread line (price showed, line didn't).
+function parseLine(entry: { overUnder?: string; spread?: string }): number | null {
+  const raw = entry.spread ?? entry.overUnder;
+  if (raw === undefined) return null;
+  const n = Number(raw);
   return Number.isNaN(n) ? null : n;
 }
 
@@ -153,7 +156,7 @@ function selectionsForOdd(
         results.push({
           selectionId: odd.oddID,
           selection: odd.betTypeID === "yn" ? "Yes" : side === Side.OVER ? "Over" : side === Side.UNDER ? "Under" : odd.marketName,
-          line: parseLine(entry.overUnder),
+          line: parseLine(entry),
           priceAmerican: price,
           side,
           playerName,
@@ -170,7 +173,7 @@ function selectionsForOdd(
       results.push({
         selectionId: `${odd.oddID}-alt-${sportsbook}-${i}`,
         selection: side === Side.OVER ? "Over" : side === Side.UNDER ? "Under" : odd.marketName,
-        line: parseLine(alt.overUnder),
+        line: parseLine(alt),
         priceAmerican: price,
         side,
         playerName,

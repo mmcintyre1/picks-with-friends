@@ -7,7 +7,7 @@ import { computeCurrentStreak, computeLongestStreak, computeProfit, effectiveCom
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 
-import { MobileStatsCard } from "./MobileStatsCard";
+import { MobileStatsTables } from "./MobileStatsTables";
 import { StreakPill } from "./streakPill";
 
 type Stats = {
@@ -177,14 +177,8 @@ export default async function LeaderboardPage() {
           <p className="text-sm text-muted">Nobody&apos;s got a track record yet.</p>
         ) : (
           <>
-            {/* Mobile: stacked, collapsible cards -- a 10-column table has no room to
-                breathe on a phone width, and showing every stat at once read as noisy
-                clutter. Each card leads with the "at a glance" number (record + current
-                streak) and reveals the rest (pushes/L10/bonus/best-worst) on tap. */}
-            <div className="flex flex-col gap-2 sm:hidden">
-              {rows.map((row) => (
-                <MobileStatsCard key={row.name} row={row} />
-              ))}
+            <div className="sm:hidden">
+              <MobileStatsTables rows={rows} />
             </div>
 
             <Card className="hidden overflow-x-auto p-0 sm:block">
