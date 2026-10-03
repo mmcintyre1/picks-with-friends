@@ -7,13 +7,9 @@ import { StreakPill } from "./streakPill";
 export type LeaderboardRow = {
   name: string;
   flair: string | null;
-  // The real overall tally -- every non-push leg is exactly one of the four badges below,
-  // so wins/losses already equal moneybag+cross and poo+toilet. Kept as real fields rather
-  // than recomputed here, since the headline record must include lone wins/losses.
+  // The full tally -- lone wins/losses (cross/toilet below) are already included in these.
   wins: number;
   losses: number;
-  moneybag: number;
-  poo: number;
   toilet: number;
   cross: number;
   pushes: number;
@@ -44,8 +40,7 @@ export function MobileStatsTables({ rows }: { rows: LeaderboardRow[] }) {
           <thead>
             <tr className="border-b border-border">
               <th className={nameThClass}>Record</th>
-              <th className={thClass} title="Real overall record, lone wins/losses included">W-L</th>
-              <th className={thClass} title="Push — tied, stake back">🆓</th>
+              <th className={thClass} title="Wins-losses-pushes; lone wins/losses count as wins/losses">W-L-P</th>
               <th className={thClass} title="Record over the last 10 decided legs">L10</th>
               <th className={`${thClass} pr-3`} title="Current streak">Now</th>
             </tr>
@@ -57,9 +52,8 @@ export function MobileStatsTables({ rows }: { rows: LeaderboardRow[] }) {
                   <PlayerName name={row.name} flair={row.flair} />
                 </td>
                 <td className={`${tdClass} font-display text-base tracking-wide`}>
-                  {row.wins}-{row.losses}
+                  {row.wins}-{row.losses}-{row.pushes}
                 </td>
-                <td className={`${tdClass} text-push`}>{row.pushes}</td>
                 <td className={`${tdClass} text-muted`}>
                   {row.last10.wins}-{row.last10.losses}
                 </td>
@@ -76,9 +70,9 @@ export function MobileStatsTables({ rows }: { rows: LeaderboardRow[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th className={nameThClass}>Awards</th>
-              <th className={thClass} title="Cross — the lone win in an otherwise-losing parlay">✝️</th>
-              <th className={thClass} title="Trash can — the lone loss in an otherwise-winning parlay">🗑️</th>
+              <th className={nameThClass}>Extras</th>
+              <th className={thClass} title="Lone wins (already counted in W)">✝️</th>
+              <th className={thClass} title="Lone losses (already counted in L)">🗑️</th>
               <th className={thClass} title="Best-ever win streak">Best</th>
               <th className={`${thClass} pr-3`} title="Worst-ever losing streak">Worst</th>
             </tr>

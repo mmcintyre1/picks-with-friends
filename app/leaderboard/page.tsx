@@ -13,8 +13,6 @@ import { StreakPill } from "./streakPill";
 type Stats = {
   name: string;
   flair: string | null;
-  moneybag: number;
-  poo: number;
   toilet: number;
   cross: number;
   wins: number;
@@ -73,8 +71,6 @@ export default async function LeaderboardPage() {
     const entry = statsByUser.get(leg.userId) ?? {
       name: leg.user.name ?? leg.user.username,
       flair: leg.user.flair,
-      moneybag: 0,
-      poo: 0,
       toilet: 0,
       cross: 0,
       wins: 0,
@@ -82,8 +78,6 @@ export default async function LeaderboardPage() {
       pushes: 0,
       resultsInOrder: [],
     };
-    if (leg.badge === Badge.MONEYBAG) entry.moneybag++;
-    if (leg.badge === Badge.POO) entry.poo++;
     if (leg.badge === Badge.TOILET) entry.toilet++;
     if (leg.badge === Badge.CROSS) entry.cross++;
     if (leg.result === LegResult.WIN) entry.wins++;
@@ -196,7 +190,7 @@ export default async function LeaderboardPage() {
                     colSpan={2}
                     className="border-l border-border pt-2 pb-1 pl-3 text-center text-[10px] font-medium uppercase tracking-wide text-subtle"
                   >
-                    Bonus
+                    Lone
                   </th>
                   <th
                     colSpan={3}
@@ -207,29 +201,23 @@ export default async function LeaderboardPage() {
                 </tr>
                 <tr className="border-b border-border text-muted">
                   <th className="pb-2 pr-4 pl-3 text-left">Name</th>
-                  <th className="pb-2 pr-3 text-right" title="Real overall record -- includes lone wins/losses (the Bonus column badges), not just the 'clean' ones">
-                    W-L
+                  <th className="pb-2 pr-3 text-right" title="Full record: wins-losses-pushes (lone wins/losses count as wins/losses, pushes as ties)">
+                    W-L-P
                   </th>
-                  <th className="pb-2 pr-3 text-center" title="Money bag — a clean win (not the lone winner in a losing parlay)">
-                    💰
-                  </th>
-                  <th className="pb-2 pr-3 text-center" title="Poo — a clean loss (not the lone loser in a winning parlay)">
-                    💩
-                  </th>
-                  <th className="pb-2 pr-3 text-center" title="Push — tied, stake back for free">
-                    🆓
-                  </th>
+                  <th className="pb-2 pr-3 text-center" title="Wins, lone wins included">W</th>
+                  <th className="pb-2 pr-3 text-center" title="Losses, lone losses included">L</th>
+                  <th className="pb-2 pr-3 text-center" title="Pushes — ties, stake back">P</th>
                   <th className="pb-2 pr-3 text-right" title="Record over the last 10 decided legs">
                     L10
                   </th>
                   <th
                     className="border-l border-border pb-2 pr-3 pl-3 text-center"
-                    title="Trash can — the lone loss in an otherwise-winning parlay"
+                    title="Lone wins (already counted in W) — the only winning leg in a losing parlay"
                   >
-                    🗑️
-                  </th>
-                  <th className="pb-2 pr-3 text-center" title="Cross — the lone win in an otherwise-losing parlay">
                     ✝️
+                  </th>
+                  <th className="pb-2 pr-3 text-center" title="Lone losses (already counted in L) — the only losing leg in a winning parlay">
+                    🗑️
                   </th>
                   <th className="w-20 border-l border-border pb-2 pr-3 text-right" title="Current streak">
                     Current
@@ -248,19 +236,17 @@ export default async function LeaderboardPage() {
                     <td className="py-2 pr-4 pl-3 font-medium">
                       <PlayerName name={row.name} flair={row.flair} />
                     </td>
-                    <td className="py-2 pr-3 text-right tabular-nums">
-                      {row.wins}-{row.losses}
+                    <td className="py-2 pr-3 text-right font-medium tabular-nums">
+                      {row.wins}-{row.losses}-{row.pushes}
                     </td>
-                    <td className="py-2 pr-3 text-center text-win tabular-nums">{row.moneybag}</td>
-                    <td className="py-2 pr-3 text-center text-loss tabular-nums">{row.poo}</td>
+                    <td className="py-2 pr-3 text-center text-win tabular-nums">{row.wins}</td>
+                    <td className="py-2 pr-3 text-center text-loss tabular-nums">{row.losses}</td>
                     <td className="py-2 pr-3 text-center text-push tabular-nums">{row.pushes}</td>
                     <td className="py-2 pr-3 text-right text-muted tabular-nums">
                       {row.last10.wins}-{row.last10.losses}
                     </td>
-                    <td className="border-l border-border py-2 pr-3 pl-3 text-center text-loss tabular-nums">
-                      {row.toilet}
-                    </td>
-                    <td className="py-2 pr-3 text-center text-win tabular-nums">{row.cross}</td>
+                    <td className="border-l border-border py-2 pr-3 pl-3 text-center text-win tabular-nums">{row.cross}</td>
+                    <td className="py-2 pr-3 text-center text-loss tabular-nums">{row.toilet}</td>
                     <td className="w-20 border-l border-border py-2 pr-3 text-right">
                       {row.streak ? (
                         <StreakPill count={row.streak.count} isWin={row.streak.result === LegResult.WIN} />
