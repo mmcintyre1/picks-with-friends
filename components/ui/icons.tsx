@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 type IconProps = { className?: string };
 
 export function PencilIcon({ className = "h-4 w-4" }: IconProps) {
@@ -149,5 +151,57 @@ export function CheckIcon({ className = "h-4 w-4" }: IconProps) {
     >
       <path d="M20 6 9 17l-5-5" />
     </svg>
+  );
+}
+
+function NavIcon({ className = "h-6 w-6", children }: IconProps & { children: ReactNode }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      {children}
+    </svg>
+  );
+}
+
+export function TicketIcon({ className }: IconProps) {
+  return (
+    <NavIcon className={className}>
+      <path d="M3 8a2 2 0 0 0 0 4v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0 0-4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2Z" />
+      <path d="M13 4v2M13 10v2M13 16v2" />
+    </NavIcon>
+  );
+}
+
+export function PlusCircleIcon({ className }: IconProps) {
+  return (
+    <NavIcon className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v8M8 12h8" />
+    </NavIcon>
+  );
+}
+
+export function TrophyIcon({ className }: IconProps) {
+  return (
+    <NavIcon className={className}>
+      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0Z" />
+      <path d="M17 6h3a3 3 0 0 1-3 3M7 6H4a3 3 0 0 0 3 3" />
+    </NavIcon>
+  );
+}
+
+export function SearchIcon({ className }: IconProps) {
+  return (
+    <NavIcon className={className}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </NavIcon>
+  );
+}
+
+export function MenuIcon({ className }: IconProps) {
+  return (
+    <NavIcon className={className}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </NavIcon>
   );
 }
