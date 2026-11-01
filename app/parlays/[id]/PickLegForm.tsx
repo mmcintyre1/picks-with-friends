@@ -1,29 +1,21 @@
 "use client";
 
-import Image from "next/image";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { IconButton } from "@/components/ui/IconButton";
 import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SignedNumberInput } from "@/components/ui/SignedNumberInput";
-import { RotateCcwIcon } from "@/components/ui/icons";
 import { legSummary } from "@/lib/legSummary";
-import { type GameRosterPlayer } from "@/lib/rosters/actions";
-import { findTeamIdByName, isRosterLeague, LEAGUE_TEAMS, PICKABLE_LEAGUES, teamLogoUrl } from "@/lib/rosters/leagues";
-import { isYesNoPropType, propTypesForPosition } from "@/lib/rosters/propTypes";
+import { PICKABLE_LEAGUES, teamLogoUrl } from "@/lib/rosters/leagues";
 import type { PropPick, TeamBetPick } from "@/lib/research/types";
-import { read } from "@/lib/readClient";
 
 import { pickLeg } from "../actions";
-import { PickBreadcrumb } from "./PickBreadcrumb";
-import { PlayerPropPicker } from "./PlayerPropPicker";
+import { CustomBetWizard } from "./CustomBetWizard";
 import { ResearchBrowser } from "./ResearchBrowser";
-import { ScheduleBrowser } from "./ScheduleBrowser";
-import { TeamLabel, TeamMarketGrid } from "./TeamMarketGrid";
+import { TeamLabel } from "./TeamMarketGrid";
 
 type Initial = {
   homeTeam: string;
@@ -45,17 +37,8 @@ const SPORT_OPTIONS: { value: Sport; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-const TEAM_MARKETS = new Set<Market>([Market.SPREAD, Market.TOTAL, Market.MONEYLINE, Market.TEAM_TOTAL]);
-
-// The whole set of data-entry fields renders as one continuous surface (one border, one
-// background, divide-y between rows) instead of each row being its own separate box --
-// reads as one form, not a stack of boxes. fieldRowClass divides a row's own 1-3 sub-fields
-// (e.g. "Away @ Home") with a vertical rule instead of a border, since the outer
-// fieldListClass container already supplies the border/background for everything.
 const fieldListClass = "flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border bg-card";
 const fieldRowClass = "flex items-stretch divide-x divide-border";
-// text-base (not text-sm) and taller padding -- these are the fields you're most likely to
-// be filling in on a phone, so bigger touch targets and less precision-typing beat density.
 const groupFieldClass =
   "min-w-0 flex-1 bg-transparent px-3 py-3 text-base text-foreground placeholder:text-subtle focus:bg-white/[0.03] focus:outline-none";
 
@@ -63,132 +46,31 @@ function initialSport(league: string | null | undefined): Sport {
   return league && (PICKABLE_LEAGUES as string[]).includes(league) ? (league as Sport) : "other";
 }
 
-// A single discriminated-union "slip" replaces the old team-bet-fields-plus-prop-fields
-// parallel useState hooks -- switching kind swaps the whole object instead of leaving the
-// other branch's stale values sitting in state (the old bug this fixes).
-type TeamSlip = {
-  kind: "team";
-  homeTeam: string;
-  awayTeam: string;
-  market: Market;
-  side: Side;
-  teamSide: TeamSide | null;
-  line: string;
-  price: string;
-  externalId: string | null;
-};
-
-type PropSlip = {
-  kind: "prop";
-  homeTeam: string;
-  awayTeam: string;
-  propShape: "overUnder" | "yesNo";
-  playerName: string;
-  propType: string;
-  side: Side;
-  line: string;
-  price: string;
-  externalId: string | null;
-};
-
-type Slip = TeamSlip | PropSlip;
-
-function emptyTeamSlip(carry: { homeTeam: string; awayTeam: string }): TeamSlip {
-  return {
-    kind: "team",
-    homeTeam: carry.homeTeam,
-    awayTeam: carry.awayTeam,
-    market: Market.SPREAD,
-    side: Side.HOME,
-    teamSide: null,
-    line: "",
-    price: "",
-    externalId: null,
-  };
+// Describes the bet WITHOUT its line/odds -- those are the editable fields next to it in the
+// inline editor, so showing a stale number in the label would contradict what's typed.
+function betLabelWithoutLine(i: Initial): string {
+  const overUnder = i.side === Side.OVER ? "Over" : "Under";
+  if (i.market === Market.PLAYER_PROP) return `${i.playerName} (${i.propType}) ${overUnder}`;
+  if (i.market === Market.PLAYER_PROP_YESNO) return `${i.playerName} (${i.propType}) — ${i.side === Side.YES ? "Yes" : "No"}`;
+  const sideTeam = i.side === Side.HOME ? i.homeTeam : i.awayTeam;
+  if (i.market === Market.MONEYLINE) return `${sideTeam} ML`;
+  if (i.market === Market.SPREAD) return `${sideTeam} spread`;
+  if (i.market === Market.TOTAL) return `${overUnder} (game total)`;
+  return `${i.teamSide === TeamSide.HOME ? i.homeTeam : i.awayTeam} team total ${overUnder}`;
 }
 
-function emptyPropSlip(carry: { homeTeam: string; awayTeam: string }): PropSlip {
-  return {
-    kind: "prop",
-    homeTeam: carry.homeTeam,
-    awayTeam: carry.awayTeam,
-    propShape: "overUnder",
-    playerName: "",
-    propType: "",
-    side: Side.OVER,
-    line: "",
-    price: "",
-    externalId: null,
-  };
-}
+const hasLine = (m: Market) => m !== Market.MONEYLINE && m !== Market.PLAYER_PROP_YESNO;
 
-function slipFromInitial(initial?: Initial): Slip {
-  const carry = { homeTeam: initial?.homeTeam ?? "", awayTeam: initial?.awayTeam ?? "" };
-  if (!initial) return emptyTeamSlip(carry);
-  if (TEAM_MARKETS.has(initial.market)) {
-    return {
-      kind: "team",
-      ...carry,
-      market: initial.market,
-      side: initial.side,
-      teamSide: initial.teamSide,
-      line: initial.line?.toString() ?? "",
-      price: initial.price?.toString() ?? "",
-      externalId: null,
-    };
-  }
-  return {
-    kind: "prop",
-    ...carry,
-    propShape: initial.market === Market.PLAYER_PROP_YESNO ? "yesNo" : "overUnder",
-    playerName: initial.playerName ?? "",
-    propType: initial.propType ?? "",
-    side: initial.side,
-    line: initial.line?.toString() ?? "",
-    price: initial.price?.toString() ?? "",
-    externalId: null,
-  };
-}
-
-// A research-sourced pick (from ResearchBrowser/ResearchGameDetail's priced grids/tables)
-// already carries a complete real market/side/line/price -- unlike a bare ScheduleBrowser
-// matchup or manual entry, there's nothing left to fill in. Routing these through the same
-// full-page editable slip as manual entry read as "I tapped a price and got sent to a whole
-// different screen" -- confirmed real user friction, not just a guess -- so these go through
-// a lightweight confirm Modal instead (see pendingResearchPick below), staying on the
-// browse screen the whole time.
+// A research-sourced pick (from the odds board) already carries a real market/side/line/
+// price, so it goes through a small confirm Modal (odds editable) instead of a form.
 type PendingResearchPick = { kind: "team"; pick: TeamBetPick } | { kind: "prop"; pick: PropPick };
 
-const isSlipEmpty = (slip: Slip) =>
-  !slip.homeTeam.trim() && !slip.awayTeam.trim() && !slip.price.trim() && !slip.externalId;
-
-// Whether real bet-specific data (not just the matchup) has been entered -- used to decide
-// whether switching Team bet/Player prop needs a confirmation, since that switch discards
-// this data.
-const hasBetDetails = (slip: Slip) =>
-  slip.kind === "team"
-    ? Boolean(slip.price.trim() || slip.line.trim())
-    : Boolean(slip.playerName.trim() || slip.propType.trim() || slip.price.trim() || slip.line.trim());
-
-// Whether this slip's bet carries a numeric line at all (moneyline and yes/no props don't).
-const slipHasLine = (slip: Slip) => (slip.kind === "team" ? slip.market !== Market.MONEYLINE : slip.propShape === "overUnder");
-
-// Describes the bet WITHOUT its line/odds -- those are the editable fields next to it in the
-// inline edit card, so showing a stale number in the label would contradict what's typed.
-function betLabelWithoutLine(slip: Slip): string {
-  const overUnder = slip.side === Side.OVER ? "Over" : "Under";
-  if (slip.kind === "prop") {
-    const who = `${slip.playerName} (${slip.propType})`;
-    return slip.propShape === "yesNo" ? `${who} — ${slip.side === Side.YES ? "Yes" : "No"}` : `${who} ${overUnder}`;
-  }
-  const sideTeam = slip.side === Side.HOME ? slip.homeTeam : slip.awayTeam;
-  if (slip.market === Market.MONEYLINE) return `${sideTeam} ML`;
-  if (slip.market === Market.SPREAD) return `${sideTeam} spread`;
-  if (slip.market === Market.TOTAL) return `${overUnder} (game total)`;
-  const totalTeam = slip.teamSide === TeamSide.HOME ? slip.homeTeam : slip.awayTeam;
-  return `${totalTeam} team total ${overUnder}`;
-}
-
+// Three clear paths:
+//  - Editing an existing pick opens a compact line/odds editor (the usual reason to edit is a
+//    moved line). "Change pick instead" drops into the full flow below.
+//  - "Browse odds" (NFL): tap a real price on the odds board, confirm.
+//  - "Enter my own bet": a guided, mostly-tap wizard (CustomBetWizard) for anything the board
+//    doesn't have -- and the only path for leagues with no odds board.
 export function PickLegForm({
   parlayId,
   initial,
@@ -197,167 +79,30 @@ export function PickLegForm({
 }: {
   parlayId: string;
   initial?: Initial;
-  // A hint, not a restriction -- seeds the Sport selector's initial value (e.g. a parlay
-  // tagged "1pm" defaults to NFL) but every pick can still choose any sport.
+  // A hint, not a restriction -- seeds the Sport selector (a "1pm" parlay defaults to NFL).
   defaultLeague: string;
   onDone?: () => void;
 }) {
-  const [slip, setSlip] = useState<Slip>(() => slipFromInitial(initial));
   const [sport, setSport] = useState<Sport>(() => initialSport(initial?.league ?? defaultLeague));
-  // Set only when a Team bet/Player prop switch would discard real bet details -- gates the
-  // confirmation Modal below rather than switching immediately.
-  const [pendingKindSwitch, setPendingKindSwitch] = useState<"team" | "prop" | null>(null);
-  // A tapped research-sourced pick, awaiting the confirm Modal's Yes/Cancel -- deliberately
-  // separate from `slip`, so tapping a price never touches `hasMatchup`/`showSlip` at all
-  // and the browse view (whichever game/tab/scroll position it was in) never moves.
-  const [pendingResearchPick, setPendingResearchPick] = useState<PendingResearchPick | null>(null);
-  // The odds shown in that confirm Modal, editable -- a book's real price often differs from
-  // what a vendor feed reported, and the modal used to be read-only.
-  const [researchPrice, setResearchPrice] = useState("");
-  // Editing an existing pick starts as a compact inline editor for just the line and odds
-  // (the common case: a line moved) -- "Change pick instead" leaves it for the full flow,
-  // starting over from picking a game.
+  const [mode, setMode] = useState<"odds" | "own">("odds");
   const [inlineEdit, setInlineEdit] = useState(Boolean(initial));
-
-  // The league this specific pick is actually for -- always the Sport selector's choice.
-  const effectiveLeague = sport === "other" ? "" : sport;
-  const canBrowseSchedule = sport !== "other";
-
-  // Three real, equal workflows, not one primary path with two things bolted underneath it
-  // -- confirmed real user confusion with the earlier nested design, where the ESPN
-  // schedule lived inside a "Don't see your game?" fallback under Browse odds (implying it
-  // was a lesser, rarely-needed backup) and "Type it manually" lived off in a separate
-  // top-level toggle with its own "Don't see your bet?" pointer from inside Browse odds --
-  // two different framings for what are really just two more first-class ways to find a
-  // matchup. "odds" (priced research) only exists for NFL; every other roster-backed
-  // league only ever had the ESPN schedule as its "browse" option anyway, so this is a
-  // real reduction to 2 tabs there, not a hidden 3rd.
-  type EntryMode = "odds" | "schedule" | "manual";
-  const entryModeOptions: { value: EntryMode; label: string }[] =
-    effectiveLeague === "NFL"
-      ? [
-          { value: "odds", label: "Browse odds" },
-          { value: "schedule", label: "Browse schedule" },
-          { value: "manual", label: "Type it manually" },
-        ]
-      : [
-          { value: "schedule", label: "Browse schedule" },
-          { value: "manual", label: "Type it manually" },
-        ];
-  const [entryModePreference, setEntryModePreference] = useState<EntryMode>(canBrowseSchedule ? "odds" : "manual");
-  // Clamped to whatever's actually valid for the current sport, rather than reset via an
-  // effect -- switching from NFL (odds/schedule/manual) to NBA (schedule/manual only) just
-  // falls back to this list's first entry instead of leaving a stale "odds" selection that
-  // would render nothing.
-  const entryMode: EntryMode = entryModeOptions.some((o) => o.value === entryModePreference)
-    ? entryModePreference
-    : entryModeOptions[0].value;
-  const setEntryMode = setEntryModePreference;
+  const [line, setLine] = useState(initial?.line?.toString() ?? "");
+  const [price, setPrice] = useState(initial?.price?.toString() ?? "");
+  const [pendingResearchPick, setPendingResearchPick] = useState<PendingResearchPick | null>(null);
+  const [researchPrice, setResearchPrice] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [players, setPlayers] = useState<GameRosterPlayer[] | null>(null);
-  const [playersError, setPlayersError] = useState<string | null>(null);
-  const [loadingPlayers, setLoadingPlayers] = useState(false);
-  // Tracks which (home, away) pair the roster was last fetched for, so the auto-load
-  // effect below doesn't re-fetch on every keystroke/re-render -- only when the actual
-  // matchup changes. A ref, not state, since it's read/written but never itself rendered.
-  const loadedForPair = useRef<string | null>(null);
 
-  // Roster/player-prop autofill covers NFL/NBA/MLB/NHL (lib/rosters/leagues.ts).
-  const rosterSupported = isRosterLeague(effectiveLeague);
+  const league = sport === "other" ? "" : sport;
+  const hasOddsBoard = league === "NFL";
+  const showOdds = hasOddsBoard && mode === "odds";
 
-  const loadPlayers = useCallback(
-    async (homeTeam: string, awayTeam: string) => {
-      loadedForPair.current = `${homeTeam}|${awayTeam}`;
-      setLoadingPlayers(true);
-      setPlayersError(null);
-      const result = await read("getRostersForGame", effectiveLeague, homeTeam, awayTeam);
-      if ("error" in result) setPlayersError(result.error);
-      else setPlayers(result.players);
-      setLoadingPlayers(false);
-    },
-    [effectiveLeague],
-  );
-
-  // Auto-loads both rosters as soon as the typed/selected team names resolve to real teams
-  // in this pick's league -- no manual "Load players" button. Safe to fire eagerly:
-  // espnProvider.ts caches each team's roster for 6 hours, so re-visiting the same matchup
-  // (or having this effect re-run) never re-hits the network, just the in-memory cache.
-  useEffect(() => {
-    if (slip.kind !== "prop" || !rosterSupported) return;
-    const home = slip.homeTeam.trim();
-    const away = slip.awayTeam.trim();
-    if (!home || !away || !findTeamIdByName(effectiveLeague, home) || !findTeamIdByName(effectiveLeague, away)) {
-      return;
-    }
-
-    const pairKey = `${home}|${away}`;
-    if (pairKey === loadedForPair.current) return;
-    loadPlayers(home, away);
-  }, [slip.kind, slip.homeTeam, slip.awayTeam, rosterSupported, effectiveLeague, loadPlayers]);
-
-  function updateHomeTeam(value: string) {
-    setSlip((prev) => ({ ...prev, homeTeam: value, externalId: null }));
-  }
-  function updateAwayTeam(value: string) {
-    setSlip((prev) => ({ ...prev, awayTeam: value, externalId: null }));
-  }
-
-  function setKind(kind: "team" | "prop") {
-    setSlip((prev) => (kind === "team" ? emptyTeamSlip(prev) : emptyPropSlip(prev)));
-  }
-
-  // Gates setKind behind a confirmation Modal only when real bet details would actually be
-  // lost -- switching kind on a bare/just-started slip needs no nag.
-  function requestKindSwitch(kind: "team" | "prop") {
-    if (kind === slip.kind) return;
-    if (hasBetDetails(slip)) setPendingKindSwitch(kind);
-    else setKind(kind);
-  }
-
-  // Resets the bet-specific fields (market/side/line/price, or player/stat) but keeps the
-  // matchup -- for redoing the odds/type without re-picking the game.
-  function clearBetDetails() {
-    setSlip((prev) => (prev.kind === "team" ? emptyTeamSlip(prev) : emptyPropSlip(prev)));
-  }
-
-  // Resets the matchup too (unlike clearBetDetails) -- this is what makes hasMatchup false
-  // again, bringing back the browse/manual step to pick a different game entirely. The
-  // browser itself (ResearchBrowser/ScheduleBrowser) stays mounted throughout -- only
-  // hidden, not unmounted -- so this doesn't lose which game/tab was expanded.
-  function changeGame() {
-    const emptyCarry = { homeTeam: "", awayTeam: "" };
-    setSlip((prev) => (prev.kind === "team" ? emptyTeamSlip(emptyCarry) : emptyPropSlip(emptyCarry)));
-  }
-
-  function onSelectScheduleGame(game: { homeTeam: string; awayTeam: string; externalId: string }) {
-    setSlip((prev) => ({ ...prev, homeTeam: game.homeTeam, awayTeam: game.awayTeam, externalId: game.externalId }));
-  }
-
-  // Research (ParlayAPI/SportsGameOdds/SharpAPI) picks carry a real market/side/line/price
-  // already -- these open the confirm Modal (see pendingResearchPick above) rather than
-  // touching `slip`/`hasMatchup` at all, so the browse view never moves.
-  function onSelectResearchTeamBet(pick: TeamBetPick) {
-    setResearchPrice(pick.price.toString());
-    setPendingResearchPick({ kind: "team", pick });
-  }
-
-  function onSelectResearchProp(pick: PropPick) {
-    setResearchPrice(pick.price.toString());
-    setPendingResearchPick({ kind: "prop", pick });
-  }
-
-  // Leaves the inline line/odds editor for the full flow, from the top -- the leg itself is
-  // only replaced once a new pick is actually confirmed.
-  function startOver() {
+  function onSelectResearch(next: PendingResearchPick) {
     setError(null);
-    setInlineEdit(false);
-    changeGame();
+    setResearchPrice(next.pick.price.toString());
+    setPendingResearchPick(next);
   }
 
-  // Confirms a research-sourced pick directly from the pending pick's own real data --
-  // bypasses `slip` entirely, the same server action `onSubmit` below calls, just fed from
-  // a different source.
   function confirmResearchPick() {
     if (!pendingResearchPick) return;
     const { kind, pick } = pendingResearchPick;
@@ -366,7 +111,7 @@ export function PickLegForm({
       const result = await pickLeg(parlayId, {
         homeTeam: pick.homeTeam,
         awayTeam: pick.awayTeam,
-        league: effectiveLeague,
+        league,
         market: pick.market,
         side: pick.side,
         teamSide: kind === "team" ? (pick.teamSide ?? null) : null,
@@ -384,105 +129,57 @@ export function PickLegForm({
     });
   }
 
-  function onSubmit(e: React.FormEvent) {
+  function saveInlineEdit(e: React.FormEvent) {
     e.preventDefault();
+    if (!initial) return;
     setError(null);
-
-    const resolvedMarket =
-      slip.kind === "team" ? slip.market : slip.propShape === "overUnder" ? Market.PLAYER_PROP : Market.PLAYER_PROP_YESNO;
-
     startTransition(async () => {
       const result = await pickLeg(parlayId, {
-        homeTeam: slip.homeTeam,
-        awayTeam: slip.awayTeam,
-        league: effectiveLeague,
-        market: resolvedMarket,
-        side: slip.side,
-        teamSide: slip.kind === "team" ? slip.teamSide : null,
-        line: slip.kind === "prop" && slip.propShape === "yesNo" ? "" : slip.line,
-        price: slip.price,
-        playerName: slip.kind === "prop" ? slip.playerName : "",
-        propType: slip.kind === "prop" ? slip.propType : "",
-        externalId: slip.externalId ?? "",
+        homeTeam: initial.homeTeam,
+        awayTeam: initial.awayTeam,
+        league: initial.league ?? league,
+        market: initial.market,
+        side: initial.side,
+        teamSide: initial.teamSide,
+        line: hasLine(initial.market) ? line : "",
+        price,
+        playerName: initial.playerName ?? "",
+        propType: initial.propType ?? "",
+        externalId: "",
       });
       if (result?.error) setError(result.error);
       else onDone?.();
     });
   }
 
-  // Gate the propType suggestions to the selected player's position (a QB sees passing
-  // props, a corner sees interceptions/tackles, etc.).
-  const selectedPlayerPosition =
-    slip.kind === "prop" ? players?.find((p) => p.name === slip.playerName)?.position : undefined;
-  // Roster-backed leagues suggest nothing until a real player's actually been matched --
-  // a generic pre-match fallback was more confusing than helpful (suggesting "Passing
-  // Yards" before you've even typed a name). Leagues with no roster at all ("Other") have
-  // no player to match against, so they keep a generic starting point.
-  const propTypeOptions = rosterSupported
-    ? selectedPlayerPosition
-      ? propTypesForPosition(effectiveLeague, selectedPlayerPosition)
-      : []
-    : propTypesForPosition(effectiveLeague, undefined);
-
-  // Shows the team's logo once its name resolves to a known team -- returns null (no icon)
-  // for an unmatched name, so manual typing of an unlisted team just shows plain text.
-  const awayLogo = teamLogoUrl(effectiveLeague, slip.awayTeam);
-  const homeLogo = teamLogoUrl(effectiveLeague, slip.homeTeam);
-
-  // Reused wherever price needs to stand alone (moneyline, yes/no props) vs. paired with a
-  // line (spread/total, over/under props) -- one definition instead of four copies.
-  // American odds are routinely negative, and phone numeric keypads often have no minus
-  // key -- a +/- toggle next to a plain numpad input works the same on every device.
-  const priceField = (
-    <SignedNumberInput
-      label="Odds"
-      value={slip.price}
-      onChange={(price) => setSlip({ ...slip, price })}
-      placeholder="Odds (e.g. 110)"
-      defaultNegative
-      required
-      inputClassName={groupFieldClass}
-    />
-  );
-
-  // Spread lines are signed (-3.5 for a favorite); every other line (totals, team totals,
-  // prop over/under) is always positive, so a plain decimal keypad is enough there.
-  const lineField =
-    slip.kind === "team" && slip.market === Market.SPREAD ? (
-      <SignedNumberInput
-        label="Line"
-        value={slip.line}
-        onChange={(line) => setSlip({ ...slip, line })}
-        placeholder="Line (e.g. 3.5)"
-        decimal
-        defaultNegative
-        inputClassName={groupFieldClass}
-      />
-    ) : (
-      <input
-        value={slip.line}
-        onChange={(e) => setSlip({ ...slip, line: e.target.value })}
-        placeholder="Line (e.g. 44.5)"
-        autoComplete="off"
-        inputMode="decimal"
-        className={groupFieldClass}
-      />
-    );
-
-  if (inlineEdit) {
+  if (inlineEdit && initial) {
+    const editLeague = initial.league ?? league;
     return (
-      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+      <form onSubmit={saveInlineEdit} className="flex flex-col gap-3">
         <Card className="flex flex-col gap-3 border-border-strong p-4 shadow-xl shadow-black/50">
           <div className="flex items-center justify-center gap-2">
-            <TeamLabel name={slip.awayTeam} logo={awayLogo} league={effectiveLeague} />
+            <TeamLabel name={initial.awayTeam} logo={teamLogoUrl(editLeague, initial.awayTeam)} league={editLeague} />
             <span className="shrink-0 text-xs text-subtle">@</span>
-            <TeamLabel name={slip.homeTeam} logo={homeLogo} league={effectiveLeague} />
+            <TeamLabel name={initial.homeTeam} logo={teamLogoUrl(editLeague, initial.homeTeam)} league={editLeague} />
           </div>
-          <p className="text-center text-base font-medium">{betLabelWithoutLine(slip)}</p>
+          <p className="text-center text-base font-medium">{betLabelWithoutLine(initial)}</p>
           <div className={fieldListClass}>
             <div className={fieldRowClass}>
-              {slipHasLine(slip) && lineField}
-              {priceField}
+              {hasLine(initial.market) &&
+                (initial.market === Market.SPREAD ? (
+                  <SignedNumberInput label="Line" value={line} onChange={setLine} placeholder="Line" decimal defaultNegative inputClassName={groupFieldClass} />
+                ) : (
+                  <input
+                    aria-label="Line"
+                    value={line}
+                    onChange={(e) => setLine(e.target.value.replace(/[^0-9.]/g, ""))}
+                    placeholder="Line"
+                    autoComplete="off"
+                    inputMode="decimal"
+                    className={groupFieldClass}
+                  />
+                ))}
+              <SignedNumberInput label="Odds" value={price} onChange={setPrice} placeholder="Odds" defaultNegative required inputClassName={groupFieldClass} />
             </div>
           </div>
           {error && <p className="text-xs text-loss">{error}</p>}
@@ -490,7 +187,16 @@ export function PickLegForm({
             <Button type="submit" disabled={pending}>
               {pending ? "Saving…" : "Update pick"}
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={startOver} disabled={pending}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={pending}
+              onClick={() => {
+                setError(null);
+                setInlineEdit(false);
+              }}
+            >
               Change pick instead
             </Button>
           </div>
@@ -499,311 +205,40 @@ export function PickLegForm({
     );
   }
 
-  // The slip doesn't exist yet until there's actually a matchup to fill it in for --
-  // browsing and typing a pick used to render simultaneously (a small sticky slip squeezed
-  // below/behind a scrollable game list), which read as cramped and left too little room
-  // for comfortable typing. Now it's two steps: pick a game (or choose manual entry) first,
-  // then the slip takes over the space to fill in. "Clear" backs out of a selection and
-  // returns to this step.
-  const hasMatchup = !isSlipEmpty(slip);
-  const showSlip = hasMatchup || entryMode === "manual";
-
   return (
     <div className="flex flex-col gap-3">
-      {!hasMatchup && (
-        <Card className="flex flex-wrap items-center gap-2 p-2">
-          <SegmentedControl size="sm" name="Sport" value={sport} onChange={setSport} options={SPORT_OPTIONS} />
-          {canBrowseSchedule && (
-            <SegmentedControl size="sm" name="Entry mode" value={entryMode} onChange={setEntryMode} options={entryModeOptions} />
-          )}
-        </Card>
-      )}
+      <Card className="flex flex-wrap items-center gap-2 p-2">
+        <SegmentedControl size="sm" name="Sport" value={sport} onChange={setSport} options={SPORT_OPTIONS} />
+        {hasOddsBoard && (
+          <SegmentedControl
+            size="sm"
+            name="How"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: "odds", label: "Browse odds" },
+              { value: "own", label: "Enter my own bet" },
+            ]}
+          />
+        )}
+      </Card>
 
-      {/* Every workflow stays mounted (just hidden) once a matchup is picked or another tab
-          is chosen, rather than unmounting -- otherwise ResearchBrowser/ScheduleBrowser's
-          own state (which game was expanded, which category tab was active) would be lost
-          every time a pick is made or you switch tabs and back, forcing a full
-          re-browse-from-scratch. Keyed on `sport` so switching leagues still starts fresh,
-          which is the one case that really should reset browsing.
-
-          Three real, equal peers, not one primary path with two things bolted underneath it
-          -- Browse odds (NFL only, priced), Browse schedule (ESPN's free game list, every
-          roster-backed league), and Type it manually all render as their own tab now,
-          selected the same way the Sport tabs are, rather than nesting the schedule inside
-          a "Don't see your game?" fallback under Browse odds (which read as "this is a
-          lesser backup," not a real workflow) or pointing at manual entry from inside Browse
-          odds via a "Don't see your bet?" link. "Back" (the breadcrumb) still doesn't touch
-          which tab you're on -- now that these are deliberate top-level choices instead of
-          an implicit fallback, returning to whichever one you were actually using is the
-          right behavior, not a gap to route around. */}
-      {canBrowseSchedule && (
-        <>
-          {effectiveLeague === "NFL" && (
-            <div className={hasMatchup || entryMode !== "odds" ? "hidden" : ""}>
-              <ResearchBrowser key={sport} onSelectTeamBet={onSelectResearchTeamBet} onSelectProp={onSelectResearchProp} />
-            </div>
-          )}
-          <div className={hasMatchup || entryMode !== "schedule" ? "hidden" : ""}>
-            <ScheduleBrowser key={sport} league={effectiveLeague} onSelectGame={onSelectScheduleGame} />
-          </div>
-        </>
-      )}
-
-      {showSlip && (
-        <div className="pb-[env(safe-area-inset-bottom)]">
-          <Card className="flex flex-col gap-3 border-border-strong p-4 shadow-xl shadow-black/50">
-            <div className="flex items-center justify-between gap-2">
-              {hasMatchup ? (
-                <PickBreadcrumb sport={sport} awayTeam={slip.awayTeam} homeTeam={slip.homeTeam} onBack={changeGame} />
-              ) : (
-                <span />
-              )}
-              {hasMatchup && (
-                <IconButton
-                  size="sm"
-                  title="Clear bet details"
-                  icon={<RotateCcwIcon className="h-4 w-4" />}
-                  onClick={clearBetDetails}
-                />
-              )}
-            </div>
-            <div className="flex items-center justify-end gap-2">
-              <SegmentedControl
-                size="sm"
-                name="Pick kind"
-                value={slip.kind}
-                onChange={requestKindSwitch}
-                options={[
-                  { value: "team", label: "Team bet" },
-                  { value: "prop", label: "Player prop" },
-                ]}
-              />
-            </div>
-
-            <form onSubmit={onSubmit} className="flex flex-col gap-3">
-              {rosterSupported && (
-                <datalist id="league-teams">
-                  {LEAGUE_TEAMS[effectiveLeague]?.map((t) => (
-                    <option key={t.id} value={t.name} />
-                  ))}
-                </datalist>
-              )}
-              {slip.kind === "prop" && !rosterSupported && (
-                <datalist id="prop-types">
-                  {propTypeOptions.map((t) => (
-                    <option key={t} value={t} />
-                  ))}
-                </datalist>
-              )}
-
-              {/* Typing is only possible (and only needed) in manual mode -- once a
-                  matchup's resolved via browsing, this becomes a compact read-only label
-                  instead, for both pick kinds (a team-bet pick used to skip this row
-                  entirely and rely solely on TeamMarketGrid's own row labels for game
-                  identity, which was the one place a browse-mode pick showed no matchup
-                  header at all -- now consistent with the prop-kind treatment). */}
-              {entryMode === "manual" ? (
-                <div className={fieldListClass}>
-                  <div className={fieldRowClass}>
-                    <div className="relative min-w-0 flex-1">
-                      {awayLogo && (
-                        <Image
-                          src={awayLogo}
-                          alt=""
-                          width={20}
-                          height={20}
-                          className="pointer-events-none absolute top-1/2 left-2 h-5 w-5 -translate-y-1/2 object-contain"
-                        />
-                      )}
-                      <input
-                        value={slip.awayTeam}
-                        onChange={(e) => updateAwayTeam(e.target.value)}
-                        placeholder="Away team"
-                        required
-                        autoComplete="off"
-                        list={rosterSupported ? "league-teams" : undefined}
-                        className={`${groupFieldClass} w-full text-right ${awayLogo ? "pl-8" : ""}`}
-                      />
-                    </div>
-                    <span className="flex shrink-0 items-center px-2 text-xs text-subtle">@</span>
-                    <div className="relative min-w-0 flex-1">
-                      <input
-                        value={slip.homeTeam}
-                        onChange={(e) => updateHomeTeam(e.target.value)}
-                        placeholder="Home team"
-                        required
-                        autoComplete="off"
-                        list={rosterSupported ? "league-teams" : undefined}
-                        className={`${groupFieldClass} w-full ${homeLogo ? "pr-8" : ""}`}
-                      />
-                      {homeLogo && (
-                        <Image
-                          src={homeLogo}
-                          alt=""
-                          width={20}
-                          height={20}
-                          className="pointer-events-none absolute top-1/2 right-2 h-5 w-5 -translate-y-1/2 object-contain"
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className={fieldListClass}>
-                  <div className="flex items-center justify-center gap-2 px-3 py-3">
-                    <TeamLabel name={slip.awayTeam} logo={awayLogo} league={effectiveLeague} />
-                    <span className="shrink-0 text-xs text-subtle">@</span>
-                    <TeamLabel name={slip.homeTeam} logo={homeLogo} league={effectiveLeague} />
-                  </div>
-                </div>
-              )}
-
-              {slip.kind === "team" ? (
-                <>
-                  <TeamMarketGrid
-                    league={effectiveLeague}
-                    awayTeam={slip.awayTeam}
-                    homeTeam={slip.homeTeam}
-                    awayLogo={awayLogo}
-                    homeLogo={homeLogo}
-                    market={slip.market}
-                    side={slip.side}
-                    teamSide={slip.teamSide}
-                    onSelect={(market, side, teamSide) => setSlip({ ...slip, market, side, teamSide: teamSide ?? null })}
-                  />
-                  <div className={fieldListClass}>
-                    <div className={fieldRowClass}>
-                      {slip.market !== Market.MONEYLINE && lineField}
-                      {priceField}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {rosterSupported ? (
-                    <PlayerPropPicker
-                      league={effectiveLeague}
-                      players={players}
-                      loading={loadingPlayers}
-                      error={playersError}
-                      onRetry={() => loadPlayers(slip.homeTeam.trim(), slip.awayTeam.trim())}
-                      playerName={slip.playerName}
-                      playerPosition={selectedPlayerPosition}
-                      propType={slip.propType}
-                      propTypeOptions={propTypeOptions}
-                      onSelectPlayer={(name) => setSlip({ ...slip, playerName: name })}
-                      onClearPlayer={() => setSlip({ ...slip, playerName: "", propType: "" })}
-                      // Auto-sets the shape (and matching default side) from the stat
-                      // itself for known yes/no props (Anytime TD, Double-Double) instead
-                      // of leaving the picker to notice and separately flip the Prop
-                      // shape toggle -- one fewer tap, and no more Over/Under selector
-                      // left showing for a bet that isn't shaped that way.
-                      onSelectPropType={(t) =>
-                        setSlip({
-                          ...slip,
-                          propType: t,
-                          propShape: isYesNoPropType(t) ? "yesNo" : "overUnder",
-                          side: isYesNoPropType(t) ? Side.YES : Side.OVER,
-                        })
-                      }
-                    />
-                  ) : (
-                    <div className={fieldListClass}>
-                      <div className={fieldRowClass}>
-                        <input
-                          value={slip.playerName}
-                          onChange={(e) => setSlip({ ...slip, playerName: e.target.value })}
-                          placeholder="Player name"
-                          autoComplete="off"
-                          className={groupFieldClass}
-                        />
-                        <input
-                          value={slip.propType}
-                          onChange={(e) => setSlip({ ...slip, propType: e.target.value })}
-                          placeholder="Stat (e.g. Passing Yards)"
-                          autoComplete="off"
-                          list="prop-types"
-                          className={groupFieldClass}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  <SegmentedControl
-                    size="sm"
-                    name="Prop shape"
-                    value={slip.propShape}
-                    onChange={(shape) =>
-                      setSlip({ ...slip, propShape: shape, side: shape === "yesNo" ? Side.YES : Side.OVER })
-                    }
-                    options={[
-                      { value: "overUnder", label: "Over/Under" },
-                      { value: "yesNo", label: "Yes/No" },
-                    ]}
-                  />
-                  <div className={fieldListClass}>
-                    {slip.propShape === "overUnder" ? (
-                      <>
-                        <div className={fieldRowClass}>
-                          <select
-                            value={slip.side}
-                            onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
-                            className={groupFieldClass}
-                          >
-                            <option value={Side.OVER}>Over</option>
-                            <option value={Side.UNDER}>Under</option>
-                          </select>
-                          {lineField}
-                        </div>
-                        <div className={fieldRowClass}>{priceField}</div>
-                      </>
-                    ) : (
-                      <div className={fieldRowClass}>
-                        <select
-                          value={slip.side}
-                          onChange={(e) => setSlip({ ...slip, side: e.target.value as Side })}
-                          className={groupFieldClass}
-                        >
-                          <option value={Side.YES}>Yes</option>
-                          <option value={Side.NO}>No</option>
-                        </select>
-                        {priceField}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {error && <p className="text-xs text-loss">{error}</p>}
-              <Button type="submit" disabled={pending} className="w-fit">
-                {pending ? "Saving…" : initial ? "Update pick" : "Confirm pick"}
-              </Button>
-            </form>
-          </Card>
+      {/* The odds board stays mounted (just hidden) while you're in "Enter my own" so its
+          expanded game/tab survive switching back. Keyed on sport so a league change resets. */}
+      {hasOddsBoard && (
+        <div className={showOdds ? "flex flex-col gap-3" : "hidden"}>
+          <ResearchBrowser
+            key={sport}
+            onSelectTeamBet={(pick) => onSelectResearch({ kind: "team", pick })}
+            onSelectProp={(pick) => onSelectResearch({ kind: "prop", pick })}
+          />
+          <button type="button" onClick={() => setMode("own")} className={`${fieldListClass} px-4 py-3 text-left text-sm text-muted hover:text-foreground`}>
+            Don&apos;t see your bet? <span className="font-medium text-accent">Enter my own bet →</span>
+          </button>
         </div>
       )}
 
-      <Modal
-        open={pendingKindSwitch !== null}
-        onClose={() => setPendingKindSwitch(null)}
-        title={`Switch to ${pendingKindSwitch === "team" ? "Team bet" : "Player prop"}?`}
-      >
-        <p className="text-sm text-muted">This clears your current pick details.</p>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={() => setPendingKindSwitch(null)}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={() => {
-              if (pendingKindSwitch) setKind(pendingKindSwitch);
-              setPendingKindSwitch(null);
-            }}
-          >
-            Switch
-          </Button>
-        </div>
-      </Modal>
+      {!showOdds && <CustomBetWizard key={sport} parlayId={parlayId} league={league} onDone={onDone} />}
 
       <Modal open={pendingResearchPick !== null} onClose={() => setPendingResearchPick(null)} title="Confirm pick">
         {pendingResearchPick && (
@@ -811,33 +246,23 @@ export function PickLegForm({
             <p className="text-sm text-muted">
               {pendingResearchPick.pick.awayTeam} @ {pendingResearchPick.pick.homeTeam}
             </p>
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <span className="text-base font-medium">
-                {legSummary(
-                  {
-                    market: pendingResearchPick.pick.market,
-                    side: pendingResearchPick.pick.side,
-                    lineAtPick: pendingResearchPick.pick.line,
-                    teamSide: pendingResearchPick.kind === "team" ? (pendingResearchPick.pick.teamSide ?? null) : null,
-                    playerName: pendingResearchPick.kind === "prop" ? pendingResearchPick.pick.playerName : null,
-                    propType: pendingResearchPick.kind === "prop" ? pendingResearchPick.pick.propType : null,
-                  },
-                  { homeTeam: pendingResearchPick.pick.homeTeam, awayTeam: pendingResearchPick.pick.awayTeam },
-                )}
-              </span>
-            </div>
-            {/* Editable -- a vendor's price is a starting point, and the book you're
-                actually betting at may show a different number. */}
+            <p className="mt-2 text-base font-medium">
+              {legSummary(
+                {
+                  market: pendingResearchPick.pick.market,
+                  side: pendingResearchPick.pick.side,
+                  lineAtPick: pendingResearchPick.pick.line,
+                  teamSide: pendingResearchPick.kind === "team" ? (pendingResearchPick.pick.teamSide ?? null) : null,
+                  playerName: pendingResearchPick.kind === "prop" ? pendingResearchPick.pick.playerName : null,
+                  propType: pendingResearchPick.kind === "prop" ? pendingResearchPick.pick.propType : null,
+                },
+                { homeTeam: pendingResearchPick.pick.homeTeam, awayTeam: pendingResearchPick.pick.awayTeam },
+              )}
+            </p>
+            {/* Editable -- a vendor's price is a starting point; your book may show another. */}
             <div className={`${fieldListClass} mt-3`}>
               <div className={fieldRowClass}>
-                <SignedNumberInput
-                  label="Odds"
-                  value={researchPrice}
-                  onChange={setResearchPrice}
-                  placeholder="Odds"
-                  required
-                  inputClassName={groupFieldClass}
-                />
+                <SignedNumberInput label="Odds" value={researchPrice} onChange={setResearchPrice} placeholder="Odds" required inputClassName={groupFieldClass} />
               </div>
             </div>
             {error && <p className="mt-2 text-xs text-loss">{error}</p>}

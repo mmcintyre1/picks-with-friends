@@ -79,13 +79,22 @@ export function PlayerPropPicker({
           <span className="text-sm font-medium">
             {playerName}
             {playerPosition && <span className="ml-1.5 text-xs text-subtle">{playerPosition}</span>}
+            {propType && <span className="ml-1.5 text-accent">· {propType}</span>}
           </span>
-          <IconButton size="sm" variant="ghost" title="Change player" icon={<XIcon className="h-3.5 w-3.5" />} onClick={onClearPlayer} />
+          <IconButton
+            size="sm"
+            variant="ghost"
+            title={propType ? "Change stat" : "Change player"}
+            icon={<XIcon className="h-3.5 w-3.5" />}
+            onClick={propType ? () => onSelectPropType("") : onClearPlayer}
+          />
         </Card>
-        {propTypeOptions.length > 0 && (
+        {/* Once a stat is chosen the list collapses into the card above, so the next
+            question (over/under, yes/no) sits right under it instead of below every stat. */}
+        {!propType && propTypeOptions.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {propTypeOptions.map((t) => (
-              <button key={t} type="button" onClick={() => onSelectPropType(t)} className={pillClass(t === propType)}>
+              <button key={t} type="button" onClick={() => onSelectPropType(t)} className={pillClass(false)}>
                 {t}
               </button>
             ))}
