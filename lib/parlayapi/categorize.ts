@@ -12,8 +12,36 @@ import type { ParlayApiEvent, ParlayApiEventData, ParlayApiGameOdds, ParlayApiPr
 // canonical marketType as the plain (non-milestone) main-line row, exactly like every other
 // provider's alt-line handling. The row's own numeric `line` field is always already correct
 // for the real threshold (e.g. 100), so no number needs parsing out of the key string itself.
+//
+// ParlayAPI renamed most keys in late October 2026 (confirmed live 2026-11-01): ladders are now
+// a bare `_milestones` suffix, and many base names changed (player_rec_yds, player_anytime_td,
+// ...). KEY_ALIASES folds the current names onto the original ones so both keep working;
+// before this, every renamed market was silently dropped, which is why only a sliver of
+// props showed. Segment-scoped keys (`..._milestones___1st_quarter`) contain "___" and are
+// left out on purpose -- this app has no segment player props.
+const KEY_ALIASES: Record<string, string> = {
+  player_rec_yds: "player_receiving_yards",
+  player_rush_yds: "player_rushing_yards",
+  player_pass_yds: "player_passing_yards",
+  player_pass_tds: "player_passing_tds",
+  player_anytime_td: "player_anytime_touchdown_scorer",
+  player_rush_reception_yds: "player_rushing_receiving_yards",
+  "player_rushing_+_receiving_yards": "player_rushing_receiving_yards",
+  player_rushing_and_receiving_yards: "player_rushing_receiving_yards",
+  "player_passing_+_rushing_yards": "player_passing_rushing_yards",
+  player_longest_passing_completion: "player_longest_completion",
+  player_interceptions_thrown: "player_interceptions",
+  "player_tackles_+_assists": "player_tackles_combined",
+};
+
 function normalizeMarketKey(marketKey: string): string {
-  return marketKey.replace(/_milestones(_\d+_or_more)?$/, "");
+  const base = marketKey.replace(/_milestones(_\d+_or_more)?$/, "");
+  return KEY_ALIASES[base] ?? base;
+}
+
+// A milestone (ladder-tier) row, as opposed to the main over/under line -- either naming.
+function isMilestoneKey(marketKey: string): boolean {
+  return /_milestones(_\d+_or_more)?$/.test(marketKey);
 }
 
 // Base market_key (after normalization) -> canonical marketType, reusing the exact same
@@ -66,11 +94,11 @@ function toMarketType(baseKey: string): string | null {
       return "player_field_goals_made";
     case "player_extra_points_made":
       return "player_extra_points_made";
-    // Defense -- same reuse of SportsGameOdds' already-established canonical strings.
-    // ParlayAPI's own real market_key for the combined stat is "player_tackles" (no
-    // "total_" prefix, confirmed real), which is why this needs an explicit mapping rather
-    // than the identity fallthrough the Kicking cases above get away with.
-    case "player_tackles":
+    // Defense -- same reuse of SportsGameOdds' already-established canonical strings. The
+    // combined stat is now "player_tackles_+_assists" (aliased above). A bare "player_tackles"
+    // now appears alongside it, so it no longer clearly means the combined number -- left
+    // unmapped rather than risk merging solo tackles into Total Tackles.
+    case "player_tackles_combined":
       return "player_total_tackles";
     case "player_tackles_assists":
       return "player_assisted_tackles";
@@ -172,7 +200,7 @@ function propSelections(props: ParlayApiProp[]): CategorizedSelection[] {
     const baseKey = normalizeMarketKey(row.market_key);
     const marketType = toMarketType(baseKey);
     if (!marketType) continue;
-    const isMainLine = baseKey === row.market_key;
+    const isMainLine = !isMilestoneKey(row.market_key);
     const categoryKey = categorizeMarketType(marketType);
 
     if (TD_SCORER_MARKETS.has(marketType)) {

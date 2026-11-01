@@ -10,8 +10,10 @@ function StatePill({ status }: { status: ProviderStatus }) {
   const [text, cls] =
     status.state === "ok"
       ? ["Working", "bg-win/15 text-win"]
-      : status.state === "no_key"
-        ? ["No API key", "bg-white/5 text-subtle"]
+      : status.state === "exhausted"
+        ? ["Used up", "bg-loss/15 text-loss"]
+        : status.state === "no_key"
+          ? ["No API key", "bg-white/5 text-subtle"]
         : ["Error", "bg-loss/15 text-loss"];
   return <span className={`rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{text}</span>;
 }
@@ -90,18 +92,24 @@ export default async function ApisPage() {
             </p>
           </div>
           <div>
-            <p className="font-medium">Game Lines board and a game&apos;s props</p>
+            <p className="font-medium">Game Lines board</p>
             <p className="text-muted">
-              All three are asked at once and their lines merged, so one being down just means fewer lines, not an error. When two
-              providers report the same book&apos;s same bet, the one earlier in the order wins. The grid shows the first main line per
-              side in that merged order, which is why a cell can show DK from one provider and FD from another.
+              ParlayAPI and SharpAPI are asked at once and merged. SportsGameOdds is left out here because its whole-slate call costs
+              about 25 of its 2,500 monthly entities each time.
+            </p>
+          </div>
+          <div>
+            <p className="font-medium">A game&apos;s props (More props)</p>
+            <p className="text-muted">
+              All three are asked at once and their lines merged, so one being down or used up just means fewer lines, not an error.
+              When two providers report the same book&apos;s same bet, the one earlier in the order wins.
             </p>
           </div>
           <div>
             <p className="font-medium">Caching</p>
             <p className="text-muted">
-              {names.filter((n) => n !== "SharpAPI").join(" and ")} results are cached for 15 minutes and shared by everyone, since their
-              limits are monthly. SharpAPI is cached about 90 seconds, since its limit is per minute.
+              ParlayAPI and SportsGameOdds odds are cached for 15 minutes and shared by everyone, since their limits are monthly
+              (SportsGameOdds&apos; game list for 24 hours). SharpAPI is cached about 90 seconds, since its limit is per minute.
             </p>
           </div>
         </Card>

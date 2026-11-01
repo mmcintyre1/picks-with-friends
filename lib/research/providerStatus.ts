@@ -1,9 +1,8 @@
 import type { ResearchProviderSource } from "./types";
 
 // Live usage/limit status for each research vendor, read from each vendor's own usage
-// endpoint -- shapes below are confirmed against real responses (2026-10-03), except
-// ParlayAPI's, whose usage endpoint is documented but has no published response schema and
-// was down when this was built. Its fields are shown as returned, never guessed at.
+// endpoint -- shapes below are confirmed against real responses (SportsGameOdds/SharpAPI
+// 2026-10-03, ParlayAPI 2026-11-01).
 
 export type UsageRow = { label: string; value: string; detail?: string };
 
@@ -12,7 +11,9 @@ export type ProviderStatus = {
   name: string;
   live: boolean; // false = the app is serving this vendor's offline mock fixtures
   keyConfigured: boolean;
-  state: "ok" | "error" | "no_key";
+  // "exhausted" = the key works but its allowance is used up, so the vendor is returning
+  // nothing useful -- shown distinctly so it can't read as "full tokens left".
+  state: "ok" | "exhausted" | "error" | "no_key";
   message?: string;
   usage: UsageRow[];
   reset?: string;
@@ -54,17 +55,20 @@ async function sportsGameOddsStatus(): Promise<Omit<ProviderStatus, "source" | "
     const minute = data.rateLimits["per-minute"] ?? {};
     const maxEntities = typeof month["max-entities"] === "number" ? month["max-entities"] : null;
     const usedEntities = month["current-entities"] ?? 0;
+    const exhausted = maxEntities !== null && usedEntities >= maxEntities;
     const usage: UsageRow[] = [
       maxEntities !== null
-        ? { label: "This month", value: `${fmt(maxEntities - usedEntities)} entities left`, detail: `${fmt(usedEntities)} of ${fmt(maxEntities)} used` }
+        ? { label: "This month", value: `${fmt(Math.max(0, maxEntities - usedEntities))} entities left`, detail: `${fmt(usedEntities)} of ${fmt(maxEntities)} used` }
         : { label: "This month", value: `${fmt(usedEntities)} entities used`, detail: "no monthly cap" },
       { label: "This minute", value: `${fmt(minute["current-requests"] ?? 0)} of ${minute["max-requests"]} requests` },
     ];
     return {
       keyConfigured: true,
-      state: "ok",
+      state: exhausted ? "exhausted" : "ok",
+      message: exhausted ? "Monthly allowance used up -- every request is refused until it resets, so it's contributing nothing." : undefined,
       usage,
-      // SportsGameOdds' usage response doesn't include the billing-period anchor.
+      // SportsGameOdds' usage response doesn't include the billing-period anchor (and it
+      // didn't reset on the calendar 1st -- confirmed 2026-11-01, still over).
       reset: "Monthly allowance -- SportsGameOdds doesn't report the exact reset date.",
       limitsNote: data.tier ? limitsNote.replace("\"amateur\"", `"${data.tier}"`) : limitsNote,
     };
@@ -75,7 +79,7 @@ async function sportsGameOddsStatus(): Promise<Omit<ProviderStatus, "source" | "
 
 async function sharpApiStatus(): Promise<Omit<ProviderStatus, "source" | "name" | "live" | "dashboardUrl">> {
   const key = process.env.SHARPAPI_KEY;
-  const limitsNote = "Free tier: 12 requests/minute and 2 sportsbooks (DraftKings + FanDuel), data delayed 60s. No daily or monthly cap.";
+  const limitsNote = "Free tier: 12 requests/minute and 2 sportsbooks (DraftKings + FanDuel), data delayed 60s, no daily or monthly cap. Player props aren't included on this tier (confirmed 2026-11-01), so it only adds game lines.";
   if (!key) return { keyConfigured: false, state: "no_key", usage: [], limitsNote };
   try {
     const { status, body } = await getJson("https://api.sharpapi.io/api/v1/account/usage", { "X-API-Key": key });
@@ -93,9 +97,7 @@ async function sharpApiStatus(): Promise<Omit<ProviderStatus, "source" | "name" 
   }
 }
 
-function humanizeKey(key: string): string {
-  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
+type ParlayUsage = { credits_used?: number; credits_remaining?: number; credits_total?: number; tier?: string; period_end?: string };
 
 async function parlayApiStatus(): Promise<Omit<ProviderStatus, "source" | "name" | "live" | "dashboardUrl">> {
   const key = process.env.PARLAY_API_KEY;
@@ -103,16 +105,30 @@ async function parlayApiStatus(): Promise<Omit<ProviderStatus, "source" | "name"
   if (!key) return { keyConfigured: false, state: "no_key", usage: [], limitsNote };
   try {
     const { status, body } = await getJson("https://parlay-api.com/v1/usage", { "X-API-Key": key.trim() });
-    if (status !== 200 || !body || typeof body !== "object") {
+    const data = body as ParlayUsage | null;
+    if (status !== 200 || typeof data?.credits_remaining !== "number") {
       return { keyConfigured: true, state: "error", message: errorMessage(status, "ParlayAPI"), usage: [], limitsNote };
     }
-    // No published response schema -- show the top-level scalar fields exactly as returned
-    // rather than guessing which ones mean "remaining" or "resets at".
-    const usage = Object.entries(body as Record<string, unknown>)
-      .filter(([, v]) => typeof v === "number" || typeof v === "string" || typeof v === "boolean")
-      .slice(0, 10)
-      .map(([k, v]) => ({ label: humanizeKey(k), value: typeof v === "number" ? fmt(v) : String(v) }));
-    return { keyConfigured: true, state: "ok", usage, limitsNote };
+    const remaining = data.credits_remaining;
+    const usage: UsageRow[] = [
+      {
+        label: "This month",
+        value: `${fmt(remaining)} credits left`,
+        detail: data.credits_total ? `${fmt(data.credits_used ?? data.credits_total - remaining)} of ${fmt(data.credits_total)} used` : undefined,
+      },
+    ];
+    const reset = data.period_end
+      ? `Resets ${new Date(data.period_end).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}.`
+      : undefined;
+    const exhausted = remaining <= 0;
+    return {
+      keyConfigured: true,
+      state: exhausted ? "exhausted" : "ok",
+      message: exhausted ? "Out of credits until the reset -- contributing nothing." : undefined,
+      usage,
+      reset,
+      limitsNote,
+    };
   } catch {
     return { keyConfigured: true, state: "error", message: "Couldn't reach ParlayAPI.", usage: [], limitsNote };
   }

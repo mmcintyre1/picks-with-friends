@@ -127,16 +127,19 @@ export async function getNflSchedule(): Promise<{ games: ResearchGameSummary[] }
 // in the result, not an error. Returns a plain object, not a Map, since server actions must
 // return serializable values.
 export async function getNflScheduleGameLines(schedule: ResearchGameSummary[]): Promise<Record<string, ResearchGame>> {
+  // SportsGameOdds is deliberately NOT asked here: its schedule call returns ~25 full events
+  // and bills ~25 of its 2,500 monthly entities each time, so feeding the board from it on
+  // every browse burned the whole month's allowance (confirmed: 2,522/2,500 by 2026-11-01).
+  // ParlayAPI + SharpAPI already cover full-game lines; SportsGameOdds still contributes
+  // per game, where it costs about one entity.
+  const sources = ["parlayapi", "sharpapi"] as const;
   const results = await Promise.allSettled([
     getParlayApiProvider().listNflGameLines().then(buildParlayApiGameLinesGames),
-    getSportsGameOddsProvider()
-      .listNflSchedule()
-      .then((events) => events.map(buildSgoGame).filter((g): g is ResearchGame => g !== null)),
     getSharpApiProvider().listNflSchedule().then(buildSharpApiGameLinesGames),
   ]);
 
   results.forEach((r, i) => {
-    if (r.status === "rejected") console.error(`[research] getNflScheduleGameLines: provider ${PROVIDER_ORDER[i]} failed`, r.reason);
+    if (r.status === "rejected") console.error(`[research] getNflScheduleGameLines: provider ${sources[i]} failed`, r.reason);
   });
 
   const perProviderGames = results

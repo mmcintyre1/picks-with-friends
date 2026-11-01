@@ -18,6 +18,10 @@ const BASE_URL = "https://api.sportsgameodds.com/v2/events/";
 // one warm instance's lifetime -- a long in-memory-only TTL would be meaningless if a
 // fresh instance re-fetches on every request anyway.
 const DEFAULT_TTL_SECONDS = 15 * 60;
+// The schedule call bills roughly one entity per event returned (~25 per call), and it's
+// only used to find a game's SportsGameOdds event id -- ids and kickoff times barely change
+// within a day, so a 15-minute TTL here was spending the monthly budget for nothing.
+const SCHEDULE_TTL_SECONDS = 24 * 60 * 60;
 const CACHE_STORE = "sportsgameodds";
 // Matches SharpAPI's own 2-book convention (draftkings + fanduel) for consistent per-
 // selection book attribution across both providers.
@@ -57,7 +61,7 @@ export function createSportsGameOddsProvider(): SportsGameOddsProvider {
       return getOrSetCached(CACHE_STORE, "schedule", async () => {
         const apiKey = requireApiKey();
         const data = await fetchEvents(`${BASE_URL}?leagueID=NFL&oddsAvailable=true&bookmakerID=${BOOKMAKERS}&limit=25`, apiKey);
-        return { data, ttlSeconds: DEFAULT_TTL_SECONDS };
+        return { data, ttlSeconds: SCHEDULE_TTL_SECONDS };
       });
     },
 

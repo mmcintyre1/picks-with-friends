@@ -178,14 +178,18 @@ describe("buildResearchGame -- Kicking and Defense", () => {
     );
   });
 
-  it("maps player_tackles (real base key, no total_ prefix) to player_total_tackles under defense", () => {
+  it("maps tackles + assists (milestone ladder) to player_total_tackles under defense", () => {
     const game = buildResearchGame(
       "evt-1",
-      data(null, [prop({ market_key: "player_tackles_milestones_5_or_more", player: "Robert Spillane", line: 5, over_price: 150, under_price: null })]),
+      data(null, [prop({ market_key: "player_tackles_+_assists_milestones", player: "Robert Spillane", line: 5, over_price: 150, under_price: null })]),
     )!;
     const defense = game.categories.find((c) => c.key === "defense")!;
     const group = defense.marketGroups.find((g) => g.marketType === "player_total_tackles")!;
-    expect(group).toBeDefined();
+    expect(group.selections[0].isMainLine).toBe(false);
+  });
+
+  it("leaves a bare player_tackles unmapped (ambiguous next to tackles + assists)", () => {
+    expect(buildResearchGame("evt-1", data(null, [prop({ market_key: "player_tackles", player: "Budda Baker", line: 4.5, over_price: 128, under_price: -167 })]))).toBeNull();
   });
 
   it("maps player_tackles_assists to player_assisted_tackles under defense", () => {
@@ -307,5 +311,54 @@ describe("buildGameLinesGames -- whole-slate bulk Game Lines (Phase 2.23)", () =
 
   it("returns an empty array for an empty bulk response", () => {
     expect(buildGameLinesGames([])).toEqual([]);
+  });
+});
+
+describe("buildResearchGame -- ParlayAPI's renamed market keys (live 2026-11-01)", () => {
+  const cases: [string, string, string][] = [
+    ["player_rec_yds", "receiving", "player_receiving_yards"],
+    ["player_rush_yds", "rushing", "player_rushing_yards"],
+    ["player_pass_yds", "passing", "player_passing_yards"],
+    ["player_pass_tds", "passing", "player_passing_touchdowns"],
+    ["player_rush_reception_yds", "rushing", "player_rush_rec_yards"],
+    ["player_passing_+_rushing_yards", "passing", "player_pass_rush_yards"],
+    ["player_longest_passing_completion", "passing", "player_longest_completion"],
+  ];
+  for (const [key, category, marketType] of cases) {
+    it(`maps ${key} to ${marketType}`, () => {
+      const game = buildResearchGame("evt-1", data(null, [prop({ market_key: key, player: "D.J. Moore", line: 52.5, over_price: -113, under_price: -111 })]))!;
+      const group = game.categories.find((c) => c.key === category)!.marketGroups.find((g) => g.marketType === marketType)!;
+      expect(group.selections.map((s) => s.side)).toEqual([Side.OVER, Side.UNDER]);
+      expect(group.selections[0].isMainLine).toBe(true);
+    });
+  }
+
+  it("maps player_anytime_td to a Yes-only Anytime TD selection", () => {
+    const game = buildResearchGame("evt-1", data(null, [prop({ market_key: "player_anytime_td", player: "Derrick Henry", line: 0.5, over_price: -150, under_price: null })]))!;
+    const sel = game.categories.find((c) => c.key === "td_scorers")!.marketGroups.find((g) => g.marketType === "player_anytime_touchdown")!.selections[0];
+    expect(sel.side).toBe(Side.YES);
+    expect(sel.line).toBeNull();
+  });
+
+  it("treats the new bare _milestones suffix as ladder tiers of the same stat", () => {
+    const game = buildResearchGame(
+      "evt-1",
+      data(null, [
+        prop({ market_key: "player_rec_yds", player: "D.J. Moore", line: 52.5, over_price: -113, under_price: -111 }),
+        prop({ market_key: "player_receiving_yards_milestones", player: "D.J. Moore", line: 60, over_price: 140, under_price: null }),
+      ]),
+    )!;
+    const group = game.categories.find((c) => c.key === "receiving")!.marketGroups.find((g) => g.marketType === "player_receiving_yards")!;
+    expect(group.selections.map((s) => [s.line, s.isMainLine])).toEqual([
+      [52.5, true],
+      [52.5, true],
+      [60, false],
+    ]);
+  });
+
+  it("drops segment-scoped player props (___1st_quarter)", () => {
+    expect(
+      buildResearchGame("evt-1", data(null, [prop({ market_key: "player_receiving_yards_milestones___1st_quarter", player: "D.J. Moore", line: 5, over_price: -163, under_price: null })])),
+    ).toBeNull();
   });
 });
