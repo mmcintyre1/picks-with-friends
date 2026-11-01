@@ -5,16 +5,17 @@ import { useEffect, useState } from "react";
 import { PlayerHistoryPanel, PlayerNameCell } from "@/app/parlays/[id]/ResearchPropTable";
 import { Card } from "@/components/ui/Card";
 import { ChevronDownIcon } from "@/components/ui/icons";
-import { getPlayerPropLogs } from "@/lib/playerstats/actions";
+
 import { normalizePlayerName } from "@/lib/playerstats/gamelogStats";
 import type { PlayerLogs } from "@/lib/playerstats/types";
 import { computeHitRate, groupPropsByPlayer, type PlayerPropEntry } from "@/lib/research/playerBoard";
 import type { ResearchGame, ResearchSelection } from "@/lib/research/types";
-import { getRostersForGame } from "@/lib/rosters/actions";
+
 import { teamAbbreviation } from "@/lib/rosters/leagues";
 import { bookLabel } from "@/lib/sharpapi/categorize";
-import { getTeamTrend } from "@/lib/trends/actions";
+
 import type { TeamTrend } from "@/lib/trends/computeTrend";
+import { read } from "@/lib/readClient";
 
 type RosterInfo = { team: string; jersey: string; position: string };
 
@@ -239,7 +240,7 @@ export function PlayerBoard({
       }
     }
     if (requests.size === 0) return;
-    getPlayerPropLogs(league, homeTeam, awayTeam, [...requests.values()]).then((result) => {
+    read("getPlayerPropLogs", league, homeTeam, awayTeam, [...requests.values()]).then((result) => {
       if (cancelled || "error" in result) return;
       setPlayerLogs(new Map(result.players.map((p) => [p.playerName, p])));
     });
@@ -253,7 +254,7 @@ export function PlayerBoard({
 
   useEffect(() => {
     let cancelled = false;
-    getRostersForGame(league, homeTeam, awayTeam).then((result) => {
+    read("getRostersForGame", league, homeTeam, awayTeam).then((result) => {
       if (cancelled || "error" in result) return;
       setRosterByPlayer(
         new Map(result.players.map((p) => [normalizePlayerName(p.name), { team: p.team, jersey: p.jersey, position: p.position }])),
@@ -266,7 +267,7 @@ export function PlayerBoard({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getTeamTrend(league, homeTeam), getTeamTrend(league, awayTeam)]).then(([home, away]) => {
+    Promise.all([read("getTeamTrend", league, homeTeam), read("getTeamTrend", league, awayTeam)]).then(([home, away]) => {
       if (!cancelled) setTrends({ home, away });
     });
     return () => {

@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatGameTime } from "@/lib/formatGameTime";
 import { teamLogoUrl } from "@/lib/rosters/leagues";
-import { getScheduleGames } from "@/lib/schedule/actions";
+
 import type { ScheduleGame } from "@/lib/schedule/types";
+import { read } from "@/lib/readClient";
 
 // Falls back to a plain initial-in-a-circle when a team name doesn't resolve to a known
 // ESPN id (unlikely for schedule-seeded games, but the data's still just free text).
@@ -45,7 +46,7 @@ export function ScheduleBrowser({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setGames(null);
     setError(null);
-    getScheduleGames(league).then((result) => {
+    read("getScheduleGames", league).then((result) => {
       if (cancelled) return;
       if ("error" in result) setError(result.error);
       else setGames(result.games);

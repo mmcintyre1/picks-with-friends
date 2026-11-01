@@ -12,10 +12,11 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SignedNumberInput } from "@/components/ui/SignedNumberInput";
 import { RotateCcwIcon } from "@/components/ui/icons";
 import { legSummary } from "@/lib/legSummary";
-import { getRostersForGame, type GameRosterPlayer } from "@/lib/rosters/actions";
+import { type GameRosterPlayer } from "@/lib/rosters/actions";
 import { findTeamIdByName, isRosterLeague, LEAGUE_TEAMS, PICKABLE_LEAGUES, teamLogoUrl } from "@/lib/rosters/leagues";
 import { isYesNoPropType, propTypesForPosition } from "@/lib/rosters/propTypes";
 import type { PropPick, TeamBetPick } from "@/lib/research/types";
+import { read } from "@/lib/readClient";
 
 import { pickLeg } from "../actions";
 import { PickBreadcrumb } from "./PickBreadcrumb";
@@ -270,7 +271,7 @@ export function PickLegForm({
       loadedForPair.current = `${homeTeam}|${awayTeam}`;
       setLoadingPlayers(true);
       setPlayersError(null);
-      const result = await getRostersForGame(effectiveLeague, homeTeam, awayTeam);
+      const result = await read("getRostersForGame", effectiveLeague, homeTeam, awayTeam);
       if ("error" in result) setPlayersError(result.error);
       else setPlayers(result.players);
       setLoadingPlayers(false);

@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatGameTime } from "@/lib/formatGameTime";
-import { getNflGameOdds, getNflSchedule } from "@/lib/research/actions";
+
 import type { ResearchGame, ResearchGameSummary } from "@/lib/research/types";
+import { read } from "@/lib/readClient";
 
 import { PlayerBoard } from "./PlayerBoard";
 
@@ -51,7 +52,7 @@ export function PlayerResearchBrowser() {
 
   useEffect(() => {
     let cancelled = false;
-    getNflSchedule().then((result) => {
+    read("getNflSchedule").then((result) => {
       if (cancelled) return;
       if ("error" in result) setError(result.error);
       else setGames(result.games);
@@ -69,7 +70,7 @@ export function PlayerResearchBrowser() {
     setExpandedId(game.externalId);
     if (oddsById[game.externalId]) return;
     setOddsById((prev) => ({ ...prev, [game.externalId]: "loading" }));
-    const result = await getNflGameOdds(game.externalId, game.source, game.homeTeam, game.awayTeam);
+    const result = await read("getNflGameOdds", game.externalId, game.source, game.homeTeam, game.awayTeam);
     setOddsById((prev) => ({ ...prev, [game.externalId]: "error" in result ? result.error : result.game }));
   }
 

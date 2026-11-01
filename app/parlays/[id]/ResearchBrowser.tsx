@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatGameTime } from "@/lib/formatGameTime";
-import { getNflGameOdds, getNflSchedule, getNflScheduleGameLines } from "@/lib/research/actions";
+
 import type { PropPick, ResearchGame, ResearchGameSummary, TeamBetPick } from "@/lib/research/types";
+import { read } from "@/lib/readClient";
 
 import { ResearchGameDetail } from "./ResearchGameDetail";
 import { ResearchNumberedGrid } from "./ResearchNumberedGrid";
@@ -72,14 +73,14 @@ export function ResearchBrowser({
 
   useEffect(() => {
     let cancelled = false;
-    getNflSchedule().then((result) => {
+    read("getNflSchedule").then((result) => {
       if (cancelled) return;
       if ("error" in result) {
         setError(result.error);
         return;
       }
       setGames(result.games);
-      getNflScheduleGameLines(result.games).then((gameLines) => {
+      read("getNflScheduleGameLines", result.games).then((gameLines) => {
         if (!cancelled) setGameLinesByGame(gameLines);
       });
     });
@@ -96,7 +97,7 @@ export function ResearchBrowser({
     setExpandedId(game.externalId);
     if (oddsById[game.externalId]) return;
     setOddsById((prev) => ({ ...prev, [game.externalId]: "loading" }));
-    const result = await getNflGameOdds(game.externalId, game.source, game.homeTeam, game.awayTeam);
+    const result = await read("getNflGameOdds", game.externalId, game.source, game.homeTeam, game.awayTeam);
     setOddsById((prev) => ({ ...prev, [game.externalId]: "error" in result ? result.error : result.game }));
   }
 

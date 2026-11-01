@@ -59,6 +59,7 @@ export function PlayerHistory({ players }: { players: { name: string; flair: str
                 <Link
                   key={`${cell.parlayId}-${i}`}
                   href={`/parlays/${cell.parlayId}`}
+                  prefetch={false}
                   title={`${cellLabel(cell)} — ${cell.title}`}
                   aria-label={`${cellLabel(cell)} — ${cell.title}`}
                   className={`flex h-8 w-8 items-center justify-center rounded-md text-base ring-1 ring-inset hover:brightness-125 ${cellClass(cell)}`}

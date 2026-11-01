@@ -103,7 +103,9 @@ function ParlaySection({
           {parlays.map((parlay) => {
             const combinedOdds = effectiveCombinedOdds(parlay.legs, parlay.oddsOverride);
             return (
-              <Link key={parlay.id} href={`/parlays/${parlay.id}`}>
+              // No prefetch: every row prefetching its parlay fired a dozen-plus server renders on
+              // each dashboard load, competing with the user's own taps on a phone.
+              <Link key={parlay.id} href={`/parlays/${parlay.id}`} prefetch={false}>
                 <Card className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm transition-colors hover:border-border-strong">
                   <span className="flex min-w-0 items-center gap-2">
                     {badge(parlay)}

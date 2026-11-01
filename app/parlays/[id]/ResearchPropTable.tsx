@@ -8,14 +8,15 @@ import { ChevronDownIcon } from "@/components/ui/icons";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { HitRateDots } from "@/components/ui/HitRateDots";
 import { TierPager } from "@/components/ui/TierPager";
-import { getPlayerPropLogs } from "@/lib/playerstats/actions";
+
 import { average, filterByOpponent, isHit, normalizePlayerName } from "@/lib/playerstats/gamelogStats";
 import type { GameLogEntry, PlayerLogs } from "@/lib/playerstats/types";
 import { computeHitRate, HIT_RATE_GAMES } from "@/lib/research/playerBoard";
-import { getRostersForGame } from "@/lib/rosters/actions";
+
 import { teamAbbreviation, teamLogoUrl } from "@/lib/rosters/leagues";
 import type { ResearchCategory, ResearchSelection, PropPick } from "@/lib/research/types";
 import { bookLabel, propTypeLabel } from "@/lib/sharpapi/categorize";
+import { read } from "@/lib/readClient";
 
 import { bookTagClass, nameGridCols, nameGridColsOU, oddsCellClass, oddsCellMinWidth, priceClass } from "./researchOddsStyles";
 import { TeamAvatar } from "./TeamMarketGrid";
@@ -294,7 +295,7 @@ export function ResearchPropTable({
 
   useEffect(() => {
     let cancelled = false;
-    getRostersForGame(league, homeTeam, awayTeam).then((result) => {
+    read("getRostersForGame", league, homeTeam, awayTeam).then((result) => {
       if (cancelled || "error" in result) return;
       setTeamByPlayer(new Map(result.players.map((p) => [normalizePlayerName(p.name), p.team])));
     });
@@ -329,7 +330,7 @@ export function ResearchPropTable({
     if (requests.size === 0) return;
 
     let cancelled = false;
-    getPlayerPropLogs(league, homeTeam, awayTeam, [...requests.values()]).then((result) => {
+    read("getPlayerPropLogs", league, homeTeam, awayTeam, [...requests.values()]).then((result) => {
       if (cancelled || "error" in result) return;
       setPlayerLogs(new Map(result.players.map((p) => [p.playerName, p])));
     });
