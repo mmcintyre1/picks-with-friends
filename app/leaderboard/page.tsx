@@ -18,7 +18,7 @@ const OUTCOME_DOT: Record<ParlayOutcome, { glyph: string; label: string; classNa
   win: { glyph: "✓", label: "Everyone hit", className: "bg-win text-win-foreground text-xs font-bold" },
   loneLoss: { glyph: "🗑️", label: "Lost by one leg", className: "bg-loss/25 ring-2 ring-loss" },
   loneWin: { glyph: "✝️", label: "Only one hit", className: "bg-win/20 ring-2 ring-win" },
-  reverse: { glyph: "🔄", label: "Uno reverse — nobody hit", className: "bg-push/20 ring-2 ring-push" },
+  reverse: { glyph: "🔄", label: "Reverse parlay — nobody hit", className: "bg-push/20 ring-2 ring-push" },
   loss: { glyph: "✕", label: "Lost", className: "bg-loss text-loss-foreground text-xs font-bold" },
 };
 
@@ -187,13 +187,6 @@ export default async function LeaderboardPage() {
                 );
               })}
             </div>
-            <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-subtle">
-              {(["loneLoss", "loneWin", "reverse"] as const).map((o) => (
-                <span key={o}>
-                  {OUTCOME_DOT[o].glyph} {OUTCOME_DOT[o].label}
-                </span>
-              ))}
-            </p>
           </>
         )}
       </section>
@@ -310,6 +303,31 @@ export default async function LeaderboardPage() {
           <PlayerHistory players={rows} />
         </section>
       )}
+      {/* All the explanations in one collapsed place instead of copy scattered through the page. */}
+      <details className="group text-sm text-muted">
+        <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-subtle [&::-webkit-details-marker]:hidden">
+          What the symbols mean <span className="inline-block transition-transform group-open:rotate-180">▾</span>
+        </summary>
+        <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
+          <dt>💰</dt>
+          <dd>Money bag — a winning pick (lone wins included)</dd>
+          <dt>💩</dt>
+          <dd>Poo — a losing pick (lone losses included)</dd>
+          <dt>✝️</dt>
+          <dd>Lone win — the only winning pick in a losing parlay (also a 💰)</dd>
+          <dt>🗑️</dt>
+          <dd>Lone loss — the only losing pick in a winning parlay (also a 💩)</dd>
+          <dt>🆓</dt>
+          <dd>Push — tied, stake back</dd>
+          <dt>✓ / ✕</dt>
+          <dd>Group parlay won / lost</dd>
+          <dt>🔄</dt>
+          <dd>Reverse parlay — a group parlay where nobody hit</dd>
+          <dt>L10</dt>
+          <dd>Record over the last 10 decided picks</dd>
+        </dl>
+        <p className="mt-3 text-xs text-subtle">History squares run oldest first; tap one to open that parlay.</p>
+      </details>
     </main>
   );
 }

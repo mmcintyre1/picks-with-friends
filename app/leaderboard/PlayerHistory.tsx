@@ -71,7 +71,6 @@ export function PlayerHistory({ players }: { players: { name: string; flair: str
           </details>
         </Card>
       ))}
-      <p className="text-xs text-subtle">Oldest first. Brighter squares are lone wins (✝️) and lone losses (🗑️). Tap a square to open that parlay.</p>
     </div>
   );
 }
