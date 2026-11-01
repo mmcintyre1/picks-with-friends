@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge, LegResult, ParlayStatus } from "@/app/generated/prisma/enums";
 import { PlayerName } from "@/components/PlayerName";
 import { Card } from "@/components/ui/Card";
+import { parlayOutcome, type ParlayOutcome } from "@/lib/grading/parlayOutcome";
 import { legSummary } from "@/lib/legSummary";
 import { computeCurrentStreak, computeLongestStreak, computeProfit, effectiveCombinedOdds } from "@/lib/grading/parlayStats";
 import { prisma } from "@/lib/prisma";
@@ -11,6 +12,15 @@ import { requireUserAndGroup } from "@/lib/session";
 import { MobileStatsTables } from "./MobileStatsTables";
 import { PlayerHistory, type HistoryCell } from "./PlayerHistory";
 import { StreakPill } from "./streakPill";
+
+// Group strip dots: plain ✓/✕, with the notable outcomes called out.
+const OUTCOME_DOT: Record<ParlayOutcome, { glyph: string; label: string; className: string }> = {
+  win: { glyph: "✓", label: "Everyone hit", className: "bg-win text-win-foreground text-xs font-bold" },
+  loneLoss: { glyph: "🗑️", label: "Lost by one leg", className: "bg-loss/25 ring-2 ring-loss" },
+  loneWin: { glyph: "✝️", label: "Only one hit", className: "bg-win/20 ring-2 ring-win" },
+  reverse: { glyph: "🔄", label: "Uno reverse — nobody hit", className: "bg-push/20 ring-2 ring-push" },
+  loss: { glyph: "✕", label: "Lost", className: "bg-loss text-loss-foreground text-xs font-bold" },
+};
 
 type Stats = {
   name: string;
@@ -161,22 +171,29 @@ export default async function LeaderboardPage() {
             </div>
             <div className="flex flex-wrap gap-1.5">
               {parlayRows.map(({ parlay, amount }) => {
-                const isWin = parlay.result === LegResult.WIN;
+                const dot = OUTCOME_DOT[parlayOutcome(parlay.result, parlay.legs)];
                 const amountLabel = amount !== null ? `${amount >= 0 ? "+" : "-"}$${Math.abs(amount).toFixed(2)}` : "N/A";
                 return (
                   <Link
                     key={parlay.id}
                     href={`/parlays/${parlay.id}`}
-                    title={`${parlay.window.label ?? parlay.window.league} — ${amountLabel}`}
-                    className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold hover:opacity-80 ${
-                      isWin ? "bg-win text-win-foreground" : "bg-loss text-loss-foreground"
-                    }`}
+                    prefetch={false}
+                    title={`${parlay.window.label ?? parlay.window.league} — ${dot.label} — ${amountLabel}`}
+                    aria-label={`${parlay.window.label ?? parlay.window.league}: ${dot.label}, ${amountLabel}`}
+                    className={`flex h-7 w-7 items-center justify-center rounded-full text-sm leading-none hover:opacity-80 ${dot.className}`}
                   >
-                    {isWin ? "✓" : "✕"}
+                    {dot.glyph}
                   </Link>
                 );
               })}
             </div>
+            <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-subtle">
+              {(["loneLoss", "loneWin", "reverse"] as const).map((o) => (
+                <span key={o}>
+                  {OUTCOME_DOT[o].glyph} {OUTCOME_DOT[o].label}
+                </span>
+              ))}
+            </p>
           </>
         )}
       </section>
