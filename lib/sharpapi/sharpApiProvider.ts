@@ -1,3 +1,4 @@
+import { isTimeoutError, VENDOR_FETCH_TIMEOUT_MS } from "@/lib/research/deadline";
 import { getOrSetCached } from "@/lib/research/durableCache";
 
 import { SharpApiProviderError } from "./types";
@@ -22,7 +23,13 @@ const SCHEDULE_MAX_PAGES = 8;
 const EVENT_MAX_PAGES = 20;
 
 async function fetchPage(url: string, apiKey: string): Promise<SharpApiResponse> {
-  const res = await fetch(url, { headers: { "X-API-Key": apiKey } });
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { "X-API-Key": apiKey }, signal: AbortSignal.timeout(VENDOR_FETCH_TIMEOUT_MS) });
+  } catch (error) {
+    if (isTimeoutError(error)) throw new SharpApiProviderError("upstream_error", "SharpAPI timed out.");
+    throw error;
+  }
   if (res.status === 429) {
     throw new SharpApiProviderError("rate_limited", "SharpAPI rate limit reached.");
   }

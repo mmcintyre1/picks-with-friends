@@ -39,6 +39,7 @@ export function createEspnProvider(): RosterProvider {
 
       const res = await fetch(`${BASE_URL}/${sportPath}/teams/${teamId}/roster`, {
         next: { revalidate: ROSTER_REVALIDATE_SECONDS },
+        signal: AbortSignal.timeout(6000),
       });
 
       if (res.status === 404) {

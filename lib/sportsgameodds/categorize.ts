@@ -3,7 +3,7 @@ import type { CategorizedSelection } from "@/lib/research/marketUtils";
 import { buildResearchGameFromSelections, compareCommenceTime } from "@/lib/research/marketUtils";
 import type { ResearchCategoryKey, ResearchGame, ResearchGameSummary, ResearchSelection } from "@/lib/research/types";
 
-import type { SportsGameOddsEvent, SportsGameOddsOdd } from "./types";
+import type { SportsGameOddsEvent, SportsGameOddsOdd, SportsGameOddsScheduleEvent } from "./types";
 
 // periodID -> the same segment strings SharpAPI's own stripSegmentPrefix produces, so
 // ResearchGameDetail.tsx's Halves/Quarters grouping works unchanged regardless of which
@@ -214,7 +214,7 @@ export function buildResearchGame(event: SportsGameOddsEvent): ResearchGame | nu
   );
 }
 
-export function summarizeSchedule(events: SportsGameOddsEvent[]): ResearchGameSummary[] {
+export function summarizeSchedule(events: SportsGameOddsScheduleEvent[]): ResearchGameSummary[] {
   return events
     .map((event) => ({
       externalId: event.eventID,

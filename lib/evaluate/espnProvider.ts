@@ -66,6 +66,7 @@ export function createEspnBoxScoreProvider(): BoxScoreProvider {
 
       const res = await fetch(`${BASE_URL}/${sportPath}/summary?event=${eventId}`, {
         next: { revalidate: LIVE_REVALIDATE_SECONDS },
+        signal: AbortSignal.timeout(8000),
       });
       if (res.status === 404) {
         throw new BoxScoreProviderError("not_found", "That game wasn't found.");

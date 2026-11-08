@@ -66,6 +66,12 @@ export type SportsGameOddsEvent = {
   odds: Record<string, SportsGameOddsOdd>;
 };
 
+// What the schedule is actually used for: finding a game's SportsGameOdds event id by team
+// names. The schedule endpoint returns every game's full odds (~16 MB for 25 games, confirmed
+// 2026-11-07), and caching all of that in Netlify Blobs was stalling the props lookup until
+// Netlify's 30s limit killed it -- so only these identity fields are kept.
+export type SportsGameOddsScheduleEvent = Pick<SportsGameOddsEvent, "eventID" | "teams" | "status">;
+
 export type SportsGameOddsResponse = {
   success: boolean;
   data: SportsGameOddsEvent[];
@@ -86,6 +92,6 @@ export class SportsGameOddsProviderError extends Error {
 }
 
 export interface SportsGameOddsProvider {
-  listNflSchedule(): Promise<SportsGameOddsEvent[]>;
+  listNflSchedule(): Promise<SportsGameOddsScheduleEvent[]>;
   getNflEventOdds(eventId: string): Promise<SportsGameOddsEvent | null>;
 }

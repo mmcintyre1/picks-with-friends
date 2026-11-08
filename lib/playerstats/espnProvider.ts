@@ -28,6 +28,7 @@ export function createEspnPlayerStatsProvider(): PlayerStatsProvider {
 
       const res = await fetch(`${BASE_URL}/${sportPath}/athletes/${athleteId}/gamelog`, {
         next: { revalidate: GAMELOG_REVALIDATE_SECONDS },
+        signal: AbortSignal.timeout(6000),
       });
 
       if (res.status === 404) {

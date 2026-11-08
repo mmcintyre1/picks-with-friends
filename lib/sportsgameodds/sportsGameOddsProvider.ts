@@ -1,7 +1,8 @@
+import { isTimeoutError, VENDOR_FETCH_TIMEOUT_MS } from "@/lib/research/deadline";
 import { getOrSetCached } from "@/lib/research/durableCache";
 
 import { SportsGameOddsProviderError } from "./types";
-import type { SportsGameOddsEvent, SportsGameOddsProvider, SportsGameOddsResponse } from "./types";
+import type { SportsGameOddsEvent, SportsGameOddsProvider, SportsGameOddsResponse, SportsGameOddsScheduleEvent } from "./types";
 
 const BASE_URL = "https://api.sportsgameodds.com/v2/events/";
 // This vendor's real binding constraint is a MONTHLY entity budget (2,500/month on the free
@@ -28,7 +29,13 @@ const CACHE_STORE = "sportsgameodds";
 const BOOKMAKERS = "draftkings,fanduel";
 
 async function fetchEvents(url: string, apiKey: string): Promise<SportsGameOddsEvent[]> {
-  const res = await fetch(url, { headers: { "X-Api-Key": apiKey } });
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { "X-Api-Key": apiKey }, signal: AbortSignal.timeout(VENDOR_FETCH_TIMEOUT_MS) });
+  } catch (error) {
+    if (isTimeoutError(error)) throw new SportsGameOddsProviderError("upstream_error", "SportsGameOdds timed out.");
+    throw error;
+  }
   if (res.status === 429) {
     throw new SportsGameOddsProviderError("rate_limited", "SportsGameOdds rate limit reached.");
   }
@@ -57,10 +64,13 @@ function requireApiKey(): string {
 // vendors identically.
 export function createSportsGameOddsProvider(): SportsGameOddsProvider {
   return {
-    async listNflSchedule(): Promise<SportsGameOddsEvent[]> {
-      return getOrSetCached(CACHE_STORE, "schedule", async () => {
+    async listNflSchedule(): Promise<SportsGameOddsScheduleEvent[]> {
+      // Cache key changed from "schedule" so an old full-odds entry already in Blobs is
+      // never read back.
+      return getOrSetCached(CACHE_STORE, "schedule-ids", async () => {
         const apiKey = requireApiKey();
-        const data = await fetchEvents(`${BASE_URL}?leagueID=NFL&oddsAvailable=true&bookmakerID=${BOOKMAKERS}&limit=25`, apiKey);
+        const events = await fetchEvents(`${BASE_URL}?leagueID=NFL&oddsAvailable=true&bookmakerID=${BOOKMAKERS}&limit=25`, apiKey);
+        const data = events.map(({ eventID, teams, status }) => ({ eventID, teams, status }));
         return { data, ttlSeconds: SCHEDULE_TTL_SECONDS };
       });
     },

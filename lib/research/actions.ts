@@ -7,6 +7,7 @@ import {
   summarizeSchedule as summarizeParlayApiSchedule,
 } from "@/lib/parlayapi/categorize";
 import { ParlayApiProviderError } from "@/lib/parlayapi/types";
+import { FEDERATION_DEADLINE_MS, withDeadline } from "@/lib/research/deadline";
 import { mergeResearchGames } from "@/lib/research/marketUtils";
 import { recordLineSnapshot } from "@/lib/trends/record";
 import { getSharpApiProvider } from "@/lib/sharpapi";
@@ -134,8 +135,8 @@ export async function getNflScheduleGameLines(schedule: ResearchGameSummary[]): 
   // per game, where it costs about one entity.
   const sources = ["parlayapi", "sharpapi"] as const;
   const results = await Promise.allSettled([
-    getParlayApiProvider().listNflGameLines().then(buildParlayApiGameLinesGames),
-    getSharpApiProvider().listNflSchedule().then(buildSharpApiGameLinesGames),
+    withDeadline(getParlayApiProvider().listNflGameLines().then(buildParlayApiGameLinesGames), FEDERATION_DEADLINE_MS, "parlayapi game lines"),
+    withDeadline(getSharpApiProvider().listNflSchedule().then(buildSharpApiGameLinesGames), FEDERATION_DEADLINE_MS, "sharpapi game lines"),
   ]);
 
   results.forEach((r, i) => {
@@ -182,9 +183,15 @@ export async function getNflGameOdds(
   homeTeam: string,
   awayTeam: string,
 ): Promise<{ game: ResearchGame } | { error: string }> {
+  // Each provider gets a deadline: a slow one is dropped from this merge (it's one fewer
+  // contributor, as with any failure) instead of holding everyone's answer hostage.
   const results = await Promise.allSettled(
     PROVIDER_ORDER.map((candidate) =>
-      candidate === source ? fetchEventOdds(candidate, eventId) : resolveOnProvider(candidate, homeTeam, awayTeam),
+      withDeadline(
+        candidate === source ? fetchEventOdds(candidate, eventId) : resolveOnProvider(candidate, homeTeam, awayTeam),
+        FEDERATION_DEADLINE_MS,
+        `${candidate} game odds`,
+      ),
     ),
   );
 

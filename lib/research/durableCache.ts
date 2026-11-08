@@ -29,10 +29,22 @@ function memoryKey(storeName: string, key: string): string {
   return `${storeName}:${key}`;
 }
 
+// Blobs is a cache, so it must never be what makes a request slow: a read or write that takes
+// longer than this is abandoned (read = treated as a miss, write = skipped).
+const BLOB_TIMEOUT_MS = 2000;
+
+function bounded<T>(promise: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Blobs timed out")), BLOB_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function readBlob<T>(storeName: string, key: string): Promise<CacheEntry<T> | null> {
   try {
     const store = getStore(storeName);
-    const entry = await store.get(key, { type: "json" });
+    const entry = await bounded(store.get(key, { type: "json" }));
     return (entry as CacheEntry<T> | null) ?? null;
   } catch {
     return null;
@@ -42,7 +54,7 @@ async function readBlob<T>(storeName: string, key: string): Promise<CacheEntry<T
 async function writeBlob<T>(storeName: string, key: string, entry: CacheEntry<T>): Promise<void> {
   try {
     const store = getStore(storeName);
-    await store.setJSON(key, entry);
+    await bounded(store.setJSON(key, entry));
   } catch {
     // Not configured (local `next dev`) -- the in-memory layer above still covers this
     // instance's own lifetime, so this is a silent no-op, not a real failure.

@@ -59,7 +59,7 @@ async function fetchScoreboard(url: string, league: string): Promise<ScheduleGam
   const cached = memoryCache.get(url);
   if (cached && cached.expires > Date.now()) return cached.data;
 
-  const res = await fetch(url, { next: { revalidate: SCHEDULE_REVALIDATE_SECONDS } });
+  const res = await fetch(url, { next: { revalidate: SCHEDULE_REVALIDATE_SECONDS }, signal: AbortSignal.timeout(6000) });
   if (!res.ok) {
     throw new ScheduleProviderError("upstream_error", `ESPN returned ${res.status}.`);
   }

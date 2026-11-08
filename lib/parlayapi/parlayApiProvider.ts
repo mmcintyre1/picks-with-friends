@@ -1,3 +1,4 @@
+import { isTimeoutError, VENDOR_FETCH_TIMEOUT_MS } from "@/lib/research/deadline";
 import { getOrSetCached } from "@/lib/research/durableCache";
 
 import { ParlayApiProviderError } from "./types";
@@ -23,7 +24,13 @@ const BOOKMAKERS = "draftkings,fanduel,betmgm,caesars";
 
 async function parlayApiFetch<T>(path: string): Promise<T> {
   const apiKey = requireApiKey();
-  const res = await fetch(`${BASE_URL}${path}`, { headers: { "X-API-Key": apiKey } });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { headers: { "X-API-Key": apiKey }, signal: AbortSignal.timeout(VENDOR_FETCH_TIMEOUT_MS) });
+  } catch (error) {
+    if (isTimeoutError(error)) throw new ParlayApiProviderError("upstream_error", "ParlayAPI timed out.");
+    throw error;
+  }
   if (res.status === 429) {
     throw new ParlayApiProviderError("rate_limited", "ParlayAPI rate limit reached.");
   }
