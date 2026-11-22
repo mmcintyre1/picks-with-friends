@@ -17,7 +17,8 @@ import { StreakPill } from "./streakPill";
 const OUTCOME_DOT: Record<ParlayOutcome, { glyph: string; label: string; className: string }> = {
   win: { glyph: "✓", label: "Everyone hit", className: "bg-win text-win-foreground text-xs font-bold" },
   loneLoss: { glyph: "🗑️", label: "Lost by one leg", className: "bg-loss/25 ring-2 ring-loss" },
-  loneWin: { glyph: "✝️", label: "Only one hit", className: "bg-win/20 ring-2 ring-win" },
+  // A lone win is still a group LOSS (the parlay busted), so it reads red like the other losses.
+  loneWin: { glyph: "✝️", label: "Only one hit", className: "bg-loss/25 ring-2 ring-loss" },
   reverse: { glyph: "🔄", label: "Reverse parlay — nobody hit", className: "bg-push/20 ring-2 ring-push" },
   loss: { glyph: "✕", label: "Lost", className: "bg-loss text-loss-foreground text-xs font-bold" },
 };
