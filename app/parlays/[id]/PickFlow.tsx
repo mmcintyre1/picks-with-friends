@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import { Market, Side, TeamSide } from "@/app/generated/prisma/enums";
 import { IconButton } from "@/components/ui/IconButton";
-import type { CorrelationLeg, GameRoster } from "@/lib/correlation";
 import { PencilIcon } from "@/components/ui/icons";
 
 import { CancelLegButton } from "./CancelLegButton";
@@ -44,15 +43,11 @@ export function PickFlow({
   memberRows,
   myLegInitial,
   defaultLeague,
-  otherLegs,
-  gameRosters,
 }: {
   parlayId: string;
   memberRows: MemberRow[];
   myLegInitial?: Initial;
   defaultLeague: string;
-  otherLegs: CorrelationLeg[];
-  gameRosters: GameRoster[];
 }) {
   const hasLeg = Boolean(myLegInitial);
   const [editing, setEditing] = useState(!hasLeg);
@@ -107,8 +102,6 @@ export function PickFlow({
             defaultLeague={defaultLeague}
             initial={myLegInitial}
             onDone={() => setEditing(false)}
-            otherLegs={otherLegs}
-            gameRosters={gameRosters}
           />
         </div>
       )}
