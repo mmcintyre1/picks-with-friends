@@ -8,11 +8,13 @@ import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SignedNumberInput } from "@/components/ui/SignedNumberInput";
+import { correlationsWith, resolvePlayerTeam, type CorrelationLeg, type GameRoster } from "@/lib/correlation";
 import { legSummary } from "@/lib/legSummary";
 import { PICKABLE_LEAGUES, teamLogoUrl } from "@/lib/rosters/leagues";
 import type { PropPick, TeamBetPick } from "@/lib/research/types";
 
 import { pickLeg } from "../actions";
+import { CorrelationNotes } from "./CorrelationNotes";
 import { CustomBetWizard } from "./CustomBetWizard";
 import { ResearchBrowser } from "./ResearchBrowser";
 import { TeamLabel } from "./TeamMarketGrid";
@@ -65,6 +67,25 @@ const hasLine = (m: Market) => m !== Market.MONEYLINE && m !== Market.PLAYER_PRO
 // price, so it goes through a small confirm Modal (odds editable) instead of a form.
 type PendingResearchPick = { kind: "team"; pick: TeamBetPick } | { kind: "prop"; pick: PropPick };
 
+function researchPickLeg(p: PendingResearchPick, rosters: GameRoster[]): CorrelationLeg {
+  const { pick } = p;
+  const playerName = p.kind === "prop" ? p.pick.playerName : null;
+  const propType = p.kind === "prop" ? p.pick.propType : null;
+  const teamSide = p.kind === "team" ? (p.pick.teamSide ?? null) : null;
+  return {
+    owner: "You",
+    homeTeam: pick.homeTeam,
+    awayTeam: pick.awayTeam,
+    market: pick.market,
+    side: pick.side,
+    teamSide,
+    playerName,
+    propType,
+    playerTeam: resolvePlayerTeam(rosters, pick, playerName),
+    summary: legSummary({ market: pick.market, side: pick.side, lineAtPick: pick.line, teamSide, playerName, propType }, pick),
+  };
+}
+
 // Three clear paths:
 //  - Editing an existing pick opens a compact line/odds editor (the usual reason to edit is a
 //    moved line). "Change pick instead" drops into the full flow below.
@@ -76,9 +97,14 @@ export function PickLegForm({
   initial,
   defaultLeague,
   onDone,
+  otherLegs,
+  gameRosters,
 }: {
   parlayId: string;
   initial?: Initial;
+  // Everyone else's legs and the rosters of their games, for the same-game correlation check.
+  otherLegs: CorrelationLeg[];
+  gameRosters: GameRoster[];
   // A hint, not a restriction -- seeds the Sport selector (a "1pm" parlay defaults to NFL).
   defaultLeague: string;
   onDone?: () => void;
@@ -238,7 +264,9 @@ export function PickLegForm({
         </div>
       )}
 
-      {!showOdds && <CustomBetWizard key={sport} parlayId={parlayId} league={league} onDone={onDone} />}
+      {!showOdds && (
+        <CustomBetWizard key={sport} parlayId={parlayId} league={league} onDone={onDone} otherLegs={otherLegs} gameRosters={gameRosters} />
+      )}
 
       <Modal open={pendingResearchPick !== null} onClose={() => setPendingResearchPick(null)} title="Confirm pick">
         {pendingResearchPick && (
@@ -259,6 +287,12 @@ export function PickLegForm({
                 { homeTeam: pendingResearchPick.pick.homeTeam, awayTeam: pendingResearchPick.pick.awayTeam },
               )}
             </p>
+            <div className="mt-3">
+              <CorrelationNotes
+                intro="Heads up — this pick is correlated with:"
+                correlations={correlationsWith(researchPickLeg(pendingResearchPick, gameRosters), otherLegs)}
+              />
+            </div>
             {/* Editable -- a vendor's price is a starting point; your book may show another. */}
             <div className={`${fieldListClass} mt-3`}>
               <div className={fieldRowClass}>

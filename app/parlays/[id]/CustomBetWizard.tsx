@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SignedNumberInput } from "@/components/ui/SignedNumberInput";
 import { formatGameTime } from "@/lib/formatGameTime";
+import { correlationsWith, resolvePlayerTeam, type CorrelationLeg, type GameRoster } from "@/lib/correlation";
 import { legSummary } from "@/lib/legSummary";
 import { read } from "@/lib/readClient";
 import type { GameRosterPlayer } from "@/lib/rosters/actions";
@@ -15,6 +16,7 @@ import { GENERIC_PROP_TYPES, isYesNoPropType, propTypesForPosition } from "@/lib
 import type { ScheduleGame } from "@/lib/schedule/types";
 
 import { pickLeg } from "../actions";
+import { CorrelationNotes } from "./CorrelationNotes";
 import { PlayerPropPicker } from "./PlayerPropPicker";
 import { TeamAvatar } from "./TeamMarketGrid";
 
@@ -63,7 +65,19 @@ function stepLine(line: string, delta: number): string {
 // "Enter my own bet": one question per screen, mostly taps, for when the odds board doesn't
 // have what you want. Replaces the old Browse schedule / Type it manually tabs and the
 // all-fields-at-once slip card. A running summary at the top lets you jump back to any step.
-export function CustomBetWizard({ parlayId, league, onDone }: { parlayId: string; league: string; onDone?: () => void }) {
+export function CustomBetWizard({
+  parlayId,
+  league,
+  onDone,
+  otherLegs,
+  gameRosters,
+}: {
+  parlayId: string;
+  league: string;
+  onDone?: () => void;
+  otherLegs: CorrelationLeg[];
+  gameRosters: GameRoster[];
+}) {
   const [step, setStep] = useState<Step>("game");
   const [game, setGame] = useState<Game | null>(null);
   const [bet, setBet] = useState<BetType | null>(null);
@@ -129,6 +143,26 @@ export function CustomBetWizard({ parlayId, league, onDone }: { parlayId: string
     game && bet && side && market
       ? legSummary({ market, side, teamSide, lineAtPick: null, playerName, propType }, game).replace(/ \?$/, "")
       : null;
+
+  // Same-game correlation with everyone else's legs, checked once the bet is fully chosen.
+  const correlations =
+    game && side && market
+      ? correlationsWith(
+          {
+            owner: "You",
+            homeTeam: game.homeTeam,
+            awayTeam: game.awayTeam,
+            market,
+            side,
+            teamSide,
+            playerName: bet === "prop" ? playerName : null,
+            propType: bet === "prop" ? propType : null,
+            playerTeam: bet === "prop" ? resolvePlayerTeam(gameRosters, game, playerName) : null,
+            summary: summaryPick ?? "",
+          },
+          otherLegs,
+        )
+      : [];
 
   const crumbs: { step: Step; label: string }[] = [
     game ? { step: "game", label: `${abbr(game.awayTeam)} @ ${abbr(game.homeTeam)}` } : null,
@@ -261,6 +295,7 @@ export function CustomBetWizard({ parlayId, league, onDone }: { parlayId: string
               />
             </div>
           </div>
+          <CorrelationNotes intro="Heads up — this pick is correlated with:" correlations={correlations} />
           {error && <p className="text-sm text-loss">{error}</p>}
           <Button
             type="button"

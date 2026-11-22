@@ -12,11 +12,13 @@ import {
   effectiveCombinedOdds,
   formatAmericanOdds,
 } from "@/lib/grading/parlayStats";
+import { findCorrelations, loadGameRosters, toCorrelationLeg } from "@/lib/correlationData";
 import { legSummary } from "@/lib/legSummary";
 import { prisma } from "@/lib/prisma";
 import { requireUserAndGroup } from "@/lib/session";
 
 import { AutoEvaluatePanel } from "./AutoEvaluatePanel";
+import { CorrelationNotes } from "./CorrelationNotes";
 import { CountsForRecordToggle } from "./CountsForRecordToggle";
 import { DeleteParlayButton } from "./DeleteParlayButton";
 import { EditableParlayLabel } from "./EditableParlayLabel";
@@ -72,6 +74,17 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
   const profit = combinedOdds !== null ? computeProfit(parlay.stake, combinedOdds) : null;
   const gameIds = parlay.legs.map((leg) => leg.gameId);
   const hasSameGameLegs = new Set(gameIds).size !== gameIds.length;
+
+  // Same-game correlation: shown on the odds card, and handed to the pick flow so a new pick
+  // can be checked against everyone else's before it's confirmed.
+  const nameOf = (userId: string) => {
+    const m = members.find((x) => x.userId === userId);
+    return m ? (m.user.name ?? m.user.username) : "Someone";
+  };
+  const gameRosters = await loadGameRosters(parlay.legs);
+  const correlationLegs = parlay.legs.map((leg) => ({ userId: leg.userId, leg: toCorrelationLeg(leg, nameOf(leg.userId), gameRosters) }));
+  const correlations = findCorrelations(correlationLegs.map((c) => c.leg));
+  const otherCorrelationLegs = correlationLegs.filter((c) => c.userId !== user.id).map((c) => c.leg);
 
   const memberRows = members.map((member) => {
     const leg = parlay.legs.find((l) => l.userId === member.userId);
@@ -148,6 +161,9 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
                 {formatAmericanOdds(decimalToAmerican(combinedOdds))}
               </span>
               {parlay.oddsOverride != null && <span className="text-pending"> (manual)</span>}
+              {parlay.oddsOverride == null && correlations.some((c) => c.direction === "together") && (
+                <span className="text-push" title="Correlated picks: a sportsbook would pay less than this"> (est. — correlated)</span>
+              )}
               {" · "}Stake: <span className="font-display tabular-nums">${parlay.stake.toFixed(2)}</span>
               {" · "}
               {parlay.status === ParlayStatus.RESOLVED ? (
@@ -170,10 +186,11 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
               )}
             </p>
           )}
+          <CorrelationNotes correlations={correlations} />
           <OddsOverrideEditor
             parlayId={parlay.id}
             oddsOverride={parlay.oddsOverride}
-            hasSameGameLegs={hasSameGameLegs}
+            hasSameGameLegs={hasSameGameLegs && correlations.length === 0}
           />
         </Card>
       )}
@@ -199,6 +216,8 @@ export default async function ParlayPage({ params }: { params: Promise<{ id: str
               : undefined
           }
           defaultLeague={parlay.window.league}
+          otherLegs={otherCorrelationLegs}
+          gameRosters={gameRosters}
         />
       )}
 
